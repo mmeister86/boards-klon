@@ -14,15 +14,22 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
   // Helper function to render the appropriate heading tag
   const renderHeadingContent = () => {
     const level = block.headingLevel || 1;
-    
+
     switch (level) {
-      case 1: return <h1 className="m-0">{block.content}</h1>;
-      case 2: return <h2 className="m-0">{block.content}</h2>;
-      case 3: return <h3 className="m-0">{block.content}</h3>;
-      case 4: return <h4 className="m-0">{block.content}</h4>;
-      case 5: return <h5 className="m-0">{block.content}</h5>;
-      case 6: return <h6 className="m-0">{block.content}</h6>;
-      default: return <h1 className="m-0">{block.content}</h1>;
+      case 1:
+        return <h1 className="m-0">{block.content}</h1>;
+      case 2:
+        return <h2 className="m-0">{block.content}</h2>;
+      case 3:
+        return <h3 className="m-0">{block.content}</h3>;
+      case 4:
+        return <h4 className="m-0">{block.content}</h4>;
+      case 5:
+        return <h5 className="m-0">{block.content}</h5>;
+      case 6:
+        return <h6 className="m-0">{block.content}</h6>;
+      default:
+        return <h1 className="m-0">{block.content}</h1>;
     }
   };
 
