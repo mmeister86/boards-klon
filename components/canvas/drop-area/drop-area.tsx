@@ -32,7 +32,8 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
     },
     ref // Receive the forwarded ref
   ) => {
-    const { splitPopulatedDropArea, canSplit, deleteDropArea } = useBlocksStore();
+    const { splitPopulatedDropArea, canSplit, deleteDropArea } =
+      useBlocksStore();
     const [isSplitting, setIsSplitting] = useState(false);
     const [showDeleteButton, setShowDeleteButton] = useState(false);
     const {
@@ -129,8 +130,8 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           // Only set to false if we're leaving the container itself,
           // not just moving the mouse over a child element within the container.
           if (
-            e.relatedTarget &&
-            !e.currentTarget.contains(e.relatedTarget as Node)
+            e.relatedTarget instanceof Node &&
+            !e.currentTarget.contains(e.relatedTarget)
           ) {
             // console.log(`Mouse leave ${dropArea.id}`); // Reduce console noise
             setIsHovering(false);
@@ -176,7 +177,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           onSplitPopulated={handleSplitPopulated}
           canSplit={canSplitThisArea}
         />
-        
+
         {/* Delete button - only shows on hover for populated areas */}
         {showDeleteButton && dropArea.blocks.length > 0 && (
           <button

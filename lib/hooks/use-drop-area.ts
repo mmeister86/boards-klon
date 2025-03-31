@@ -61,21 +61,26 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       item: DragItem,
       monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
     ) => {
+      // Generate a unique ID for this drop operation for tracking in logs
+      const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      
+      console.log(`[${dropOpId}] DROP START - Area ${dropArea.id} - Item: `, item);
+      
       // *** IMPORTANT: Check if the drop was already handled by a parent container (the Canvas gap drop) ***
       if (monitor.didDrop()) {
         console.log(
-          `DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
+          `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
         );
         return undefined; // Let the parent handler deal with it
       }
 
       // If drop wasn't handled by parent, proceed with dropping directly into this area
-      console.log(`DropArea ${dropArea.id}: Handling drop directly.`);
+      console.log(`[${dropOpId}] DropArea ${dropArea.id}: Handling drop directly.`);
       try {
         // Ensure we are actually over this specific target
         if (!monitor.isOver({ shallow: true })) {
           console.log(
-            `DropArea ${dropArea.id}: Drop occurred but not directly over, ignoring.`
+            `[${dropOpId}] DropArea ${dropArea.id}: Drop occurred but not directly over, ignoring.`
           );
           return undefined;
         }
@@ -85,43 +90,88 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           // Don't allow dropping back into the same area it came from
           if (item.sourceDropAreaId === dropArea.id) {
             console.log(
-              `DropArea ${dropArea.id}: Block dropped back into original area, ignoring.`
+              `[${dropOpId}] DropArea ${dropArea.id}: Block dropped back into original area, ignoring.`
             );
             return undefined;
           }
-          // Move the block to this area
+          
           console.log(
-            `DropArea ${dropArea.id}: Moving block ${item.id} from ${item.sourceDropAreaId} to here.`
+            `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED drop for block ${item.id} from ${item.sourceDropAreaId} to here. Preparing result...`
           );
-          moveBlock(item.id, item.sourceDropAreaId, dropArea.id);
+          
+          // First, create and return a result BEFORE modifying state
+          // This is critical - it tells react-dnd that this handler has claimed this drop
+          const result = { 
+            name: `Dropped in Area ${dropArea.id}`,
+            handled: true,
+            dropOpId 
+          };
+          
+          // Schedule the moveBlock call to run AFTER this drop handler returns
+          console.log(
+            `[${dropOpId}] DropArea ${dropArea.id}: Scheduling moveBlock operation to run AFTER drop completes`
+          );
+          
+          // Use setTimeout to move this to the next event loop tick
+          setTimeout(() => {
+            console.log(
+              `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING moveBlock(${item.id}, ${item.sourceDropAreaId}, ${dropArea.id})`
+            );
+            moveBlock(item.id, item.sourceDropAreaId, dropArea.id);
+            console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`);
+          }, 0);
+          
+          // Return the result immediately
+          console.log(`[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`, result);
+          return result;
         }
         // Handle adding a new block (dragged from sidebar)
         else {
           console.log(
-            `DropArea ${dropArea.id}: Adding new block of type ${item.type}.`
+            `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED new block of type ${item.type}. Preparing result...`
           );
-          addBlock(
-            {
-              // Create the block data
-              type: item.type || "square", // Default to square if type missing
-              content: item.content || "Dropped Content", // Default content
-              dropAreaId: dropArea.id, // Assign to this drop area
-            },
-            dropArea.id // Target drop area ID
+          
+          // Return a result BEFORE calling addBlock
+          const result = { 
+            name: `Added Block to ${dropArea.id}`,
+            handled: true,
+            dropOpId 
+          };
+          
+          // Schedule the addBlock call to run AFTER this drop handler returns
+          console.log(
+            `[${dropOpId}] DropArea ${dropArea.id}: Scheduling addBlock operation to run AFTER drop completes`
           );
+          
+          // Add the block AFTER setting the result
+          setTimeout(() => {
+            console.log(
+              `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING addBlock for new ${item.type} block`
+            );
+            addBlock(
+              {
+                // Create the block data
+                type: item.type || "square", // Default to square if type missing
+                content: item.content || "Dropped Content", // Default content
+                dropAreaId: dropArea.id, // Assign to this drop area
+              },
+              dropArea.id // Target drop area ID
+            );
+            console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`);
+          }, 0);
+          
+          // Return the result immediately
+          console.log(`[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`, result);
+          return result;
         }
-
-        // Return drop result (optional, useful for debugging)
-        return { name: `Dropped in Area ${dropArea.id}` };
       } catch (error) {
         console.error(
-          `DropArea ${dropArea.id}: Error during drop operation:`,
+          `[${dropOpId}] DropArea ${dropArea.id}: ERROR during drop operation:`,
           error
         );
         setDropError("Failed to drop item"); // Set error state for UI feedback
         return undefined; // Indicate drop failed
       }
-      // Removed finally block that reset isHoveringBetween/hoverPosition
     },
     collect: (
       monitor: DropTargetMonitor<DragItem, { name: string } | undefined>

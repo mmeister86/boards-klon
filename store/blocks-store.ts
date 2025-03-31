@@ -419,27 +419,52 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     moveBlock: (blockId, sourceAreaId, targetAreaId) => {
+      // Generate a trace ID to track this operation through logs
+      const traceId = `move_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      console.log(`[${traceId}] MOVE BLOCK STARTED: ${blockId} from ${sourceAreaId} to ${targetAreaId}`);
+      
       set((state) => {
         try {
+          // Find the block in any drop area (gets the actual location)
           const { block: foundBlock, dropAreaId: actualSourceAreaId } =
             findBlockById(state.dropAreas, blockId);
 
+          // If block not found, log error and return state
           if (!foundBlock) {
-            console.error(
-              `Block with ID ${blockId} not found in any drop area`
-            );
+            console.error(`[${traceId}] Block with ID ${blockId} NOT FOUND in any drop area`);
             return state;
           }
 
+          // Use the actual source area where the block was found
           const sourceAreaToUse = actualSourceAreaId || sourceAreaId;
-          const rootAreas = [...state.dropAreas];
+          
+          // Debug: Check if the source area matches what was expected
+          if (sourceAreaToUse !== sourceAreaId) {
+            console.warn(`[${traceId}] Source area mismatch - Expected: ${sourceAreaId}, Actual: ${sourceAreaToUse}`);
+          }
+          
+          console.log(`[${traceId}] Moving block ${blockId} from ${sourceAreaToUse} to ${targetAreaId}`);
+          
+          // Skip if trying to move to the same area
+          if (sourceAreaToUse === targetAreaId) {
+            console.log(`[${traceId}] Source and target are the same (${sourceAreaToUse}), skipping move`);
+            return state;
+          }
+
+          // Debug: Verify that the block exists in the source area
+          console.log(`[${traceId}] Block found:`, foundBlock);
+          
+          // Make a DEEP clone of all areas to avoid reference issues
+          console.log(`[${traceId}] Creating deep copy of state with ${state.dropAreas.length} areas`);
+          const rootAreas = JSON.parse(JSON.stringify(state.dropAreas));
 
           // Find source and target areas
           const sourceArea = findDropAreaById(rootAreas, sourceAreaToUse);
           const targetArea = findDropAreaById(rootAreas, targetAreaId);
 
+          // Ensure both areas exist
           if (!sourceArea || !targetArea) {
-            console.error("Source or target area not found");
+            console.error(`[${traceId}] Source or target area not found - Source: ${!!sourceArea}, Target: ${!!targetArea}`);
             return state;
           }
 
@@ -479,6 +504,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
             // Insert the new area at the target position
             rootAreas.splice(targetIndex, 0, newArea);
             finalTargetAreaId = newArea.id;
+            console.log(`[${traceId}] Created new area ${finalTargetAreaId} between populated areas`);
           } else if (
             isDropAreaEmpty(targetArea) &&
             !targetArea.isSplit &&
@@ -492,45 +518,63 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
               const topmostEmptyArea = rootAreas[topmostEmptyIndex];
               if (topmostEmptyArea.id !== targetAreaId) {
                 finalTargetAreaId = topmostEmptyArea.id;
+                console.log(`[${traceId}] Using topmost empty area ${finalTargetAreaId} instead of ${targetAreaId}`);
               }
             }
           }
 
           // Create a copy of the block with updated dropAreaId
           const blockToMove = { ...foundBlock, dropAreaId: finalTargetAreaId };
-
-          // Remove block from source area
-          const updatedAreas = updateDropAreaById(
+          
+          console.log(`[${traceId}] STEP 1: Removing block ${blockId} from source area ${sourceAreaToUse}`);
+          
+          // 1. Remove the block from its source area
+          let processedAreas = updateDropAreaById(
             rootAreas,
             sourceAreaToUse,
-            (area) => ({
-              ...area,
-              blocks: area.blocks.filter((block) => block.id !== blockId),
-            })
+            (area) => {
+              const filteredBlocks = area.blocks.filter((block) => block.id !== blockId);
+              console.log(`[${traceId}] Filtered blocks in ${area.id}: ${area.blocks.length} -> ${filteredBlocks.length}`);
+              return {
+                ...area,
+                blocks: filteredBlocks,
+              };
+            }
           );
-
-          // Add block to target area
-          const finalAreas = updateDropAreaById(
-            updatedAreas,
+          
+          console.log(`[${traceId}] STEP 2: Adding block ${blockId} to target area ${finalTargetAreaId}`);
+          
+          // 2. Add the block to the target area
+          processedAreas = updateDropAreaById(
+            processedAreas,
             finalTargetAreaId,
-            (area) => ({
-              ...area,
-              blocks: [...area.blocks, blockToMove],
-            })
+            (area) => {
+              const updatedBlocks = [...area.blocks, blockToMove];
+              console.log(`[${traceId}] Updated blocks in ${area.id}: ${area.blocks.length} -> ${updatedBlocks.length}`);
+              return {
+                ...area,
+                blocks: updatedBlocks,
+              };
+            }
           );
 
-          return { ...state, dropAreas: finalAreas };
+          console.log(`[${traceId}] MOVE COMPLETE: Block ${blockId} moved successfully`);
+          
+          // Return updated state
+          return { ...state, dropAreas: processedAreas };
         } catch (error) {
-          console.error("Error moving block:", error);
+          console.error(`[${traceId}] ERROR moving block:`, error);
           return state;
         }
       });
 
       // Clean up empty areas after moving a block
       setTimeout(() => {
+        console.log(`[${traceId}] Running cleanup after block move`);
         get().cleanupEmptyDropAreas();
         // Trigger auto-save after moving blocks
         get().triggerAutoSave();
+        console.log(`[${traceId}] Block move operation fully completed (with cleanup)`);
       }, 0);
     },
 
