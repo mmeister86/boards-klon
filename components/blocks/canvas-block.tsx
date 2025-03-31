@@ -142,8 +142,17 @@ function BlockContent({
   const blockStyle = getBlockStyle(block, viewport);
 
   const handleHeadingChange = (data: { level: number; content: string }) => {
+    // Ensure the level is valid before updating
+    const validLevels = [1, 2, 3, 4, 5, 6] as const;
+    type ValidHeadingLevel = (typeof validLevels)[number];
+    const validatedLevel = validLevels.includes(data.level as ValidHeadingLevel)
+      ? (data.level as ValidHeadingLevel)
+      : 1;
+
     // Update block content and heading level
-    updateBlockContent(block.id, block.dropAreaId, data.content, { headingLevel: data.level });
+    updateBlockContent(block.id, block.dropAreaId, data.content, {
+      headingLevel: validatedLevel,
+    });
   };
 
   // Render different block types
@@ -152,15 +161,25 @@ function BlockContent({
     // Using dynamic import with React.lazy would be better, but for simplicity we'll handle it this way
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { HeadingBlock } = require("@/components/blocks/heading-block");
+
+    // Validate heading level before passing to component
+    const validLevels = [1, 2, 3, 4, 5, 6] as const;
+    type ValidHeadingLevel = (typeof validLevels)[number];
+    const headingLevel = block.headingLevel;
+    const validatedLevel: ValidHeadingLevel =
+      headingLevel && validLevels.includes(headingLevel as ValidHeadingLevel)
+        ? (headingLevel as ValidHeadingLevel)
+        : 1; // Default to 1 if undefined or invalid
+
     return (
-      <HeadingBlock 
-        level={block.headingLevel || 1}
+      <HeadingBlock
+        level={validatedLevel} // Use validated level
         content={block.content}
         onChange={handleHeadingChange}
       />
     );
   }
-  
+
   if (block.type === "image") {
     return (
       <div className={blockStyle}>
@@ -168,11 +187,7 @@ function BlockContent({
       </div>
     );
   }
-  
+
   // Default for other block types
-  return (
-    <div className={blockStyle}>
-      {block.content}
-    </div>
-  );
+  return <div className={blockStyle}>{block.content}</div>;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useEffect, forwardRef } from "react"; // Import React, forwardRef
 import { useDropArea } from "@/lib/hooks/use-drop-area";
 import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
@@ -9,153 +10,172 @@ import { MobileDropArea } from "./mobile-drop-area";
 import { TabletDropArea } from "./tablet-drop-area";
 import { DesktopDropArea } from "./desktop-drop-area";
 import { useBlocksStore } from "@/store/blocks-store";
-import { useState, useEffect } from "react";
 
 interface DropAreaProps {
   dropArea: DropAreaType;
   showSplitIndicator?: boolean;
   viewport: ViewportType;
   hideInternalMergeIndicator?: boolean;
+  isBelowInsertionPoint?: boolean; // Add prop from Canvas
 }
 
-export function DropArea({
-  dropArea,
-  showSplitIndicator = false,
-  viewport,
-  hideInternalMergeIndicator = false,
-}: DropAreaProps) {
-  const { splitPopulatedDropArea, canSplit } = useBlocksStore();
-  const [isSplitting, setIsSplitting] = useState(false);
-  const {
-    isOver,
-    canDrop,
-    isHovering,
-    setIsHovering,
-    drop,
-    getDropAreaStyles,
-    handleSplit,
-    handleMerge,
-    shouldShowSplitIndicator,
-    shouldShowMergeIndicator,
-    mergePosition,
-    dropError,
-  } = useDropArea(dropArea, viewport);
+// Wrap component with forwardRef
+export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
+  (
+    {
+      dropArea,
+      showSplitIndicator = false,
+      viewport,
+      hideInternalMergeIndicator = false,
+      isBelowInsertionPoint = false, // Destructure new prop
+    },
+    ref // Receive the forwarded ref
+  ) => {
+    const { splitPopulatedDropArea, canSplit } = useBlocksStore();
+    const [isSplitting, setIsSplitting] = useState(false);
+    const {
+      isOver, // Is an item hovering directly over this area?
+      canDrop, // Can this area accept the current dragged item?
+      // isHovering, // No longer needed here
+      setIsHovering, // Function to manually set the hover state (used for mouse enter/leave)
+      drop, // The drop ref connector from react-dnd for this area
+      getDropAreaStyles, // Function to get dynamic styles based on state
+      handleSplit, // Function to trigger splitting this area
+      handleMerge, // Function to trigger merging this area
+      shouldShowSplitIndicator, // Function to determine if split indicator should show
+      shouldShowMergeIndicator, // Function to determine if merge indicator should show
+      mergePosition, // Which side the merge indicator should appear on ('left' or 'right')
+      dropError, // Any error message from the last drop attempt
+    } = useDropArea(dropArea, viewport); // The core logic hook
 
-  // Check if this drop area can be split
-  const canSplitThisArea = canSplit(dropArea.id, viewport);
+    // Check if this drop area can be split based on viewport and level
+    const canSplitThisArea = canSplit(dropArea.id, viewport);
 
-  // Handle splitting a populated drop area
-  const handleSplitPopulated = () => {
-    if (canSplitThisArea && dropArea.blocks.length > 0) {
-      setIsSplitting(true);
-      // Add a small delay to show the animation before actually splitting
-      setTimeout(() => {
-        splitPopulatedDropArea(dropArea.id);
-        setIsSplitting(false);
-      }, 300);
+    // Handle splitting a populated drop area (when split button is clicked)
+    const handleSplitPopulated = () => {
+      if (canSplitThisArea && dropArea.blocks.length > 0) {
+        setIsSplitting(true); // Show splitting animation
+        // Add a small delay to show the animation before actually splitting
+        setTimeout(() => {
+          splitPopulatedDropArea(dropArea.id); // Call store action
+          setIsSplitting(false); // Hide animation
+        }, 300);
+      }
+    };
+
+    // Reset splitting animation state if the drop area ID changes
+    useEffect(() => {
+      setIsSplitting(false);
+    }, [dropArea.id]);
+
+    // --- Render different layouts based on viewport and split state ---
+    // If the area is split and has 2 children, render the specific layout component
+    if (dropArea.isSplit && dropArea.splitAreas.length === 2) {
+      if (viewport === "mobile") {
+        return (
+          <MobileDropArea
+            dropArea={dropArea}
+            showSplitIndicator={showSplitIndicator}
+          />
+        );
+      }
+      if (viewport === "tablet") {
+        return (
+          <TabletDropArea
+            dropArea={dropArea}
+            showSplitIndicator={showSplitIndicator}
+          />
+        );
+      }
+      if (viewport === "desktop") {
+        return (
+          <DesktopDropArea
+            dropArea={dropArea}
+            showSplitIndicator={showSplitIndicator}
+          />
+        );
+      }
     }
-  };
 
-  // Reset splitting state when drop area changes
-  useEffect(() => {
-    setIsSplitting(false);
-  }, [dropArea.id]);
+    // --- Default rendering for non-split or single-child split areas ---
+    // Combine the forwarded ref and the drop ref
+    const combinedRef = (node: HTMLDivElement | null) => {
+      // Assign to the forwarded ref (for position calculation in Canvas)
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+      // Assign to the drop ref (for react-dnd)
+      drop(node);
+    };
 
-  // Handle viewport-specific rendering
-  if (
-    viewport === "mobile" &&
-    dropArea.isSplit &&
-    dropArea.splitAreas.length === 2
-  ) {
     return (
-      <MobileDropArea
-        dropArea={dropArea}
-        showSplitIndicator={showSplitIndicator}
-      />
-    );
-  }
-
-  if (
-    viewport === "tablet" &&
-    dropArea.isSplit &&
-    dropArea.splitAreas.length === 2
-  ) {
-    return (
-      <TabletDropArea
-        dropArea={dropArea}
-        showSplitIndicator={showSplitIndicator}
-      />
-    );
-  }
-
-  if (
-    viewport === "desktop" &&
-    dropArea.isSplit &&
-    dropArea.splitAreas.length === 2
-  ) {
-    return (
-      <DesktopDropArea
-        dropArea={dropArea}
-        showSplitIndicator={showSplitIndicator}
-      />
-    );
-  }
-
-  return (
-    <div
-      ref={drop}
-      className={`${getDropAreaStyles()} ${
-        isSplitting ? "scale-105 shadow-lg" : ""
-      } transition-all duration-300`}
-      onMouseEnter={() => {
-        console.log(`Mouse enter ${dropArea.id}`);
-        setIsHovering(true);
-      }}
-      onMouseLeave={(e) => {
-        // Only set to false if we're leaving the container, not entering a child
-        console.log(`Mouse leave ${dropArea.id}`, e.relatedTarget);
-        if (
-          e.relatedTarget &&
-          !e.currentTarget.contains(e.relatedTarget as Node)
-        ) {
-          setIsHovering(false);
-        }
-      }}
-    >
-      {isSplitting && (
-        <div className="absolute inset-0 bg-blue-500/10 rounded-xl z-10 flex items-center justify-center">
-          <div className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-            Splitting...
+      <div
+        ref={combinedRef} // Use the combined ref
+        className={`${getDropAreaStyles()} ${
+          isSplitting ? "scale-105 shadow-lg" : ""
+        } ${
+          isBelowInsertionPoint ? "mt-10" : "mt-0" // Add margin-top for push-down effect
+        } mb-6 transition-all duration-300`} // Added mb-6 for spacing
+        onMouseEnter={() => {
+          // console.log(`Mouse enter ${dropArea.id}`); // Reduce console noise
+          setIsHovering(true);
+        }}
+        onMouseLeave={(e) => {
+          // Only set to false if we're leaving the container itself,
+          // not just moving the mouse over a child element within the container.
+          if (
+            e.relatedTarget &&
+            !e.currentTarget.contains(e.relatedTarget as Node)
+          ) {
+            // console.log(`Mouse leave ${dropArea.id}`); // Reduce console noise
+            setIsHovering(false);
+          }
+        }}
+      >
+        {/* Splitting Animation Overlay */}
+        {isSplitting && (
+          <div className="absolute inset-0 bg-blue-500/10 rounded-xl z-20 flex items-center justify-center pointer-events-none">
+            <div className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
+              Splitting...
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {dropError && (
-        <div className="absolute inset-0 bg-red-500/10 rounded-xl z-10 flex items-center justify-center">
-          <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-            {dropError}
+        {/* Drop Error Overlay */}
+        {dropError && (
+          <div className="absolute inset-0 bg-red-500/10 rounded-xl z-20 flex items-center justify-center pointer-events-none">
+            <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
+              {dropError}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <DropIndicators
-        isOver={isOver}
-        canDrop={canDrop}
-        shouldShowSplitIndicator={shouldShowSplitIndicator(showSplitIndicator)}
-        shouldShowMergeIndicator={
-          !hideInternalMergeIndicator && shouldShowMergeIndicator()
-        }
-        onSplit={handleSplit}
-        onMerge={handleMerge}
-        mergePosition={mergePosition}
-      />
+        <DropIndicators
+          isOver={isOver}
+          canDrop={canDrop}
+          shouldShowSplitIndicator={shouldShowSplitIndicator(
+            showSplitIndicator
+          )}
+          shouldShowMergeIndicator={
+            !hideInternalMergeIndicator && shouldShowMergeIndicator()
+          }
+          onSplit={handleSplit}
+          onMerge={handleMerge}
+          mergePosition={mergePosition}
+        />
 
-      <DropAreaContent
-        dropArea={dropArea}
-        viewport={viewport}
-        onSplitPopulated={handleSplitPopulated}
-        canSplit={canSplitThisArea}
-      />
-    </div>
-  );
-}
+        <DropAreaContent
+          dropArea={dropArea}
+          viewport={viewport}
+          onSplitPopulated={handleSplitPopulated}
+          canSplit={canSplitThisArea}
+        />
+      </div>
+    );
+  }
+);
+
+// Add display name for React DevTools
+DropArea.displayName = "DropArea";

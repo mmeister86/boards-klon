@@ -75,6 +75,17 @@ interface BlocksState {
   toggleAutoSave: (enabled: boolean) => void;
   insertDropAreaBetween: (beforeAreaId: string, afterAreaId: string) => string;
   insertDropArea: (insertIndex: number) => string;
+  // Action to insert a block into a newly created area at a specific index
+  insertBlockInNewArea: (item: DragItem, insertIndex: number) => void;
+}
+
+// Define the type for the dragged item (consistent with Canvas)
+// Moved this interface definition here to be accessible by the action type above
+interface DragItem {
+  id?: string; // ID of the block being dragged (if existing)
+  type: string; // Type of the block (e.g., 'heading', 'paragraph')
+  content: string; // Default content for new blocks
+  sourceDropAreaId?: string; // Original drop area ID (if moving existing block)
 }
 
 // Create the store
@@ -1020,5 +1031,73 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
       return newAreaId;
     },
+
+    // --- NEW ACTION ---
+    insertBlockInNewArea: (item, insertIndex) => {
+      set((state) => {
+        let updatedAreas = [...state.dropAreas];
+        let blockToInsert: BlockType;
+        const newAreaId = `drop-area-${Date.now()}`;
+
+        // If it's an existing block being moved
+        if (item.id && item.sourceDropAreaId) {
+          // Find the block first
+          const { block: foundBlock, dropAreaId: actualSourceAreaId } =
+            findBlockById(updatedAreas, item.id);
+
+          if (!foundBlock) {
+            console.error(`Block ${item.id} not found for insertion.`);
+            return state;
+          }
+
+          // Remove block from its original area
+          const sourceAreaToUse = actualSourceAreaId || item.sourceDropAreaId;
+          updatedAreas = updateDropAreaById(
+            updatedAreas,
+            sourceAreaToUse,
+            (area) => ({
+              ...area,
+              blocks: area.blocks.filter((b) => b.id !== item.id),
+            })
+          );
+
+          // Prepare the block for the new area
+          blockToInsert = { ...foundBlock, dropAreaId: newAreaId };
+        }
+        // If it's a new block from the sidebar
+        else {
+          const newBlockId = `block-${Date.now()}`;
+          blockToInsert = {
+            id: newBlockId,
+            type: item.type,
+            content: item.content,
+            dropAreaId: newAreaId,
+            // Add default props if needed (e.g., headingLevel)
+            ...(item.type === "heading" && { headingLevel: 1 }),
+          };
+        }
+
+        // Create the new drop area with the block
+        const newArea: DropAreaType = {
+          id: newAreaId,
+          blocks: [blockToInsert], // Add the block here
+          isSplit: false,
+          splitAreas: [],
+          splitLevel: 0, // New areas are always root level initially
+        };
+
+        // Insert the new area at the specified index
+        updatedAreas.splice(insertIndex, 0, newArea);
+
+        return { ...state, dropAreas: updatedAreas };
+      });
+
+      // Clean up and save
+      setTimeout(() => {
+        get().cleanupEmptyDropAreas();
+        get().triggerAutoSave();
+      }, 0);
+    },
+    // --- END NEW ACTION ---
   };
 });
