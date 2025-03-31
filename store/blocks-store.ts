@@ -52,6 +52,7 @@ interface BlocksState {
     targetAreaId: string
   ) => void;
   deleteBlock: (blockId: string, dropAreaId: string) => void;
+  deleteDropArea: (dropAreaId: string) => void;
   updateBlockContent: (
     blockId: string,
     dropAreaId: string,
@@ -571,6 +572,66 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       setTimeout(() => {
         get().cleanupEmptyDropAreas();
         // Trigger auto-save after deleting blocks
+        get().triggerAutoSave();
+      }, 0);
+    },
+    
+    deleteDropArea: (dropAreaId) => {
+      set((state) => {
+        try {
+          // Find the drop area first
+          const dropArea = findDropAreaById(state.dropAreas, dropAreaId);
+          
+          // If the drop area doesn't exist, return current state
+          if (!dropArea) {
+            console.error(`Drop area with ID ${dropAreaId} not found`);
+            return state;
+          }
+          
+          // Don't allow deleting if it will result in no drop areas
+          if (state.dropAreas.length <= 1) {
+            console.error("Cannot delete the only drop area");
+            return state;
+          }
+          
+          // If the drop area is split, we need to handle its children
+          if (dropArea.isSplit && dropArea.splitAreas.length > 0) {
+            // Just remove the area directly since we want to delete all contents
+            const updated = state.dropAreas.filter(area => area.id !== dropAreaId);
+            return { ...state, dropAreas: updated };
+          } else {
+            // It's a regular area, just filter it out from the top-level areas
+            const updated = state.dropAreas.filter(area => area.id !== dropAreaId);
+            return { ...state, dropAreas: updated };
+          }
+        } catch (error) {
+          console.error("Error deleting drop area:", error);
+          return state;
+        }
+      });
+      
+      // Make sure we still have at least one drop area
+      setTimeout(() => {
+        set((state) => {
+          if (state.dropAreas.length === 0) {
+            // Add a new empty drop area
+            return {
+              ...state,
+              dropAreas: [
+                {
+                  id: `drop-area-${Date.now()}`,
+                  blocks: [],
+                  isSplit: false,
+                  splitAreas: [],
+                  splitLevel: 0,
+                },
+              ],
+            };
+          }
+          return state;
+        });
+        
+        // Trigger auto-save after deleting the drop area
         get().triggerAutoSave();
       }, 0);
     },

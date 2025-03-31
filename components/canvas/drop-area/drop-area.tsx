@@ -10,6 +10,7 @@ import { MobileDropArea } from "./mobile-drop-area";
 import { TabletDropArea } from "./tablet-drop-area";
 import { DesktopDropArea } from "./desktop-drop-area";
 import { useBlocksStore } from "@/store/blocks-store";
+import { Trash2 } from "lucide-react";
 
 interface DropAreaProps {
   dropArea: DropAreaType;
@@ -31,8 +32,9 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
     },
     ref // Receive the forwarded ref
   ) => {
-    const { splitPopulatedDropArea, canSplit } = useBlocksStore();
+    const { splitPopulatedDropArea, canSplit, deleteDropArea } = useBlocksStore();
     const [isSplitting, setIsSplitting] = useState(false);
+    const [showDeleteButton, setShowDeleteButton] = useState(false);
     const {
       isOver, // Is an item hovering directly over this area?
       canDrop, // Can this area accept the current dragged item?
@@ -113,7 +115,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
     return (
       <div
         ref={combinedRef} // Use the combined ref
-        className={`${getDropAreaStyles()} ${
+        className={`group relative ${getDropAreaStyles()} ${
           isSplitting ? "scale-105 shadow-lg" : ""
         } ${
           isBelowInsertionPoint ? "mt-10" : "mt-0" // Add margin-top for push-down effect
@@ -121,6 +123,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         onMouseEnter={() => {
           // console.log(`Mouse enter ${dropArea.id}`); // Reduce console noise
           setIsHovering(true);
+          setShowDeleteButton(true);
         }}
         onMouseLeave={(e) => {
           // Only set to false if we're leaving the container itself,
@@ -131,6 +134,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           ) {
             // console.log(`Mouse leave ${dropArea.id}`); // Reduce console noise
             setIsHovering(false);
+            setShowDeleteButton(false);
           }
         }}
       >
@@ -172,6 +176,18 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           onSplitPopulated={handleSplitPopulated}
           canSplit={canSplitThisArea}
         />
+        
+        {/* Delete button - only shows on hover for populated areas */}
+        {showDeleteButton && dropArea.blocks.length > 0 && (
+          <button
+            onClick={() => deleteDropArea(dropArea.id)}
+            className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
+            title="Delete drop area"
+            aria-label="Delete drop area"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
     );
   }
