@@ -1,7 +1,7 @@
 "use client";
 
 import { useDrop } from "react-dnd";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ItemTypes } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 import type { DropAreaType } from "@/lib/types";
@@ -18,6 +18,12 @@ interface DragItem {
 }
 
 export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
+  const dropTargetRef = useRef<HTMLDivElement | null>(null);
+  const [isHoveringBetween, setIsHoveringBetween] = useState(false);
+  const [hoverPosition, setHoverPosition] = useState<"top" | "bottom" | null>(
+    null
+  );
+
   const {
     addBlock,
     moveBlock,
@@ -26,6 +32,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     canMerge,
     mergeDropAreas,
     dropAreas,
+    insertDropArea,
   } = useBlocksStore();
 
   const [isHovering, setIsHovering] = useState(false);
@@ -35,93 +42,94 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     "both"
   );
 
-  const [{ isOver, canDrop, isHoveringBetween }, drop] = useDrop<
+  const [{ isOver, canDrop }, drop] = useDrop<
     DragItem,
     { name: string } | undefined,
-    { isOver: boolean; canDrop: boolean; isHoveringBetween: boolean }
+    { isOver: boolean; canDrop: boolean }
   >({
     accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK],
-    hover: (item: DragItem, monitor: DropTargetMonitor<DragItem>) => {
-      // Skip if this is a child element's hover event bubbling up
-      if (monitor.isOver({ shallow: false })) {
-        const clientOffset = monitor.getClientOffset();
-        const element = (monitor as any).getTargetElement() as Element | null;
-        const dropTargetRect = element?.getBoundingClientRect();
+    hover: (item: DragItem, monitor) => {
+      if (!monitor.isOver({ shallow: true })) return;
 
-        if (!clientOffset || !dropTargetRect) return;
+      const clientOffset = monitor.getClientOffset();
+      const dropTargetRect = dropTargetRef.current?.getBoundingClientRect();
 
-        // Calculate relative position in the drop target
-        const relativeY = clientOffset.y - dropTargetRect.top;
-        const relativePercent = relativeY / dropTargetRect.height;
+      if (!clientOffset || !dropTargetRect) {
+        setIsHoveringBetween(false);
+        setHoverPosition(null);
+        return;
+      }
 
-        // Check if we're hovering near the top or bottom edge (within 20% of the edge)
-        const isNearEdge = relativePercent <= 0.2 || relativePercent >= 0.8;
+      // Calculate relative position in the drop target
+      const relativeY = clientOffset.y - dropTargetRect.top;
+      const relativePercent = relativeY / dropTargetRect.height;
 
-        if (isNearEdge) {
-          // Find this area's index in the root areas
-          const areaIndex = dropAreas.findIndex(
-            (area) => area.id === dropArea.id
-          );
-          if (areaIndex === -1) return;
+      // Check if we're hovering near the edges (within 20% of the edge)
+      const isNearTop = relativePercent <= 0.2;
+      const isNearBottom = relativePercent >= 0.8;
 
-          // Check if we have populated areas above and below
-          const prevArea = areaIndex > 0 ? dropAreas[areaIndex - 1] : null;
-          const nextArea =
-            areaIndex < dropAreas.length - 1 ? dropAreas[areaIndex + 1] : null;
+      if (!isNearTop && !isNearBottom) {
+        setIsHoveringBetween(false);
+        setHoverPosition(null);
+        return;
+      }
 
-          const isPrevPopulated = prevArea && prevArea.blocks.length > 0;
-          const isNextPopulated = nextArea && nextArea.blocks.length > 0;
+      // Find this area's index in the root areas
+      const areaIndex = dropAreas.findIndex((area) => area.id === dropArea.id);
+      if (areaIndex === -1) {
+        setIsHoveringBetween(false);
+        setHoverPosition(null);
+        return;
+      }
 
-          if (isPrevPopulated && isNextPopulated) {
-            // We're between two populated areas
-            item.isHoveringBetween = true;
-          }
-        }
+      // Check if we have populated areas above and below
+      const prevArea = areaIndex > 0 ? dropAreas[areaIndex - 1] : null;
+      const nextArea =
+        areaIndex < dropAreas.length - 1 ? dropAreas[areaIndex + 1] : null;
+
+      const isPrevPopulated = prevArea && prevArea.blocks.length > 0;
+      const isNextPopulated = nextArea && nextArea.blocks.length > 0;
+
+      // Update hovering state based on position and populated areas
+      if (isNearTop && isPrevPopulated) {
+        setIsHoveringBetween(true);
+        setHoverPosition("top");
+      } else if (isNearBottom && isNextPopulated) {
+        setIsHoveringBetween(true);
+        setHoverPosition("bottom");
+      } else {
+        setIsHoveringBetween(false);
+        setHoverPosition(null);
       }
     },
     drop: (item: DragItem, monitor) => {
       try {
-        // Skip if this is a child element's drop event bubbling up
-        if (monitor.didDrop()) {
-          return;
-        }
+        if (!monitor.isOver({ shallow: true })) return;
 
         if (item.sourceDropAreaId && item.id) {
-          // This is an existing block being moved
-          if (item.sourceDropAreaId === dropArea.id) {
-            // If it's within the same drop area, let the child components handle it
-            return;
-          }
+          if (item.sourceDropAreaId === dropArea.id) return;
 
           // If we're hovering between populated areas, create a new area
-          if (item.isHoveringBetween) {
+          if (isHoveringBetween && hoverPosition) {
             const areaIndex = dropAreas.findIndex(
               (area) => area.id === dropArea.id
             );
             if (areaIndex !== -1) {
-              const newAreaId = `drop-area-${Date.now()}`;
-              const newArea: DropAreaType = {
-                id: newAreaId,
-                blocks: [],
-                isSplit: false,
-                splitAreas: [],
-                splitLevel: 0,
-              };
+              // Insert the new area before or after based on hover position
+              const insertIndex =
+                hoverPosition === "top" ? areaIndex : areaIndex + 1;
+              const newAreaId = insertDropArea(insertIndex);
 
-              // Insert the new area at the current position
-              const updatedAreas = [...dropAreas];
-              updatedAreas.splice(areaIndex, 0, newArea);
-
-              // Move the block to the new area
-              moveBlock(item.id, item.sourceDropAreaId, newAreaId);
-              return;
+              if (newAreaId) {
+                moveBlock(item.id, item.sourceDropAreaId, newAreaId);
+                return { name: `Drop Area ${newAreaId}` };
+              }
             }
           }
 
-          // Moving between different drop areas
+          // Default drop behavior
           moveBlock(item.id, item.sourceDropAreaId, dropArea.id);
         } else {
-          // This is a new block being added
           addBlock(
             {
               type: item.type || "square",
@@ -131,19 +139,20 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
             dropArea.id
           );
         }
-        setDropError(null);
+
         return { name: `Drop Area ${dropArea.id}` };
       } catch (error) {
         console.error("Error during drop operation:", error);
         setDropError("Failed to drop item");
         return undefined;
+      } finally {
+        setIsHoveringBetween(false);
+        setHoverPosition(null);
       }
     },
     collect: (monitor) => ({
-      isOver: !!monitor.isOver({ shallow: true }), // Only detect direct drops, not nested ones
+      isOver: !!monitor.isOver({ shallow: true }),
       canDrop: !!monitor.canDrop(),
-      isHoveringBetween:
-        (monitor.getItem() as DragItem | null)?.isHoveringBetween || false,
     }),
   });
 
@@ -245,7 +254,12 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     if (isOver && canDrop) {
       if (isHoveringBetween) {
         // Hovering between populated areas - show insertion indicator
-        baseClasses += " border-primary bg-primary/20 scale-[1.02] shadow-lg";
+        baseClasses += " border-primary border-4";
+        if (hoverPosition === "top") {
+          baseClasses += " border-b-0 rounded-b-none";
+        } else {
+          baseClasses += " border-t-0 rounded-t-none";
+        }
       } else {
         // Active drop target - strong visual cue
         baseClasses += " border-primary bg-primary/10 scale-[1.02] shadow-lg";
@@ -326,7 +340,10 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     canDrop,
     isHovering,
     setIsHovering,
-    drop,
+    drop: (el: HTMLDivElement | null) => {
+      dropTargetRef.current = el;
+      drop(el);
+    },
     getDropAreaStyles,
     handleSplit,
     handleMerge,

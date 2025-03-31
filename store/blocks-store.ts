@@ -74,6 +74,7 @@ interface BlocksState {
   triggerAutoSave: () => void;
   toggleAutoSave: (enabled: boolean) => void;
   insertDropAreaBetween: (beforeAreaId: string, afterAreaId: string) => string;
+  insertDropArea: (insertIndex: number) => string;
 }
 
 // Create the store
@@ -993,6 +994,28 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         rootAreas.splice(afterIndex, 0, newArea);
 
         return { ...state, dropAreas: rootAreas };
+      });
+
+      return newAreaId;
+    },
+
+    insertDropArea: (insertIndex) => {
+      const newAreaId = `drop-area-${Date.now()}`;
+
+      set((state) => {
+        const updatedAreas = [...state.dropAreas];
+        const newArea: DropAreaType = {
+          id: newAreaId,
+          blocks: [],
+          isSplit: false,
+          splitAreas: [],
+          splitLevel: 0,
+        };
+
+        // Insert the new area at the specified index
+        updatedAreas.splice(insertIndex, 0, newArea);
+
+        return { ...state, dropAreas: updatedAreas };
       });
 
       return newAreaId;
