@@ -1,13 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import type React from "react";
 import { useEffect } from "react";
 import { useBlocksStore } from "@/store/blocks-store";
 import type { BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { Trash2, Move, Split } from "@/lib/icons";
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
+import { ParagraphBlock } from "./paragraph-block";
 import { getBlockStyle } from "@/lib/utils/block-utils";
+import React from "react";
 
 interface CanvasBlockProps {
   block: BlockType;
@@ -24,7 +26,7 @@ export function CanvasBlock({
 }: CanvasBlockProps) {
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
   const isSelected = selectedBlockId === block.id;
-  const { isDragging, drag } = useBlockDrag(block);
+  const { isDragging, drag, dragPreview } = useBlockDrag(block);
 
   // Clear selection when dragging starts
   useEffect(() => {
@@ -33,9 +35,10 @@ export function CanvasBlock({
     }
   }, [isDragging, isSelected, selectBlock]);
 
-  const handleBlockClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    selectBlock(block.id);
+  const handleBlockClick = () => {
+    if (!isSelected) {
+      selectBlock(block.id);
+    }
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -45,42 +48,41 @@ export function CanvasBlock({
   };
 
   return (
-    <div
-      ref={drag as unknown as React.LegacyRef<HTMLDivElement>}
-      className={`p-4 bg-background border rounded-lg shadow-sm relative group
+    <div ref={dragPreview as any}>
+      <div
+        ref={drag as any}
+        className={`p-4 bg-background border rounded-lg shadow-sm relative group
         ${
           isSelected ? "border-primary ring-2 ring-primary/20" : "border-border"
         }
         ${viewport === "mobile" ? "text-sm" : ""}
         ${isDragging ? "opacity-50" : "opacity-100"}
-        transition-all duration-200 hover:shadow-md cursor-move
+        transition-all duration-200 hover:shadow-md
       `}
-      onClick={handleBlockClick}
-      data-id={block.id}
-      data-drop-area-id={block.dropAreaId}
-    >
-      <BlockControls
-        isSelected={isSelected}
-        onDelete={handleDelete}
-        onSplit={onSplit}
-        canSplit={canSplit && !!onSplit}
-        isDragging={isDragging}
-      />
+        onClick={handleBlockClick}
+        data-id={block.id}
+        data-drop-area-id={block.dropAreaId}
+      >
+        <BlockControls
+          onDelete={handleDelete}
+          onSplit={onSplit}
+          canSplit={canSplit && !!onSplit}
+          isDragging={isDragging}
+        />
 
-      <BlockContent block={block} viewport={viewport} />
+        <BlockContent block={block} viewport={viewport} />
+      </div>
     </div>
   );
 }
 
 // Extracted component for block controls
 function BlockControls({
-  isSelected,
   onDelete,
   onSplit,
   canSplit,
   isDragging,
 }: {
-  isSelected: boolean;
   onDelete: (e: React.MouseEvent) => void;
   onSplit?: () => void;
   canSplit?: boolean;
@@ -116,28 +118,25 @@ function BlockControls({
         </button>
       )}
 
-      {/* Move handle - show when selected */}
-      {isSelected && (
-        <button
-          className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-1.5 rounded-full
-                    shadow-md hover:bg-primary/90 transition-colors cursor-move"
-          title="Zum Verschieben ziehen"
-        >
-          <Move size={14} />
-        </button>
-      )}
+      {/* Move handle - always show */}
+      <button
+        className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-1.5 rounded-full
+                  shadow-md hover:bg-primary/90 transition-colors cursor-move z-10"
+        title="Zum Verschieben ziehen"
+      >
+        <Move size={14} />
+      </button>
     </>
   );
 }
 
 // Extracted component for block content
-function BlockContent({
-  block,
-  viewport,
-}: {
+interface BlockContentProps {
   block: BlockType;
   viewport: ViewportType;
-}) {
+}
+
+function BlockContent({ block, viewport }: BlockContentProps) {
   const { updateBlockContent } = useBlocksStore();
   const blockStyle = getBlockStyle(block, viewport);
 
@@ -185,6 +184,16 @@ function BlockContent({
       <div className={blockStyle}>
         <span className="text-muted-foreground">Bildblock</span>
       </div>
+    );
+  }
+
+  if (block.type === "paragraph") {
+    return (
+      <ParagraphBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+      />
     );
   }
 

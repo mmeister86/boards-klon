@@ -123,7 +123,7 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
         {isMerging && (
           <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
             <div className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-              Merging...
+              Wird zusammengeführt...
             </div>
           </div>
         )}
@@ -159,7 +159,7 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
           <button
             onClick={() => deleteDropArea(dropArea.id)}
             className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
-            title="Delete entire drop area"
+            title="Gesamten Drop-Bereich löschen"
             aria-label="Delete entire drop area"
           >
             <Trash2 size={16} />

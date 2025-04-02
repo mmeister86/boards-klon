@@ -44,7 +44,9 @@ export default function Preview() {
       case "tablet":
         return {
           width: "min(95vw, 834px)",
-          height: "min(calc(95vw * 1.334), 1112px)",
+          height: "auto", // Let content determine height
+          minHeight: "600px", // Match desktop minHeight
+          maxHeight: "85vh", // Update max height constraint to 85vh
         };
       case "desktop":
       default:
@@ -89,53 +91,52 @@ export default function Preview() {
 
   return (
     <div className="flex-1 bg-gray-50 overflow-auto p-6 flex justify-center items-start">
-      {/* Single container for frame/screen */}
-      <div className={getFrameClasses()} style={getFrameStyles()}>
-        {/* Inner container for screen content (status bar + actual content) */}
-        <div className="relative w-full h-full overflow-hidden flex flex-col bg-white">
-          {/* Status Bar (Conditional) */}
-          {(viewport === "mobile" || viewport === "tablet") && (
-            <div
-              className={`flex justify-between items-center text-xs font-medium ${
-                viewport === "mobile" ? "px-4 py-2" : "px-6 py-2"
-              }`}
-            >
-              <div>{time}</div>
-              <div
-                className={`flex items-center ${
-                  viewport === "mobile" ? "gap-1" : "gap-2"
-                }`}
-              >
-                {viewport === "mobile" && <Signal className="w-3.5 h-3.5" />}
-                <Wifi
-                  className={viewport === "mobile" ? "w-3.5 h-3.5" : "w-4 h-4"}
-                />
-                <Battery
-                  className={viewport === "mobile" ? "w-4 h-4" : "w-5 h-5"}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Content Area */}
+      {/* Single container for frame/screen - now also the flex container */}
+      <div
+        className={`${getFrameClasses()} flex flex-col`} // Added flex flex-col here
+        style={getFrameStyles()}
+      >
+        {/* Status Bar (Conditional) - Now direct child */}
+        {(viewport === "mobile" || viewport === "tablet") && (
           <div
-            className={`flex-1 overflow-y-auto min-h-0 relative ${getContentPadding()}`}
+            className={`flex justify-between items-center text-xs font-medium ${
+              viewport === "mobile" ? "px-4 py-2" : "px-6 py-2"
+            }`}
           >
+            <div>{time}</div>
             <div
-              className={`${
-                viewport === "desktop" ? "space-y-6" : "space-y-4"
+              className={`flex items-center ${
+                viewport === "mobile" ? "gap-1" : "gap-2"
               }`}
             >
-              {nonEmptyDropAreas.map((dropArea) => (
-                <PreviewDropArea
-                  key={dropArea.id}
-                  dropArea={dropArea}
-                  viewport={viewport}
-                />
-              ))}
+              {viewport === "mobile" && <Signal className="w-3.5 h-3.5" />}
+              <Wifi
+                className={viewport === "mobile" ? "w-3.5 h-3.5" : "w-4 h-4"}
+              />
+              <Battery
+                className={viewport === "mobile" ? "w-4 h-4" : "w-5 h-5"}
+              />
             </div>
           </div>
+        )}
+
+        {/* Content Area - Now direct child */}
+        <div
+          className={`flex-1 overflow-y-auto min-h-0 relative ${getContentPadding()}`} // Keep scrolling here
+        >
+          <div
+            className={`${viewport === "desktop" ? "space-y-6" : "space-y-4"}`}
+          >
+            {nonEmptyDropAreas.map((dropArea) => (
+              <PreviewDropArea
+                key={dropArea.id}
+                dropArea={dropArea}
+                viewport={viewport}
+              />
+            ))}
+          </div>
         </div>
+        {/* Removed intermediate div */}
       </div>
     </div>
   );

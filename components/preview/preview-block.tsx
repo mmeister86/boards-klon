@@ -33,6 +33,16 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
     }
   };
 
+  // Helper function to render paragraph content with HTML
+  const renderParagraphContent = () => {
+    return (
+      <div
+        className="preview-content"
+        dangerouslySetInnerHTML={{ __html: block.content }}
+      />
+    );
+  };
+
   return (
     <div
       className={`${blockStyle} p-4 bg-background border rounded-lg shadow-sm ${
@@ -43,6 +53,8 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         <span className="text-muted-foreground">Bildblock</span>
       ) : block.type === "heading" ? (
         renderHeadingContent()
+      ) : block.type === "paragraph" ? (
+        renderParagraphContent()
       ) : (
         block.content
       )}

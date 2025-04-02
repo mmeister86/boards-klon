@@ -1,81 +1,81 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useRouter } from "next/navigation"
-import { useSupabase } from "@/components/providers/supabase-provider"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
+import { useSupabase } from "@/components/providers/supabase-provider";
 
 export default function AuthForm() {
-  const router = useRouter()
-  const { supabase } = useSupabase()
+  const router = useRouter();
+  const { supabase } = useSupabase();
   // Use a client-side only state with useEffect to prevent hydration mismatch
-  const [mounted, setMounted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-  })
+  });
 
   // Set mounted to true after component mounts to enable client-side only rendering
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
-    })
-  }
+    });
+  };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!supabase) {
-      setError("Authentication client not initialized")
-      return
+      setError("Authentication client not initialized");
+      return;
     }
 
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
-      })
+      });
 
       if (error) {
-        setError(error.message)
+        setError(error.message);
       } else {
-        router.push("/editor")
-        router.refresh()
+        router.push("/editor");
+        router.refresh();
       }
     } catch (err) {
-      setError("An unexpected error occurred")
-      console.error(err)
+      setError("An unexpected error occurred");
+      console.error(err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!supabase) {
-      setError("Authentication client not initialized")
-      return
+      setError("Authentication client not initialized");
+      return;
     }
 
-    setIsLoading(true)
-    setError(null)
-    setSuccess(null)
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
 
     try {
       const { error } = await supabase.auth.signUp({
@@ -84,27 +84,27 @@ export default function AuthForm() {
         options: {
           emailRedirectTo: `/auth/callback`,
         },
-      })
+      });
 
       if (error) {
-        setError(error.message)
+        setError(error.message);
       } else {
-        setSuccess("Check your email to confirm your account!")
+        setSuccess("Check your email to confirm your account!");
       }
     } catch (err) {
-      setError("An unexpected error occurred")
-      console.error(err)
+      setError("An unexpected error occurred");
+      console.error(err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
       <Tabs defaultValue="signin" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="signin">Sign In</TabsTrigger>
-          <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          <TabsTrigger value="signin">Anmelden</TabsTrigger>
+          <TabsTrigger value="signup">Registrieren</TabsTrigger>
         </TabsList>
 
         {error && (
@@ -145,7 +145,11 @@ export default function AuthForm() {
                 onChange={handleChange}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !supabase || !mounted}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading || !supabase || !mounted}
+            >
               {/* Only show loading state if component is mounted (client-side) */}
               {mounted && isLoading ? (
                 <span className="flex items-center">
@@ -185,7 +189,11 @@ export default function AuthForm() {
                 onChange={handleChange}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !supabase || !mounted}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading || !supabase || !mounted}
+            >
               {/* Only show loading state if component is mounted (client-side) */}
               {mounted && isLoading ? (
                 <span className="flex items-center">
@@ -200,6 +208,5 @@ export default function AuthForm() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
-

@@ -82,3 +82,10 @@
   background: hsl(var(--muted-foreground));
 }
 
+.tiptap-paragraph-editor .ProseMirror {
+  min-height: 250px;
+  padding: 0.75rem;
+}
+
+/* Import Tiptap styles */
+@import "../styles/tiptap.css";

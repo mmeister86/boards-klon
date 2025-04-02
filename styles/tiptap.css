@@ -1,0 +1,89 @@
+/* Tiptap Editor Styles */
+.tiptap-paragraph-editor {
+  @apply prose prose-sm max-w-none;
+}
+
+.tiptap-paragraph-editor p {
+  @apply my-2;
+}
+
+.tiptap-paragraph-editor ul {
+  @apply list-disc pl-6;
+}
+
+.tiptap-paragraph-editor ul li {
+  @apply my-0;
+}
+
+.tiptap-paragraph-editor ol {
+  @apply list-decimal pl-6;
+}
+
+.tiptap-paragraph-editor ol li {
+  @apply my-0;
+}
+
+.tiptap-paragraph-editor blockquote {
+  @apply border-l-4 border-gray-300 pl-4 my-2 italic;
+}
+
+.tiptap-paragraph-editor blockquote p {
+  @apply my-0;
+}
+
+.tiptap-paragraph-editor strong {
+  @apply font-bold;
+}
+
+.tiptap-paragraph-editor em {
+  @apply italic;
+}
+
+.tiptap-paragraph-editor u {
+  @apply underline;
+}
+
+/* Preview Styles */
+.preview-content {
+  @apply prose prose-sm max-w-none;
+}
+
+.preview-content p {
+  @apply my-2;
+}
+
+.preview-content ul {
+  @apply list-disc pl-6;
+}
+
+.preview-content ul li {
+  @apply my-0;
+}
+
+.preview-content ol {
+  @apply list-decimal pl-6;
+}
+
+.preview-content ol li {
+  @apply my-0;
+}
+
+.preview-content blockquote {
+  @apply border-l-4 border-gray-300 pl-4 my-2 italic;
+}
+
+.preview-content blockquote p {
+  @apply my-0;
+}
+
+.preview-content strong {
+  @apply font-bold;
+}
+
+.preview-content em {
+  @apply italic;
+}
+
+.preview-content u {
+  @apply underline;
+}

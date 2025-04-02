@@ -163,7 +163,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         {isSplitting && (
           <div className="absolute inset-0 bg-blue-500/10 rounded-xl z-20 flex items-center justify-center pointer-events-none">
             <div className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-              Splitting...
+              Wird aufgeteilt...
             </div>
           </div>
         )}
@@ -212,7 +212,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           <button
             onClick={() => deleteDropArea(dropArea.id)}
             className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
-            title="Delete drop area"
+            title="Drop-Bereich löschen"
             aria-label="Delete drop area"
           >
             <Trash2 size={16} />

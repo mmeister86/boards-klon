@@ -66,7 +66,7 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10
             p-2 rounded-full bg-green-500 shadow-md hover:bg-green-600
             transition-all text-white opacity-0 group-hover:opacity-100"
-            title="Merge drop areas"
+            title="Drop-Bereiche zusammenführen"
             aria-label="Merge drop areas"
           >
             <svg
@@ -105,7 +105,7 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
         {isMerging && (
           <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
             <div className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-              Merging...
+              Wird zusammengeführt...
             </div>
           </div>
         )}
@@ -131,7 +131,7 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
           <button
             onClick={() => deleteDropArea(dropArea.id)}
             className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
-            title="Delete entire drop area"
+            title="Gesamten Drop-Bereich löschen"
             aria-label="Delete entire drop area"
           >
             <Trash2 size={16} />
