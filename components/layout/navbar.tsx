@@ -7,17 +7,17 @@ import { useRouter } from "next/navigation";
 import {
   PencilRuler,
   Eye,
-  Home,
   LogIn,
   ChevronLeft,
   Save,
-  MoreVertical,
   User,
   Settings,
   LogOut,
   Check,
   ToggleLeft,
   ToggleRight,
+  Share,
+  Download,
 } from "lucide-react";
 import { useBlocksStore } from "@/store/blocks-store";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface NavbarProps {
   currentView?: "dashboard" | "editor";
@@ -60,11 +61,26 @@ export default function Navbar({
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+  const [showLastSaved, setShowLastSaved] = useState(false);
 
   // Update title when projectTitle prop changes
   useEffect(() => {
     setTitle(projectTitle);
   }, [projectTitle]);
+
+  // Effect to handle the last saved indicator animation
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (lastSaved) {
+      setShowLastSaved(true);
+      timer = setTimeout(() => {
+        setShowLastSaved(false);
+      }, 2000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [lastSaved]);
 
   const handleSave = async () => {
     setSaveStatus("saving");
@@ -136,27 +152,7 @@ export default function Navbar({
 
           {/* Navigation links - different based on view */}
           {currentView === "dashboard" ? (
-            <div className="hidden md:flex space-x-6 ml-8">
-              <Link
-                href="/dashboard"
-                className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2"
-              >
-                <Home className="h-4 w-4" />
-                Dashboard
-              </Link>
-              <a
-                href="#"
-                className="text-sm font-medium hover:text-primary transition-colors"
-              >
-                Vorlagen
-              </a>
-              <a
-                href="#"
-                className="text-sm font-medium hover:text-primary transition-colors"
-              >
-                Einstellungen
-              </a>
-            </div>
+            <div className="hidden md:flex space-x-6 ml-8" />
           ) : (
             <div className="flex items-center ml-8 space-x-4">
               <Button
@@ -194,28 +190,41 @@ export default function Navbar({
         <div className="flex items-center space-x-4">
           {currentView === "editor" && (
             <>
-              <Button
-                variant={previewMode ? "default" : "outline"}
-                size="sm"
-                onClick={togglePreviewMode}
-                className="flex items-center gap-2"
-              >
-                <Eye className="h-4 w-4" />
-                <span>{previewMode ? "Vorschau beenden" : "Vorschau"}</span>
-              </Button>
+              {/* Last saved indicator and Auto-save group */}
               <div className="flex items-center gap-2">
                 {/* Auto-save toggle */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => toggleAutoSave(!autoSaveEnabled)}
-                  className="flex items-center gap-1 text-xs"
+                  className="flex items-center gap-1 text-xs relative"
                   title={
                     autoSaveEnabled
                       ? "Automatisches Speichern ist aktiviert"
                       : "Automatisches Speichern ist deaktiviert"
                   }
                 >
+                  {/* Last saved indicator */}
+                  <div className="absolute right-full h-8 flex items-center">
+                    <div
+                      className={`
+                        transform transition-all duration-300 ease-in-out mr-4
+                        ${
+                          showLastSaved
+                            ? "translate-x-0 opacity-100"
+                            : "translate-x-4 opacity-0 pointer-events-none"
+                        }
+                      `}
+                    >
+                      {lastSaved && (
+                        <div className="text-xs text-muted-foreground whitespace-nowrap">
+                          Zuletzt gespeichert:{" "}
+                          {new Date(lastSaved).toLocaleTimeString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {autoSaveEnabled ? (
                     <>
                       <ToggleRight className="h-4 w-4 text-green-500" />
@@ -228,71 +237,65 @@ export default function Navbar({
                     </>
                   )}
                 </Button>
-
-                {/* Last saved indicator */}
-                {lastSaved && autoSaveEnabled && (
-                  <div className="text-xs text-muted-foreground hidden md:block">
-                    Zuletzt gespeichert:{" "}
-                    {new Date(lastSaved).toLocaleTimeString()}
-                  </div>
-                )}
-
-                {/* Manual save button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={isSaving || saveStatus === "saving"}
-                  className="flex items-center gap-2 min-w-[90px]"
-                >
-                  {saveStatus === "saving" ? (
-                    <>
-                      <PencilRuler className="h-4 w-4 animate-spin" />
-                      <span>Wird gespeichert...</span>
-                    </>
-                  ) : saveStatus === "saved" ? (
-                    <>
-                      <Check className="h-4 w-4 text-green-500" />
-                      <span>Gespeichert</span>
-                    </>
-                  ) : saveStatus === "error" ? (
-                    <span className="text-destructive">
-                      Speichern fehlgeschlagen
-                    </span>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      <span>Speichern</span>
-                    </>
-                  )}
-                </Button>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Veröffentlichen</DropdownMenuItem>
-                  <DropdownMenuItem>Exportieren</DropdownMenuItem>
-                  <DropdownMenuItem>Teilen</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>Projekteinstellungen</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+              {/* Manual save button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || saveStatus === "saving"}
+                className="flex items-center gap-2 min-w-[90px]"
+              >
+                {saveStatus === "saving" ? (
+                  <>
+                    <PencilRuler className="h-4 w-4 animate-spin" />
+                    <span>Wird gespeichert...</span>
+                  </>
+                ) : saveStatus === "saved" ? (
+                  <>
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Gespeichert</span>
+                  </>
+                ) : saveStatus === "error" ? (
+                  <span className="text-destructive">
+                    Speichern fehlgeschlagen
+                  </span>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Speichern</span>
+                  </>
+                )}
+              </Button>
+
+              {/* Preview button */}
+              <Button
+                variant={previewMode ? "default" : "outline"}
+                size="sm"
+                onClick={togglePreviewMode}
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                <span>{previewMode ? "Vorschau beenden" : "Vorschau"}</span>
+              </Button>
+
+              {/* Action buttons */}
+              <Button variant="outline" size="sm">
+                Veröffentlichen
+              </Button>
             </>
           )}
 
-          {/* User avatar with dropdown */}
+          {/* User avatar dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
-                  <span className="text-sm font-medium">
+              <Button variant="ghost" className="p-0">
+                <Avatar>
+                  <AvatarFallback>
                     {user ? user.email?.charAt(0).toUpperCase() : "G"}
-                  </span>
-                </div>
+                  </AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -315,6 +318,19 @@ export default function Navbar({
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Einstellungen</span>
                   </DropdownMenuItem>
+                  {currentView === "editor" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <Share className="mr-2 h-4 w-4" />
+                        <span>Teilen</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Exportieren</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <LogOut className="mr-2 h-4 w-4" />

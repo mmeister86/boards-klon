@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
 import { useBlocksStore } from "@/store/blocks-store";
 import { useEditorStore } from "@/store/editor-store";
 import Emoji, { gitHubEmojis } from "@tiptap-pro/extension-emoji";
@@ -28,6 +29,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
         bulletList: editor.isActive("bulletList"),
         orderedList: editor.isActive("orderedList"),
         blockquote: editor.isActive("blockquote"),
+        link: editor.isActive("link"),
       });
     };
 
@@ -36,6 +38,27 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       editor.off("transaction", updateFormats);
     };
   }, [editor, updateActiveFormats]);
+
+  const setLink = () => {
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("URL eingeben:", previousUrl);
+
+    // cancelled
+    if (url === null) {
+      return;
+    }
+
+    // empty
+    if (url === "") {
+      editor.chain().focus().unsetLink().run();
+      return;
+    }
+
+    // Add https:// if no protocol is specified
+    const urlWithProtocol = url.match(/^https?:\/\//) ? url : `https://${url}`;
+
+    editor.chain().focus().toggleLink({ href: urlWithProtocol }).run();
+  };
 
   return (
     <div
@@ -75,6 +98,16 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
         aria-pressed={activeFormats.underline}
       >
         Unterstrichen
+      </button>
+      <button
+        onClick={setLink}
+        className={`px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 ${
+          activeFormats.link ? "bg-gray-300" : ""
+        }`}
+        aria-label="Link"
+        aria-pressed={activeFormats.link}
+      >
+        Link
       </button>
       <button
         onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -151,6 +184,17 @@ export function ParagraphBlock({
         },
       }),
       Underline,
+      Link.configure({
+        openOnClick: true,
+        autolink: true,
+        linkOnPaste: true,
+        defaultProtocol: "https",
+        HTMLAttributes: {
+          class: "text-blue-500 hover:text-blue-600 underline",
+          rel: "noopener noreferrer",
+          target: "_blank",
+        },
+      }),
       Emoji.configure({
         emojis: gitHubEmojis,
         enableEmoticons: true,
@@ -211,6 +255,27 @@ export function ParagraphBlock({
         if ((event.ctrlKey || event.metaKey) && event.key === "u") {
           event.preventDefault();
           editor?.chain().focus().toggleUnderline().run();
+          return true;
+        }
+        // Ctrl/Cmd + K for link
+        if ((event.ctrlKey || event.metaKey) && event.key === "k" && editor) {
+          event.preventDefault();
+          const previousUrl = editor.getAttributes("link").href;
+          const url = window.prompt("URL eingeben:", previousUrl);
+
+          if (url === null) {
+            return true;
+          }
+
+          if (url === "") {
+            editor.chain().focus().unsetLink().run();
+            return true;
+          }
+
+          const urlWithProtocol = url.match(/^https?:\/\//)
+            ? url
+            : `https://${url}`;
+          editor.chain().focus().toggleLink({ href: urlWithProtocol }).run();
           return true;
         }
         return false;

@@ -11,6 +11,7 @@ interface EditorState {
     bulletList: boolean;
     orderedList: boolean;
     blockquote: boolean;
+    link: boolean;
   };
   // Actions
   setFocus: (focused: boolean) => void;
@@ -29,6 +30,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     bulletList: false,
     orderedList: false,
     blockquote: false,
+    link: false,
   },
 
   // Actions
@@ -47,6 +49,7 @@ export const useEditorStore = create<EditorState>((set) => ({
         bulletList: false,
         orderedList: false,
         blockquote: false,
+        link: false,
       },
     }),
 }));
