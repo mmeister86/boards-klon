@@ -84,6 +84,25 @@ export function HeadingBlock({
     }
   };
 
+  const getHeadingStyleByLevel = (level: number): string => {
+    switch (level) {
+      case 1:
+        return "text-4xl font-bold tracking-tight";
+      case 2:
+        return "text-3xl font-bold tracking-tight";
+      case 3:
+        return "text-2xl font-bold tracking-tight";
+      case 4:
+        return "text-xl font-bold tracking-tight";
+      case 5:
+        return "text-lg font-bold tracking-tight";
+      case 6:
+        return "text-base font-bold tracking-tight";
+      default:
+        return "text-4xl font-bold tracking-tight";
+    }
+  };
+
   const renderHeading = () => {
     // Display read-only version when in preview mode
     if (readOnly) {
@@ -95,7 +114,7 @@ export function HeadingBlock({
       <div className="w-full relative">
         <HeadingTag
           level={headingLevel}
-          className="pointer-events-none opacity-0 h-0 overflow-hidden"
+          className="pointer-events-none absolute inset-0 opacity-0"
         >
           {headingText || "Heading text..."}
         </HeadingTag>
@@ -110,32 +129,11 @@ export function HeadingBlock({
           placeholder="Heading text..."
           style={{
             caretColor: "currentColor",
-            lineHeight: "inherit",
-            fontWeight: "inherit",
-            fontSize: "inherit",
+            lineHeight: "1.2",
           }}
         />
       </div>
     );
-  };
-
-  const getHeadingStyleByLevel = (level: number): string => {
-    switch (level) {
-      case 1:
-        return "text-4xl font-bold";
-      case 2:
-        return "text-3xl font-bold";
-      case 3:
-        return "text-2xl font-bold";
-      case 4:
-        return "text-xl font-bold";
-      case 5:
-        return "text-lg font-bold";
-      case 6:
-        return "text-base font-bold";
-      default:
-        return "text-4xl font-bold";
-    }
   };
 
   return (

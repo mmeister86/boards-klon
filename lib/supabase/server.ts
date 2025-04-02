@@ -29,17 +29,19 @@ export function createServerClient() {
         ) {
           try {
             cookieStore.set(name, value, options)
-          } catch (error) {
+          } catch (err) {
             // This will throw in middleware or when cookies are read-only
             // We can safely ignore this error since it's handled by the middleware
+            console.debug('Cookie set error:', err);
           }
         },
         remove(name: string, options: { path?: string; domain?: string }) {
           try {
             cookieStore.set(name, "", { ...options, maxAge: 0 })
-          } catch (error) {
+          } catch (err) {
             // This will throw in middleware or when cookies are read-only
             // We can safely ignore this error since it's handled by the middleware
+            console.debug('Cookie remove error:', err);
           }
         },
       },

@@ -18,7 +18,7 @@ export function getSupabaseMiddlewareClient(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: { path?: string; maxAge?: number; domain?: string; secure?: boolean; sameSite?: "strict" | "lax" | "none" }) {
           // Update the request cookies
           request.cookies.set({
             name,
@@ -38,7 +38,7 @@ export function getSupabaseMiddlewareClient(request: NextRequest) {
             ...options,
           })
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: { path?: string; domain?: string }) {
           // Update the request cookies
           request.cookies.set({
             name,

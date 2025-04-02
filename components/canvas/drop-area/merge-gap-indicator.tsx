@@ -17,12 +17,13 @@ export function MergeGapIndicator({
   }
 
   return (
-    <div className="w-4 h-full relative group">
-      {/* Simple highlight that appears on hover */}
+    // Use fixed height h-12 instead of h-full
+    <div className="w-4 h-12 relative group">
+      {" "}
+      {/* Removed self-center */} {/* Simple highlight that appears on hover */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-full h-12 bg-transparent group-hover:bg-green-100/50 transition-colors rounded-md" />
       </div>
-
       {/* Merge button - use same positioning as split button */}
       <button
         onClick={(e) => {

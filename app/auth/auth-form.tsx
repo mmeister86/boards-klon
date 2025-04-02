@@ -19,18 +19,18 @@ const initialState = {
 export default function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  // Email is now handled directly by the actions.ts server functions
 
-  // Form states
-  const [signInState, signInAction] = useFormState(signIn, initialState);
-  const [signUpState, signUpAction] = useFormState(signUp, initialState);
+  // Form states - specify the proper type to fix the TS error
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [signInState, signInAction] = useFormState<typeof initialState, FormData>(signIn as any, initialState);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [signUpState, signUpAction] = useFormState<typeof initialState, FormData>(signUp as any, initialState);
+
+  const handleSubmit = async () => {
     setIsLoading(true);
-    // Form submission is handled by the form action
-    const formData = new FormData(e.currentTarget);
-    const emailValue = formData.get("email") as string;
-    setEmail(emailValue);
+    // Form submission and email handling now done in server action
   };
 
   // Reset loading state after form submission

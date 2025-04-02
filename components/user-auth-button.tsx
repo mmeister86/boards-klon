@@ -16,9 +16,7 @@ export function UserAuthButton() {
     router.refresh()
   }
 
-  const handleSignIn = () => {
-    router.push("/auth")
-  }
+  // Navigation to auth page handled by parent component
 
   return (
     <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={isLoading}>

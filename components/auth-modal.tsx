@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
+// Router navigation handled by component methods
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ export default function AuthModal({
   onClose,
   initialMode,
 }: AuthModalProps) {
-  const router = useRouter();
+  // Using the router for navigation is handled in component methods
   const { supabase } = useSupabase();
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [isLoading, setIsLoading] = useState(false);

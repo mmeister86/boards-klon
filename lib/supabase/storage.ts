@@ -1,15 +1,19 @@
 import { createClient } from "@/lib/supabase/client"
-import type { DropAreaType, Project } from "@/lib/types"
+import type { DropAreaType } from "@/lib/types"
+import type { ProjectData } from "@/lib/types"
 
-// Define the project data structure for storage
-export interface ProjectData {
-  id: string
-  title: string
-  description?: string
-  dropAreas: DropAreaType[]
-  createdAt: string
-  updatedAt: string
+// Define the Project type for UI display
+interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  blocks: number;
+  thumbnail?: string;
 }
+
+// We now use the ProjectData type from lib/types
 
 // Get a fresh Supabase client instance each time to avoid stale auth state and caching issues
 const getSupabase = () => {

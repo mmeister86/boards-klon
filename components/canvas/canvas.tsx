@@ -33,36 +33,14 @@ export default function Canvas() {
   const [hoveredInsertionIndex, setHoveredInsertionIndex] = useState<
     number | null
   >(null);
-  
+
   // Refs for each drop area element
   const dropAreaRefs = useRef<React.RefObject<HTMLDivElement>[]>([]);
-  
+
   // Ref for tracking mouse movement timeouts
-  const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastCursorPositionRef = useRef<{ x: number; y: number } | null>(null);
-
-  // Run cleanup on component mount and when dropAreas change
-  useEffect(() => {
-    // Ensure refs array matches the number of filtered drop areas
-    dropAreaRefs.current = filteredDropAreas.map(
-      (_, i) => dropAreaRefs.current[i] ?? createRef<HTMLDivElement>()
-    );
-    cleanupEmptyDropAreas();
-  }, [cleanupEmptyDropAreas, dropAreas.length]); // Re-run when dropAreas length changes
-  
-  // Cleanup effect to remove any timeouts when component unmounts
-  useEffect(() => {
-    return () => {
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCanvasClick = () => {
-    // Deselect any selected block when clicking on the canvas background
-    selectBlock(null);
-  };
+  const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Keep for inactivity reset (if re-enabled)
+  // Removed unused lastCursorPositionRef
+  const hideIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref for hysteresis timer
 
   // Filter out consecutive empty drop areas for rendering (keep existing logic)
   const filteredDropAreas = dropAreas.filter((area, index) => {
@@ -79,12 +57,36 @@ export default function Canvas() {
     return !(isPrevEmpty && isCurrentEmpty);
   });
 
-  // Function to clear insertion indicator after inactivity
-  const resetInsertionIndicator = () => {
-    if (hoveredInsertionIndex !== null) {
-      console.log("Clearing insertion indicator due to inactivity");
-      setHoveredInsertionIndex(null);
-    }
+  // Run cleanup on component mount and when dropAreas change
+  useEffect(() => {
+    // Ensure refs array matches the number of filtered drop areas
+    dropAreaRefs.current = filteredDropAreas.map(
+      (_, i) => dropAreaRefs.current[i] ?? createRef<HTMLDivElement>()
+    );
+    cleanupEmptyDropAreas();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleanupEmptyDropAreas, dropAreas.length]); // filteredDropAreas is derived from dropAreas
+
+  // Cleanup effect to remove any timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      // Safely clear timeouts on component unmount
+      if (inactivityTimeoutRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        clearTimeout(inactivityTimeoutRef.current);
+      }
+      
+      // Clear hysteresis timer on unmount
+      const hideIndicatorTimeout = hideIndicatorTimeoutRef.current;
+      if (hideIndicatorTimeout) {
+        clearTimeout(hideIndicatorTimeout);
+      }
+    };
+  }, []); // Empty dependency array ensures this runs only on mount and unmount
+
+  const handleCanvasClick = () => {
+    // Deselect any selected block when clicking on the canvas background
+    selectBlock(null);
   };
 
   // --- Centralized Drop Logic for Gaps ---
@@ -94,83 +96,53 @@ export default function Canvas() {
       const clientOffset = monitor.getClientOffset();
       const isOverCurrent = monitor.isOver({ shallow: true });
 
-      // Debug state
-      console.log("Hover Debug:", {
-        isOverCurrent,
-        hasOffset: !!clientOffset,
-        currentIndex: hoveredInsertionIndex,
-      });
-
       // Early return if we don't have the necessary data
       if (!isOverCurrent || !clientOffset) {
-        if (hoveredInsertionIndex !== null) {
-          console.log("Clearing index - not over current or no offset");
-          setHoveredInsertionIndex(null);
+        // If not hovering, start the timer to hide the indicator (if it's visible)
+        if (
+          hoveredInsertionIndex !== null &&
+          !hideIndicatorTimeoutRef.current // Only start if not already timing out
+        ) {
+          hideIndicatorTimeoutRef.current = setTimeout(() => {
+            setHoveredInsertionIndex(null);
+            hideIndicatorTimeoutRef.current = null; // Clear ref after execution
+          }, 150); // Hide after 150ms delay
         }
         return;
       }
-      
-      // Clear any existing inactivity timeout when movement is detected
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-      }
 
-      // Get the actual drop target container
+      // --- Inactivity Timer Logic (Currently Disabled) ---
+      // if (inactivityTimeoutRef.current) { ... }
+      // ---
+
+      // Get container and check bounds
       const dropContainer = document.querySelector(
         '[data-drop-container="true"]'
       ) as HTMLElement;
       if (!dropContainer) return;
-
       const dropTargetRect = dropContainer.getBoundingClientRect();
       const { x: cursorX, y: cursorY } = clientOffset;
-      
-      // Check if cursor has moved enough from last position to be considered movement
-      const hasMovedSignificantly = !lastCursorPositionRef.current || 
-        Math.abs(lastCursorPositionRef.current.x - cursorX) > 3 || 
-        Math.abs(lastCursorPositionRef.current.y - cursorY) > 3;
-      
-      // Update last cursor position
-      lastCursorPositionRef.current = { x: cursorX, y: cursorY };
-      
-      // If cursor has moved significantly, set a new inactivity timeout
-      if (hasMovedSignificantly && hoveredInsertionIndex !== null) {
-        inactivityTimeoutRef.current = setTimeout(resetInsertionIndicator, 500);
-      }
-
-      // Check if cursor is within bounds (with padding)
-      const boundsPadding = 20; // Increased padding for better UX
+      const boundsPadding = 20;
       const isInBounds =
         cursorX >= dropTargetRect.left - boundsPadding &&
         cursorX <= dropTargetRect.right + boundsPadding;
 
-      // Debug cursor position
-      console.log("Drag State:", {
-        cursor: { x: cursorX, y: cursorY },
-        bounds: {
-          left: dropTargetRect.left - boundsPadding,
-          right: dropTargetRect.right + boundsPadding,
-        },
-        isInBounds,
-        isOverCurrent,
-        exitDirection: !isInBounds
-          ? cursorX < dropTargetRect.left - boundsPadding
-            ? "LEFT"
-            : "RIGHT"
-          : "IN_BOUNDS",
-      });
-
-      // Clear the insertion index if we're out of bounds horizontally
       if (!isInBounds) {
-        if (hoveredInsertionIndex !== null) {
-          console.log("Clearing index - out of bounds horizontally");
-          setHoveredInsertionIndex(null);
+        // If out of bounds, start timer to hide indicator
+        if (
+          hoveredInsertionIndex !== null &&
+          !hideIndicatorTimeoutRef.current // Only start if not already timing out
+        ) {
+          hideIndicatorTimeoutRef.current = setTimeout(() => {
+            setHoveredInsertionIndex(null);
+            hideIndicatorTimeoutRef.current = null; // Clear ref after execution
+          }, 100); // Use shorter delay for out of bounds
         }
         return;
       }
 
+      // --- Calculate Hovered Index ---
       let currentHoveredIndex: number | null = null;
-
-      // Iterate through the refs of the filtered drop areas
       for (let i = 0; i < filteredDropAreas.length - 1; i++) {
         const topAreaRef = dropAreaRefs.current[i];
         const bottomAreaRef = dropAreaRefs.current[i + 1];
@@ -178,74 +150,87 @@ export default function Canvas() {
 
         const topRect = topAreaRef.current.getBoundingClientRect();
         const bottomRect = bottomAreaRef.current.getBoundingClientRect();
-        const gapThreshold = 20; // pixels threshold for vertical gap
+        const gapThreshold = 20;
+        const midPointY =
+          topRect.bottom + (bottomRect.top - topRect.bottom) / 2;
+        const isVerticallyNearMidpoint =
+          Math.abs(cursorY - midPointY) < gapThreshold;
 
-        // Check if cursor's Y coordinate is within the vertical gap between areas
-        if (
-          cursorY > topRect.bottom - gapThreshold &&
-          cursorY < bottomRect.top + gapThreshold
-        ) {
-          // Calculate horizontal gap boundaries from both areas
+        if (isVerticallyNearMidpoint) {
           const gapLeft = Math.min(topRect.left, bottomRect.left);
           const gapRight = Math.max(topRect.right, bottomRect.right);
-
-          // Check if the cursor's X coordinate lies within the horizontal gap
           if (cursorX >= gapLeft && cursorX <= gapRight) {
-            currentHoveredIndex = i + 1;
-            console.log("Gap detected with horizontal overlap", {
-              index: i + 1,
-              gapLeft,
-              gapRight,
-              cursorX,
-            });
-            break;
-          } else {
-            console.log("Cursor not horizontally over gap", {
-              cursorX,
-              gapLeft,
-              gapRight,
-            });
+            const topArea = filteredDropAreas[i];
+            const bottomArea = filteredDropAreas[i + 1];
+            const topIsEmpty = isDropAreaEmpty(topArea);
+            const topHasPopulatedChildren =
+              topArea.isSplit &&
+              topArea.splitAreas.some((a) => !isDropAreaEmpty(a));
+            const isTopPopulated = !topIsEmpty || topHasPopulatedChildren;
+            const bottomIsEmptyCheck = isDropAreaEmpty(bottomArea);
+            const bottomHasPopulatedChildrenCheck =
+              bottomArea.isSplit &&
+              bottomArea.splitAreas.some((a) => !isDropAreaEmpty(a));
+            const isBottomPopulated =
+              !bottomIsEmptyCheck || bottomHasPopulatedChildrenCheck;
+
+            if (isTopPopulated && isBottomPopulated) {
+              currentHoveredIndex = i + 1;
+              break;
+            }
           }
         }
       }
-      if (currentHoveredIndex !== hoveredInsertionIndex) {
-        console.log(
-          "Updating hover index from",
-          hoveredInsertionIndex,
-          "to",
-          currentHoveredIndex
-        );
-        setHoveredInsertionIndex(currentHoveredIndex);
+
+      // --- Hysteresis Logic ---
+      if (currentHoveredIndex !== null) {
+        // If hovering over a valid gap, clear any pending hide timer
+        if (hideIndicatorTimeoutRef.current) {
+          clearTimeout(hideIndicatorTimeoutRef.current);
+          hideIndicatorTimeoutRef.current = null;
+        }
+        // Set the index immediately if it's different
+        if (currentHoveredIndex !== hoveredInsertionIndex) {
+          setHoveredInsertionIndex(currentHoveredIndex);
+        }
+      } else {
+        // If not hovering over a valid gap, start timer to hide (if not already started)
+        if (
+          hoveredInsertionIndex !== null &&
+          !hideIndicatorTimeoutRef.current
+        ) {
+          hideIndicatorTimeoutRef.current = setTimeout(() => {
+            setHoveredInsertionIndex(null);
+            hideIndicatorTimeoutRef.current = null; // Clear ref after execution
+          }, 150); // Hide after 150ms delay
+        }
       }
+      // --- End Hysteresis Logic ---
     },
     drop: (item) => {
-      // Removed unused monitor parameter
-      // This drop handler is specifically for drops *between* areas (in the gap)
-      // Clear any inactivity timeout on drop
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-        inactivityTimeoutRef.current = null;
+      // Clear any inactivity timeout on drop (if re-enabled later)
+      // if (inactivityTimeoutRef.current) { ... }
+
+      // *** Clear hysteresis timeout on drop ***
+      if (hideIndicatorTimeoutRef.current) {
+        clearTimeout(hideIndicatorTimeoutRef.current);
+        hideIndicatorTimeoutRef.current = null;
       }
-      
+
       if (hoveredInsertionIndex !== null) {
         console.log(
           `Canvas: Drop detected in gap at index ${hoveredInsertionIndex}`
         );
-        // Call the store action to handle insertion
         insertBlockInNewArea(item, hoveredInsertionIndex);
-
-        // Reset hover state after drop
-        setHoveredInsertionIndex(null);
-        // Return void/undefined as per the expected type
+        setHoveredInsertionIndex(null); // Reset state immediately on drop
         return undefined;
       }
-      // If not dropped in a gap, let the individual DropArea handle it (monitor.didDrop() check)
       console.log("Canvas: Drop not in gap, letting DropArea handle.");
-      return undefined; // Return void/undefined
+      return undefined;
     },
     collect: (monitor) => ({
-      isOverCanvas: !!monitor.isOver({ shallow: true }), // Keep isOverCanvas definition
-    }), // Removed isOverCanvas from destructuring above
+      isOverCanvas: !!monitor.isOver({ shallow: true }),
+    }),
   });
   // --- End Centralized Drop Logic ---
 
@@ -284,7 +269,8 @@ export default function Canvas() {
           >
             {/* Use shorthand fragment syntax */}
             {filteredDropAreas.map((dropArea, index) => (
-              <React.Fragment key={dropArea.id}>
+              // Use index in key to ensure uniqueness after insertion
+              <React.Fragment key={`${dropArea.id}-${index}`}>
                 {/* Render insertion indicator *above* the current drop area if needed */}
                 <InsertionIndicator
                   isVisible={index === hoveredInsertionIndex}
@@ -295,8 +281,7 @@ export default function Canvas() {
                   dropArea={dropArea}
                   showSplitIndicator={viewport !== "mobile"}
                   viewport={viewport}
-                  // Pass down the prop indicating if it's below the insertion point
-                  isBelowInsertionPoint={index === hoveredInsertionIndex}
+                  // Removed isBelowInsertionPoint prop
                 />
               </React.Fragment>
             ))}

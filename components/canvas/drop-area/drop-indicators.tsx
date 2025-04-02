@@ -1,32 +1,34 @@
-"use client"
+"use client";
 
-import { SplitHorizontal, Merge } from "@/lib/icons"
+import { SplitHorizontal, Merge } from "@/lib/icons";
 
 interface DropIndicatorsProps {
-  isOver: boolean
-  canDrop: boolean
-  shouldShowSplitIndicator: boolean
-  shouldShowMergeIndicator: boolean
-  onSplit: () => void
-  onMerge: () => void
-  mergePosition?: "left" | "right" | "both"
+  isOver: boolean;
+  canDrop: boolean;
+  shouldShowSplitIndicator: boolean;
+  shouldShowMergeIndicator: boolean;
+  onSplit: () => void;
+  onMerge: () => void;
+  mergePosition?: "left" | "right" | "both";
 }
 
-export function DropIndicators({ 
-  isOver, 
-  canDrop, 
-  shouldShowSplitIndicator, 
+export function DropIndicators({
+  isOver,
+  canDrop,
+  shouldShowSplitIndicator,
   shouldShowMergeIndicator,
-  onSplit, 
+  onSplit,
   onMerge,
-  mergePosition = "both"
+  mergePosition = "both",
 }: DropIndicatorsProps) {
   return (
     <>
       {/* Drop indicator - show when dragging over */}
       {isOver && canDrop && (
         <div className="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none z-10 flex items-center justify-center">
-          <div className="bg-primary/20 rounded-lg px-3 py-1.5 text-sm font-medium text-primary">Drop here</div>
+          <div className="bg-primary/20 rounded-lg px-3 py-1.5 text-sm font-medium text-primary">
+            Drop here
+          </div>
         </div>
       )}
 
@@ -51,14 +53,16 @@ export function DropIndicators({
             e.stopPropagation();
             onMerge();
           }}
-          className={`absolute ${getMergePositionClasses(mergePosition)} z-10 bg-green-500 p-2 rounded-full shadow-md hover:bg-green-600 transition-colors text-white`}
+          className={`absolute ${getMergePositionClasses(
+            mergePosition
+          )} z-10 bg-green-500 p-2 rounded-full shadow-md hover:bg-green-600 transition-colors text-white`}
           title="Merge drop areas"
         >
           <Merge size={16} />
         </button>
       )}
     </>
-  )
+  );
 }
 
 // Helper function to get the correct positioning classes

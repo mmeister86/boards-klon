@@ -4,10 +4,11 @@ import { useDrop } from "react-dnd";
 import { useState, useEffect, useRef } from "react";
 import { ItemTypes } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
+// Removed duplicate imports
 import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
-import { findParentOfSplitAreas } from "@/lib/utils/drop-area-utils";
-import type { DropTargetMonitor } from "react-dnd"; // Removed XYCoord
+import { findDropAreaById } from "@/lib/utils/drop-area-utils";
+import type { DropTargetMonitor } from "react-dnd";
 
 interface DragItem {
   id?: string; // ID of the block being dragged (if existing)
@@ -32,6 +33,10 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   } = useBlocksStore();
 
   const [isHovering, setIsHovering] = useState(false); // Tracks direct hover over this area
+  const [mousePosition, setMousePosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null); // Track mouse position
   const [dropError, setDropError] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [mergePosition, setMergePosition] = useState<"left" | "right" | "both">(
@@ -51,8 +56,14 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     ) => {
       // No complex edge detection needed here anymore
       // We still might want to update isHovering state if needed for direct hover styles
+      const clientOffset = monitor.getClientOffset(); // Get mouse position
+      if (clientOffset) {
+        setMousePosition(clientOffset); // Update state
+      }
+
       if (!monitor.isOver({ shallow: true })) {
         if (isHovering) setIsHovering(false); // Clear hover if not over anymore
+        setMousePosition(null); // Clear mouse position when not hovering
         return;
       }
       if (!isHovering) setIsHovering(true); // Set hover if over
@@ -63,9 +74,12 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     ) => {
       // Generate a unique ID for this drop operation for tracking in logs
       const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      
-      console.log(`[${dropOpId}] DROP START - Area ${dropArea.id} - Item: `, item);
-      
+
+      console.log(
+        `[${dropOpId}] DROP START - Area ${dropArea.id} - Item: `,
+        item
+      );
+
       // *** IMPORTANT: Check if the drop was already handled by a parent container (the Canvas gap drop) ***
       if (monitor.didDrop()) {
         console.log(
@@ -75,7 +89,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       }
 
       // If drop wasn't handled by parent, proceed with dropping directly into this area
-      console.log(`[${dropOpId}] DropArea ${dropArea.id}: Handling drop directly.`);
+      console.log(
+        `[${dropOpId}] DropArea ${dropArea.id}: Handling drop directly.`
+      );
       try {
         // Ensure we are actually over this specific target
         if (!monitor.isOver({ shallow: true })) {
@@ -94,35 +110,39 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
             );
             return undefined;
           }
-          
+
           console.log(
             `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED drop for block ${item.id} from ${item.sourceDropAreaId} to here. Preparing result...`
           );
-          
+
           // First, create and return a result BEFORE modifying state
           // This is critical - it tells react-dnd that this handler has claimed this drop
-          const result = { 
+          const result = {
             name: `Dropped in Area ${dropArea.id}`,
             handled: true,
-            dropOpId 
+            dropOpId,
           };
-          
+
           // Schedule the moveBlock call to run AFTER this drop handler returns
           console.log(
             `[${dropOpId}] DropArea ${dropArea.id}: Scheduling moveBlock operation to run AFTER drop completes`
           );
-          
+
           // Use setTimeout to move this to the next event loop tick
           setTimeout(() => {
             console.log(
               `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING moveBlock(${item.id}, ${item.sourceDropAreaId}, ${dropArea.id})`
             );
-            moveBlock(item.id, item.sourceDropAreaId, dropArea.id);
+            // Add non-null assertions as item.id and item.sourceDropAreaId are checked above
+            moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
             console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`);
           }, 0);
-          
+
           // Return the result immediately
-          console.log(`[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`, result);
+          console.log(
+            `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
+            result
+          );
           return result;
         }
         // Handle adding a new block (dragged from sidebar)
@@ -130,19 +150,19 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           console.log(
             `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED new block of type ${item.type}. Preparing result...`
           );
-          
+
           // Return a result BEFORE calling addBlock
-          const result = { 
+          const result = {
             name: `Added Block to ${dropArea.id}`,
             handled: true,
-            dropOpId 
+            dropOpId,
           };
-          
+
           // Schedule the addBlock call to run AFTER this drop handler returns
           console.log(
             `[${dropOpId}] DropArea ${dropArea.id}: Scheduling addBlock operation to run AFTER drop completes`
           );
-          
+
           // Add the block AFTER setting the result
           setTimeout(() => {
             console.log(
@@ -159,9 +179,12 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
             );
             console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`);
           }, 0);
-          
+
           // Return the result immediately
-          console.log(`[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`, result);
+          console.log(
+            `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
+            result
+          );
           return result;
         }
       } catch (error) {
@@ -181,22 +204,57 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     }),
   });
 
-  // --- Merge Logic (remains largely the same) ---
+  // Helper function to check mouse proximity to element edges
+  const isNearEdge = (
+    mousePos: { x: number; y: number },
+    element: HTMLElement | null
+  ): boolean => {
+    if (!element) return false;
+    const rect = element.getBoundingClientRect();
+    const edgeThreshold = 30; // Pixels from edge to trigger merge indicator
+
+    // Check proximity to left or right edge for horizontal merging
+    const nearLeftEdge = Math.abs(mousePos.x - rect.left) < edgeThreshold;
+    const nearRightEdge = Math.abs(mousePos.x - rect.right) < edgeThreshold;
+
+    // Ensure mouse is vertically within the element bounds (plus some tolerance)
+    const verticalTolerance = 10;
+    const isVerticallyInside =
+      mousePos.y >= rect.top - verticalTolerance &&
+      mousePos.y <= rect.bottom + verticalTolerance;
+
+    return isVerticallyInside && (nearLeftEdge || nearRightEdge);
+  };
+
+  // --- Merge Logic ---
 
   // Check if this drop area can be merged with a sibling
-  // This effect runs when hovering state changes
+  // This effect runs when hovering state or mouse position changes
   useEffect(() => {
-    // Only try to identify merge targets when we're actively hovering over this drop area
-    // Clear any existing merge target when not hovering
-    if (!isHovering) {
+    // Conditions to check for merge: hovering, have mouse position, have element ref
+    if (!isHovering || !mousePosition || !dropTargetRef.current) {
+      // If not hovering or missing data, ensure merge target is cleared
       if (mergeTarget !== null) {
-        console.log(
-          `${dropArea.id}: Clearing merge target because no longer hovering`
-        );
+        // console.log(
+        //   `${dropArea.id}: Clearing merge target (not hovering or missing data)`
+        // );
         setMergeTarget(null);
       }
       return;
     }
+
+    // Check proximity: Only proceed if mouse is near the edge
+    if (!isNearEdge(mousePosition, dropTargetRef.current)) {
+      // If not near edge, ensure merge target is cleared
+      if (mergeTarget !== null) {
+        // console.log(`${dropArea.id}: Clearing merge target (not near edge)`);
+        setMergeTarget(null);
+      }
+      return;
+    }
+
+    // --- Proximity check passed, proceed with merge logic ---
+    // console.log(`${dropArea.id}: Near edge, checking merge possibility...`);
 
     // We need to be part of a split area to merge
     if (!dropArea.parentId) {
@@ -209,8 +267,10 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       return;
     }
 
-    // Find our parent area
-    const parent = findParentOfSplitAreas(dropAreas, dropArea.id, dropArea.id);
+    // Find our parent area using the parentId, only if parentId exists
+    const parent = dropArea.parentId
+      ? findDropAreaById(dropAreas, dropArea.parentId)
+      : null;
     if (!parent || !parent.isSplit || parent.splitAreas.length !== 2) {
       if (mergeTarget !== null) {
         console.log(
@@ -222,7 +282,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     }
 
     // Find our sibling - we need a valid sibling to merge with
-    const sibling = parent.splitAreas.find((area) => area.id !== dropArea.id);
+    const sibling = parent.splitAreas.find(
+      (area: DropAreaType) => area.id !== dropArea.id
+    ); // Added type DropAreaType
     if (!sibling) {
       if (mergeTarget !== null) {
         console.log(
@@ -262,6 +324,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     dropAreas,
     canMerge,
     mergeTarget,
+    mousePosition, // Add mousePosition as dependency
   ]);
 
   // Determine visual cues based on drop state
@@ -309,6 +372,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   };
 
   const handleSplit = () => {
+    // Pass viewport to canSplit
     if (canSplit(dropArea.id, viewport)) {
       splitDropArea(dropArea.id);
     }
@@ -327,32 +391,63 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   // 4. The area can be split (based on split level restrictions)
   // Note: We allow showing the split indicator for empty areas even if they are part of a split
   const shouldShowSplitIndicator = (showSplitIndicator: boolean) => {
+    // Pass viewport to canSplit
+    const isSplittable = canSplit(dropArea.id, viewport);
+
     const shouldShow =
       showSplitIndicator &&
       isHovering &&
       !isOver &&
       dropArea.blocks.length === 0 &&
-      canSplit(dropArea.id, viewport) &&
-      !mergeTarget; // Don't show split indicator if we're showing merge indicator
+      isSplittable; // Use the result from canSplit
+    // Removed !mergeTarget check here, will check against shouldShowMergeIndicator result
 
-    // For debugging only - log when status changes
-    if (shouldShow) {
-      console.log(`Split indicator should show for ${dropArea.id}`, {
-        showSplitIndicator,
-        isHovering,
-        isOver,
-        emptyBlocks: dropArea.blocks.length === 0,
-        canSplitCheck: canSplit(dropArea.id, viewport),
-        mergeTarget,
+    // Determine if merge indicator *should* show based on proximity and merge target
+    const showMerge = shouldShowMergeIndicator();
+
+    // Final decision: Show split only if basic conditions met AND merge indicator isn't showing
+    const finalShouldShow = shouldShow && !showMerge;
+
+    // --- DEBUG LOGGING ---
+    // Only log if the state might be relevant (hovering or indicator was expected)
+    if (isHovering || finalShouldShow) {
+      // Update log condition
+      console.log(`[Split Indicator Debug] Area: ${dropArea.id}`, {
+        "Prop: showSplitIndicator": showSplitIndicator,
+        "State: isHovering": isHovering,
+        "State: isOver": isOver,
+        "State: isEmpty": dropArea.blocks.length === 0,
+        "Result: canSplit()": isSplittable,
+        "State: mergeTarget": mergeTarget, // Keep for context
+        "Check: shouldShowMergeIndicator()": showMerge, // Add merge check result
+        "FINAL shouldShow": finalShouldShow, // Log final decision
+        "Area Details": {
+          id: dropArea.id,
+          splitLevel: dropArea.splitLevel,
+          isSplit: dropArea.isSplit,
+          parentId: dropArea.parentId,
+        },
+        viewport: viewport,
       });
     }
+    // --- END DEBUG LOGGING ---
 
-    return shouldShow;
+    return finalShouldShow; // Return the refined value
   };
 
-  // Show merge indicator if we have a merge target and we're hovering
+  // Show merge indicator ONLY if we have a merge target AND mouse is near edge
+  // This function remains the same, but its result is now used by shouldShowSplitIndicator
   const shouldShowMergeIndicator = () => {
-    return isHovering && mergeTarget !== null && !isOver;
+    const nearEdge =
+      mousePosition && dropTargetRef.current
+        ? isNearEdge(mousePosition, dropTargetRef.current)
+        : false;
+    const showMerge = isHovering && mergeTarget !== null && !isOver && nearEdge;
+    // Optional: Add similar debug log here if needed
+    // if (isHovering && mergeTarget) {
+    //   console.log(`[Merge Indicator Debug] Area: ${dropArea.id}`, { nearEdge, mergeTarget, isHovering, isOver, showMerge });
+    // }
+    return showMerge;
   };
 
   return {
