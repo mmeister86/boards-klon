@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   PencilRuler,
-  Eye,
   LogIn,
   ChevronLeft,
   Save,
@@ -18,6 +17,7 @@ import {
   ToggleRight,
   Share,
   Download,
+  Library,
 } from "lucide-react";
 import { useBlocksStore } from "@/store/blocks-store";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ProfileSheet } from "@/components/sheets/profile";
+import { SettingsSheet } from "@/components/sheets/settings";
 
 interface NavbarProps {
-  currentView?: "dashboard" | "editor";
+  currentView?: "dashboard" | "editor" | "mediathek";
   projectTitle?: string;
   onTitleChange?: (title: string) => void;
 }
@@ -46,22 +48,17 @@ export default function Navbar({
   onTitleChange,
 }: NavbarProps) {
   const router = useRouter();
-  const {
-    previewMode,
-    togglePreviewMode,
-    saveProject,
-    isSaving,
-    autoSaveEnabled,
-    toggleAutoSave,
-    lastSaved,
-  } = useBlocksStore();
-  const { user } = useSupabase();
+  const { saveProject, isSaving, autoSaveEnabled, toggleAutoSave, lastSaved } =
+    useBlocksStore();
+  const { user, supabase } = useSupabase();
   const [title, setTitle] = useState(projectTitle);
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [showLastSaved, setShowLastSaved] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Update title when projectTitle prop changes
   useEffect(() => {
@@ -138,6 +135,13 @@ export default function Navbar({
     router.push("/dashboard");
   };
 
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
+
   return (
     <nav className="bg-background border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
@@ -152,7 +156,60 @@ export default function Navbar({
 
           {/* Navigation links - different based on view */}
           {currentView === "dashboard" ? (
-            <div className="hidden md:flex space-x-6 ml-8" />
+            <div className="hidden md:flex space-x-6 ml-8">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="flex items-center gap-1"
+              >
+                <Link href="/mediathek">
+                  <Library className="h-4 w-4" />
+                  <span>Mediathek</span>
+                </Link>
+              </Button>
+            </div>
+          ) : currentView === "editor" ? (
+            <div className="flex items-center ml-8 space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToDashboard}
+                className="flex items-center gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Zurück
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="flex items-center gap-1"
+              >
+                <Link href="/mediathek">
+                  <Library className="h-4 w-4" />
+                  <span>Mediathek</span>
+                </Link>
+              </Button>
+              <div className="h-4 border-r border-border"></div>
+              {isEditing ? (
+                <Input
+                  value={title}
+                  onChange={handleTitleChange}
+                  onBlur={handleTitleBlur}
+                  onKeyDown={handleTitleKeyDown}
+                  className="h-9 w-48 text-sm font-medium"
+                  autoFocus
+                />
+              ) : (
+                <div
+                  className="h-9 px-3 flex items-center text-sm font-medium cursor-pointer hover:bg-muted rounded-md"
+                  onClick={() => setIsEditing(true)}
+                >
+                  {title}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex items-center ml-8 space-x-4">
               <Button
@@ -241,116 +298,129 @@ export default function Navbar({
 
               {/* Manual save button */}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleSave}
-                disabled={isSaving || saveStatus === "saving"}
-                className="flex items-center gap-2 min-w-[90px]"
+                disabled={isSaving}
+                className={`flex items-center gap-1 ${
+                  saveStatus === "saving"
+                    ? "text-orange-500"
+                    : saveStatus === "saved"
+                    ? "text-green-500"
+                    : saveStatus === "error"
+                    ? "text-red-500"
+                    : ""
+                }`}
               >
                 {saveStatus === "saving" ? (
-                  <>
-                    <PencilRuler className="h-4 w-4 animate-spin" />
-                    <span>Wird gespeichert...</span>
-                  </>
+                  <Save className="h-4 w-4 animate-spin" />
                 ) : saveStatus === "saved" ? (
-                  <>
-                    <Check className="h-4 w-4 text-green-500" />
-                    <span>Gespeichert</span>
-                  </>
+                  <Check className="h-4 w-4" />
                 ) : saveStatus === "error" ? (
-                  <span className="text-destructive">
-                    Speichern fehlgeschlagen
-                  </span>
+                  <Save className="h-4 w-4" />
                 ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    <span>Speichern</span>
-                  </>
+                  <Save className="h-4 w-4" />
                 )}
+                <span className="hidden sm:inline">
+                  {saveStatus === "saving"
+                    ? "Speichern..."
+                    : saveStatus === "saved"
+                    ? "Gespeichert"
+                    : saveStatus === "error"
+                    ? "Fehler"
+                    : "Speichern"}
+                </span>
               </Button>
 
-              {/* Preview button */}
+              {/* Share button */}
               <Button
-                variant={previewMode ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
-                onClick={togglePreviewMode}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1"
               >
-                <Eye className="h-4 w-4" />
-                <span>{previewMode ? "Vorschau beenden" : "Vorschau"}</span>
+                <Share className="h-4 w-4" />
+                <span className="hidden sm:inline">Teilen</span>
               </Button>
 
-              {/* Action buttons */}
-              <Button variant="outline" size="sm">
-                Veröffentlichen
+              {/* Export button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-1"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Exportieren</span>
               </Button>
             </>
           )}
 
-          {/* User avatar dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="p-0">
-                <Avatar>
-                  <AvatarFallback>
-                    {user ? user.email?.charAt(0).toUpperCase() : "G"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {user ? (
-                <>
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <span>Mein Konto</span>
-                      <span className="text-xs text-muted-foreground">
-                        {user.email}
-                      </span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profil</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Einstellungen</span>
-                  </DropdownMenuItem>
-                  {currentView === "editor" && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Share className="mr-2 h-4 w-4" />
-                        <span>Teilen</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Exportieren</span>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Abmelden</span>
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href="/auth" className="flex items-center">
-                      <LogIn className="mr-2 h-4 w-4" />
-                      <span>Anmelden</span>
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* User menu - show for both dashboard and editor views */}
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="relative h-9 w-9 rounded-full"
+                >
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback>
+                      {user.email?.[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {user.email?.split("@")[0]}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setIsProfileOpen(true)}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profil</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsSettingsOpen(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Einstellungen</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Abmelden</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="flex items-center gap-1"
+            >
+              <Link href="/login">
+                <LogIn className="h-4 w-4" />
+                <span>Anmelden</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Sheet Components */}
+      <ProfileSheet
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
+      <SettingsSheet
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </nav>
   );
 }

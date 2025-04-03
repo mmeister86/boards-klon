@@ -8,17 +8,15 @@ import Navbar from "@/components/layout/navbar";
 import LeftSidebar from "@/components/layout/left-sidebar";
 import Canvas from "@/components/canvas/canvas";
 import RightSidebar from "@/components/layout/right-sidebar";
-import Preview from "@/components/preview/preview";
 import { ViewportProvider } from "@/lib/hooks/use-viewport";
 import { useBlocksStore } from "@/store/blocks-store";
-import { ViewportSelector } from "@/components/canvas/viewport-selector";
 import { initializeStorage } from "@/lib/supabase/storage";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function EditorPage() {
   const router = useRouter();
   const {
-    previewMode,
     loadProject,
     currentProjectTitle,
     setProjectTitle,
@@ -146,39 +144,15 @@ export default function EditorPage() {
             projectTitle={currentProjectTitle}
             onTitleChange={setProjectTitle}
           />
-
-          {previewMode ? <PreviewMode /> : <EditorMode />}
+          <div className="flex flex-1 overflow-hidden">
+            <LeftSidebar />
+            <div className="flex-1 bg-muted overflow-hidden flex flex-col">
+              <Canvas />
+            </div>
+            <RightSidebar />
+          </div>
         </div>
       </ViewportProvider>
     </DndProvider>
   );
 }
-
-// Extracted component for preview mode
-function PreviewMode() {
-  return (
-    <div className="flex-1 overflow-hidden flex flex-col">
-      {/* Viewport selector centered at the top */}
-      <div className="flex justify-center my-4">
-        <ViewportSelector />
-      </div>
-      <Preview />
-    </div>
-  );
-}
-
-// Extracted component for editor mode
-function EditorMode() {
-  return (
-    <div className="flex flex-1 overflow-hidden">
-      <LeftSidebar />
-      <div className="flex-1 bg-muted overflow-hidden flex flex-col">
-        <Canvas />
-      </div>
-      <RightSidebar />
-    </div>
-  );
-}
-
-// Import Button for error state
-import { Button } from "@/components/ui/button";

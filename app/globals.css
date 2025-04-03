@@ -89,3 +89,22 @@
 
 /* Import Tiptap styles */
 @import "../styles/tiptap.css";
+
+/* Typewriter cursor blink animation */
+@keyframes text-blink {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  75.1%,
+  95% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-text-blink {
+  animation: text-blink 1.2s infinite ease-in-out;
+}

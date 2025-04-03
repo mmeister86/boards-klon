@@ -76,6 +76,7 @@ interface BlocksState {
   setProjectTitle: (title: string) => void;
 
   // UI State Actions
+  setPreviewMode: (enabled: boolean) => void;
   togglePreviewMode: () => void;
   toggleAutoSave: (enabled: boolean) => void;
   triggerAutoSave: () => void;
@@ -745,6 +746,8 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     // UI State Actions
+    setPreviewMode: (enabled) => set({ previewMode: enabled }),
+
     togglePreviewMode: () =>
       set((state) => ({ previewMode: !state.previewMode })),
 

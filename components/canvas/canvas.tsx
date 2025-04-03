@@ -11,6 +11,9 @@ import { ItemTypes } from "@/lib/item-types"; // Added ItemTypes
 // Removed unused BlockType, DropAreaType imports
 import { isDropAreaEmpty } from "@/lib/utils/drop-area-utils"; // Added utility
 import { InsertionIndicator } from "./drop-area/insertion-indicator"; // Import the new component
+import Preview from "@/components/preview/preview";
+import { Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Define the type for the item being dragged (consistent with useDropArea)
 interface DragItem {
@@ -28,6 +31,8 @@ export default function Canvas() {
     selectBlock,
     cleanupEmptyDropAreas,
     insertBlockInNewArea, // Get the new store action
+    previewMode,
+    setPreviewMode,
   } = useBlocksStore();
   const { viewport } = useViewport();
   const [hoveredInsertionIndex, setHoveredInsertionIndex] = useState<
@@ -64,7 +69,7 @@ export default function Canvas() {
       (_, i) => dropAreaRefs.current[i] ?? createRef<HTMLDivElement>()
     );
     cleanupEmptyDropAreas();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanupEmptyDropAreas, dropAreas.length]); // filteredDropAreas is derived from dropAreas
 
   // Cleanup effect to remove any timeouts when component unmounts
@@ -75,7 +80,7 @@ export default function Canvas() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         clearTimeout(inactivityTimeoutRef.current);
       }
-      
+
       // Clear hysteresis timer on unmount
       const hideIndicatorTimeout = hideIndicatorTimeoutRef.current;
       if (hideIndicatorTimeout) {
@@ -244,54 +249,72 @@ export default function Canvas() {
       className="flex-1 bg-muted overflow-auto p-6"
       onClick={handleCanvasClick}
     >
-      {/* Viewport selector centered at the top */}
-      <div className="flex justify-center mb-6">
+      {/* Header with centered viewport selector and right-aligned preview toggle */}
+      <div className="relative flex justify-center items-center mb-6">
         <ViewportSelector />
-      </div>
-
-      {/* Canvas container with proper width */}
-      <div
-        className={`mx-auto ${
-          viewport === "desktop" ? "w-[90%]" : "w-auto"
-        } flex justify-center`}
-      >
-        <div
-          className={`bg-card rounded-2xl transition-all duration-300 shadow-md overflow-hidden ${
-            viewport === "desktop" ? "w-full" : ""
-          }`}
-          style={getViewportStyles(viewport)}
-        >
-          {/* Attach the drop ref using the callback */}
-          <div
-            ref={dropRefCallback}
-            className="w-full"
-            data-drop-container="true"
+        <div className="absolute right-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPreviewMode(!previewMode)}
+            className="flex items-center gap-2"
           >
-            {/* Use shorthand fragment syntax */}
-            {filteredDropAreas.map((dropArea, index) => (
-              // Use index in key to ensure uniqueness after insertion
-              <React.Fragment key={`${dropArea.id}-${index}`}>
-                {/* Render insertion indicator *above* the current drop area if needed */}
-                <InsertionIndicator
-                  isVisible={index === hoveredInsertionIndex}
-                />
-                <DropArea
-                  // Assign the ref for position calculation
-                  ref={dropAreaRefs.current[index]}
-                  dropArea={dropArea}
-                  showSplitIndicator={viewport !== "mobile"}
-                  viewport={viewport}
-                  // Removed isBelowInsertionPoint prop
-                />
-              </React.Fragment>
-            ))}
-            {/* Render indicator after the last item if hovering there */}
-            <InsertionIndicator
-              isVisible={filteredDropAreas.length === hoveredInsertionIndex}
-            />
-          </div>
+            {previewMode ? (
+              <>
+                <EyeOff className="h-4 w-4" />
+                <span>Vorschau beenden</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" />
+                <span>Vorschau</span>
+              </>
+            )}
+          </Button>
         </div>
       </div>
+
+      {previewMode ? (
+        <Preview />
+      ) : (
+        /* Canvas container with proper width */
+        <div
+          className={`mx-auto ${
+            viewport === "desktop" ? "w-[90%]" : "w-auto"
+          } flex justify-center`}
+        >
+          <div
+            className={`bg-card rounded-2xl transition-all duration-300 shadow-md overflow-hidden ${
+              viewport === "desktop" ? "w-full" : ""
+            }`}
+            style={getViewportStyles(viewport)}
+          >
+            {/* Attach the drop ref using the callback */}
+            <div
+              ref={dropRefCallback}
+              className="w-full"
+              data-drop-container="true"
+            >
+              {filteredDropAreas.map((dropArea, index) => (
+                <React.Fragment key={`${dropArea.id}-${index}`}>
+                  <InsertionIndicator
+                    isVisible={index === hoveredInsertionIndex}
+                  />
+                  <DropArea
+                    ref={dropAreaRefs.current[index]}
+                    dropArea={dropArea}
+                    showSplitIndicator={viewport !== "mobile"}
+                    viewport={viewport}
+                  />
+                </React.Fragment>
+              ))}
+              <InsertionIndicator
+                isVisible={filteredDropAreas.length === hoveredInsertionIndex}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
