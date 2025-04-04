@@ -207,13 +207,22 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           canSplit={canSplitThisArea}
         />
 
-        {/* Delete button - only shows on hover for populated areas */}
+        {/* Delete button - Shows on hover for populated areas:
+            - Always show for areas with multiple blocks
+            - Only show for areas with a single block if that block doesn't show its own delete button
+        */}
         {showDeleteButton && dropArea.blocks.length > 0 && (
           <button
             onClick={() => deleteDropArea(dropArea.id)}
             className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
-            title="Drop-Bereich löschen"
-            aria-label="Delete drop area"
+            title={
+              dropArea.blocks.length === 1
+                ? "Block löschen"
+                : "Drop-Bereich löschen"
+            }
+            aria-label={
+              dropArea.blocks.length === 1 ? "Delete block" : "Delete drop area"
+            }
           >
             <Trash2 size={16} />
           </button>

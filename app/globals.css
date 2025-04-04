@@ -89,6 +89,9 @@
 
 /* Import Tiptap styles */
 @import "../styles/tiptap.css";
+/* Import Tippy.js styles for tooltips and popovers */
+@import "tippy.js/dist/tippy.css";
+@import "tippy.js/animations/shift-away.css";
 
 /* Typewriter cursor blink animation */
 @keyframes text-blink {
@@ -107,4 +110,21 @@
 
 .animate-text-blink {
   animation: text-blink 1.2s infinite ease-in-out;
+}
+
+/* Add the pulse animation for the drag handle */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(29, 78, 216, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(29, 78, 216, 0);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s infinite;
 }

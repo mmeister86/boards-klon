@@ -19,7 +19,11 @@ export function DraggableBlock({
 }: DraggableBlockProps) {
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.BLOCK,
-    item: { type, content },
+    item: {
+      type,
+      content,
+      isSidebarItem: true,
+    },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),

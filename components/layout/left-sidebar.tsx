@@ -9,6 +9,7 @@ import {
   FormInput,
   SeparatorHorizontal,
 } from "lucide-react";
+import { useBlocksStore } from "@/store/blocks-store";
 
 // Define the available block types with icons
 const blockTypes = [
@@ -51,8 +52,18 @@ const blockTypes = [
 ];
 
 export default function LeftSidebar() {
+  const { previewMode } = useBlocksStore();
+
+  if (previewMode) return null;
+
   return (
-    <div className="w-64 bg-card border-r border-border overflow-y-auto p-5">
+    <div
+      className={`
+        w-64 bg-card border-r border-border overflow-y-auto p-5
+        transform transition-all duration-300 ease-in-out
+        ${previewMode ? "-translate-x-full" : "translate-x-0"}
+      `}
+    >
       <h2 className="text-lg font-semibold mb-5">Blöcke</h2>
       <div className="grid grid-cols-2 gap-3">
         {blockTypes.map((block) => (

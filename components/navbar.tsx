@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
-import AuthModal from "./auth-modal";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useRouter } from "next/navigation";
 import {
@@ -18,13 +16,6 @@ import {
 export default function Navbar() {
   const { supabase, user, isLoading } = useSupabase();
   const router = useRouter();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-
-  const handleAuthClick = (mode: "signin" | "signup") => {
-    setAuthMode(mode);
-    setShowAuthModal(true);
-  };
 
   const handleSignOut = async () => {
     if (!supabase) return;
@@ -97,12 +88,12 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => handleAuthClick("signin")}>
-                Anmelden
-              </Button>
-              <Button onClick={() => handleAuthClick("signup")}>
-                Registrieren
-              </Button>
+              <Link href="/sign-in">
+                <Button variant="ghost">Anmelden</Button>
+              </Link>
+              <Link href="/sign-up">
+                <Button>Registrieren</Button>
+              </Link>
             </>
           )}
         </div>
@@ -146,15 +137,14 @@ export default function Navbar() {
                   </>
                 ) : (
                   <>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleAuthClick("signin")}
-                    >
-                      Anmelden
-                    </Button>
-                    <Button onClick={() => handleAuthClick("signup")}>
-                      Registrieren
-                    </Button>
+                    <Link href="/sign-in">
+                      <Button variant="outline" className="w-full">
+                        Anmelden
+                      </Button>
+                    </Link>
+                    <Link href="/sign-up">
+                      <Button className="w-full">Registrieren</Button>
+                    </Link>
                   </>
                 )}
               </div>
@@ -162,14 +152,6 @@ export default function Navbar() {
           </SheetContent>
         </Sheet>
       </div>
-
-      {!user && (
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          initialMode={authMode}
-        />
-      )}
     </header>
   );
 }

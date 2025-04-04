@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  Image,
+  Image as LucideImage,
   Video,
   Music,
   Link2,
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navbar from "@/components/layout/navbar";
+import Image from "next/image";
 
 // Typen für die Mediendateien
 type MediaType = "image" | "video" | "audio" | "link" | "document";
@@ -247,14 +248,16 @@ export default function MediathekPage() {
         return (
           <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
             {item.thumbnail ? (
-              <img
+              <Image
                 src={item.thumbnail}
-                alt={item.title}
-                className="w-full h-full object-cover"
+                alt={`Vorschaubild für ${item.title}`}
+                className="object-cover"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Image className="h-8 w-8 text-muted-foreground" />
+                <LucideImage className="h-8 w-8 text-muted-foreground" />
               </div>
             )}
           </div>
@@ -263,10 +266,12 @@ export default function MediathekPage() {
         return (
           <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
             {item.thumbnail ? (
-              <img
+              <Image
                 src={item.thumbnail}
-                alt={item.title}
-                className="w-full h-full object-cover"
+                alt={`Vorschaubild für ${item.title}`}
+                className="object-cover"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -390,7 +395,7 @@ export default function MediathekPage() {
                 {renderMediaCategory(
                   "image",
                   "Bilder",
-                  <Image className="h-5 w-5" />
+                  <LucideImage className="h-5 w-5" />
                 )}
                 {renderMediaCategory(
                   "video",

@@ -7,13 +7,16 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import { useBlocksStore } from "@/store/blocks-store";
 import { useEditorStore } from "@/store/editor-store";
-import Emoji, { gitHubEmojis } from "@tiptap-pro/extension-emoji";
+import EmojiExtension, {
+  EmojiPickerButton,
+} from "@/lib/extensions/emoji-extension";
 import "tippy.js/dist/tippy.css";
 
 interface ParagraphBlockProps {
   blockId: string;
   dropAreaId: string;
   content: string;
+  viewport?: "mobile" | "tablet" | "desktop";
 }
 
 const TiptapToolbar = ({ editor }: { editor: Editor }) => {
@@ -161,6 +164,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Trennlinie
       </button>
+      <EmojiPickerButton editor={editor} />
     </div>
   );
 };
@@ -169,9 +173,17 @@ export function ParagraphBlock({
   blockId,
   dropAreaId,
   content,
+  viewport = "desktop",
 }: ParagraphBlockProps) {
   const { updateBlockContent } = useBlocksStore();
   const { setFocus, resetFormats } = useEditorStore();
+
+  const textSizeClass =
+    viewport === "mobile"
+      ? "text-base"
+      : viewport === "tablet"
+      ? "text-lg"
+      : "text-xl";
 
   const editor = useEditor({
     extensions: [
@@ -195,25 +207,7 @@ export function ParagraphBlock({
           target: "_blank",
         },
       }),
-      Emoji.configure({
-        emojis: gitHubEmojis,
-        enableEmoticons: true,
-        suggestion: {
-          items: ({ query }) => {
-            return gitHubEmojis
-              .filter(
-                (emoji) =>
-                  emoji.shortcodes.some((shortcode) =>
-                    shortcode.toLowerCase().startsWith(query.toLowerCase())
-                  ) ||
-                  emoji.tags?.some((tag) =>
-                    tag.toLowerCase().includes(query.toLowerCase())
-                  )
-              )
-              .slice(0, 5);
-          },
-        },
-      }),
+      EmojiExtension,
     ],
     content: content,
     onUpdate: ({ editor }) => {
@@ -289,7 +283,7 @@ export function ParagraphBlock({
       {editor && (
         <EditorContent
           editor={editor}
-          className="h-full overflow-y-auto border border-gray-300 rounded p-2 mt-2 tiptap-paragraph-editor"
+          className={`h-full overflow-y-auto border border-gray-300 rounded p-2 mt-2 tiptap-paragraph-editor ${textSizeClass}`}
         />
       )}
     </div>

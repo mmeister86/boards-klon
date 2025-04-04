@@ -35,9 +35,16 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
 
   // Helper function to render paragraph content with HTML
   const renderParagraphContent = () => {
+    const textSizeClass =
+      viewport === "mobile"
+        ? "text-base"
+        : viewport === "tablet"
+        ? "text-lg"
+        : "text-xl";
+
     return (
       <div
-        className="preview-content"
+        className={`preview-content ${textSizeClass}`}
         dangerouslySetInnerHTML={{ __html: block.content }}
       />
     );

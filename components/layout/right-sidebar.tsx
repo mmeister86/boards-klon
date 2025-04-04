@@ -11,6 +11,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useState } from "react";
+import { useBlocksStore } from "@/store/blocks-store";
 
 // Mock data for media items
 interface MediaItem {
@@ -257,6 +258,9 @@ export default function RightSidebar() {
   const [isDragging, setIsDragging] = useState(false);
   const [activeCategory, setActiveCategory] =
     useState<MediaItem["type"]>("photo");
+  const { previewMode } = useBlocksStore();
+
+  if (previewMode) return null;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -312,7 +316,13 @@ export default function RightSidebar() {
   ];
 
   return (
-    <div className="w-64 bg-card border-l border-border flex flex-col h-full">
+    <div
+      className={`
+        w-64 bg-card border-l border-border flex flex-col h-full
+        transform transition-all duration-300 ease-in-out
+        ${previewMode ? "translate-x-full" : "translate-x-0"}
+      `}
+    >
       <div className="flex-1 overflow-y-auto">
         <div className="p-5">
           <h2 className="text-lg font-semibold mb-5">Media Library</h2>

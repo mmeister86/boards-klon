@@ -16,6 +16,7 @@ interface CanvasBlockProps {
   viewport?: ViewportType;
   onSplit?: () => void;
   canSplit?: boolean;
+  isOnlyBlockInArea?: boolean;
 }
 
 export function CanvasBlock({
@@ -23,10 +24,11 @@ export function CanvasBlock({
   viewport = "desktop",
   onSplit,
   canSplit = true,
+  isOnlyBlockInArea = false,
 }: CanvasBlockProps) {
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
   const isSelected = selectedBlockId === block.id;
-  const { isDragging, drag, dragPreview } = useBlockDrag(block);
+  const { isDragging, drag } = useBlockDrag(block);
 
   // Clear selection when dragging starts
   useEffect(() => {
@@ -48,15 +50,15 @@ export function CanvasBlock({
   };
 
   return (
-    <div ref={dragPreview as any}>
+    <div>
+      {/* Main styled container - already has position: relative */}
       <div
-        ref={drag as any}
         className={`p-4 bg-background border rounded-lg shadow-sm relative group
         ${
           isSelected ? "border-primary ring-2 ring-primary/20" : "border-border"
         }
         ${viewport === "mobile" ? "text-sm" : ""}
-        ${isDragging ? "opacity-50" : "opacity-100"}
+        ${isDragging ? "opacity-60" : "opacity-100"}
         transition-all duration-200 hover:shadow-md
       `}
         onClick={handleBlockClick}
@@ -68,9 +70,12 @@ export function CanvasBlock({
           onSplit={onSplit}
           canSplit={canSplit && !!onSplit}
           isDragging={isDragging}
+          drag={drag as any} // Pass drag ref down
+          showDeleteButton={!isOnlyBlockInArea}
         />
-
-        <BlockContent block={block} viewport={viewport} />
+        <div>
+          <BlockContent block={block} viewport={viewport} />
+        </div>
       </div>
     </div>
   );
@@ -82,26 +87,32 @@ function BlockControls({
   onSplit,
   canSplit,
   isDragging,
+  drag, // Destructure the passed drag ref
+  showDeleteButton = true, // New prop with default value
 }: {
   onDelete: (e: React.MouseEvent) => void;
   onSplit?: () => void;
   canSplit?: boolean;
   isDragging: boolean;
+  drag: React.Ref<HTMLButtonElement>;
+  showDeleteButton?: boolean; // Add to type definition
 }) {
   // Don't show controls while dragging
   if (isDragging) return null;
 
   return (
     <>
-      {/* Delete button - show on hover */}
-      <button
-        className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md
+      {/* Delete button - show on hover, only if showDeleteButton is true */}
+      {showDeleteButton && (
+        <button
+          className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md
                   hover:bg-red-600 transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
-        onClick={onDelete}
-        title="Block löschen"
-      >
-        <Trash2 size={14} />
-      </button>
+          onClick={onDelete}
+          title="Block löschen"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
 
       {/* Split button - show on hover if splitting is allowed */}
       {canSplit && onSplit && (
@@ -118,13 +129,16 @@ function BlockControls({
         </button>
       )}
 
-      {/* Move handle - always show */}
+      {/* Move handle - only show on hover */}
       <button
-        className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-1.5 rounded-full
-                  shadow-md hover:bg-primary/90 transition-colors cursor-move z-10"
+        ref={drag}
+        className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-2 rounded-full
+                  shadow-md hover:bg-primary/90 cursor-grab active:cursor-grabbing
+                  ring-4 ring-background pulse-animation transition-all opacity-0 group-hover:opacity-100 z-20"
         title="Zum Verschieben ziehen"
+        onClick={(e) => e.stopPropagation()}
       >
-        <Move size={14} />
+        <Move size={16} />
       </button>
     </>
   );
@@ -193,6 +207,7 @@ function BlockContent({ block, viewport }: BlockContentProps) {
         blockId={block.id}
         dropAreaId={block.dropAreaId}
         content={block.content}
+        viewport={viewport}
       />
     );
   }

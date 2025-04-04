@@ -1,7 +1,12 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from "react";
+import { DragAndDropProvider } from "@/components/dnd-provider"; // Import the provider
 
-export default async function EditorLayout({ children }: { children: ReactNode }) {
+export default async function EditorLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   // Allow access to the editor without authentication
-  return children
+  // Wrap children with the provider
+  return <DragAndDropProvider>{children}</DragAndDropProvider>;
 }
-

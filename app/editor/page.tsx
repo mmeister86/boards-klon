@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import Navbar from "@/components/layout/navbar";
 import LeftSidebar from "@/components/layout/left-sidebar";
 import Canvas from "@/components/canvas/canvas";
@@ -136,23 +134,21 @@ export default function EditorPage() {
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <ViewportProvider>
-        <div className="flex flex-col h-screen">
-          <Navbar
-            currentView="editor"
-            projectTitle={currentProjectTitle}
-            onTitleChange={setProjectTitle}
-          />
-          <div className="flex flex-1 overflow-hidden">
-            <LeftSidebar />
-            <div className="flex-1 bg-muted overflow-hidden flex flex-col">
-              <Canvas />
-            </div>
-            <RightSidebar />
+    <ViewportProvider>
+      <div className="flex flex-col h-screen">
+        <Navbar
+          currentView="editor"
+          projectTitle={currentProjectTitle}
+          onTitleChange={setProjectTitle}
+        />
+        <div className="flex flex-1 overflow-hidden">
+          <LeftSidebar />
+          <div className="flex-1 bg-muted overflow-hidden flex flex-col">
+            <Canvas />
           </div>
+          <RightSidebar />
         </div>
-      </ViewportProvider>
-    </DndProvider>
+      </div>
+    </ViewportProvider>
   );
 }

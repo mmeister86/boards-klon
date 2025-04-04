@@ -2,14 +2,36 @@ import { createServerClient } from "@/lib/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
+  try {
+    const requestUrl = new URL(request.url);
+    const code = requestUrl.searchParams.get("code");
+    const next = requestUrl.searchParams.get("next") ?? "/dashboard";
 
-  if (code) {
+    if (!code) {
+      return NextResponse.redirect(
+        new URL("/error?message=Missing code", requestUrl.origin)
+      );
+    }
+
     const supabase = createServerClient();
-    await supabase.auth.exchangeCodeForSession(code);
-  }
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(requestUrl.origin + "/dashboard");
+    if (error) {
+      console.error("Auth error:", error);
+      return NextResponse.redirect(
+        new URL(
+          `/error?message=${encodeURIComponent(error.message)}`,
+          requestUrl.origin
+        )
+      );
+    }
+
+    // URL to redirect to after sign in process completes
+    return NextResponse.redirect(new URL(next, requestUrl.origin));
+  } catch (error) {
+    console.error("Callback error:", error);
+    return NextResponse.redirect(
+      new URL("/error?message=Internal server error", request.url)
+    );
+  }
 }

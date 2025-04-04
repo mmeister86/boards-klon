@@ -1,6 +1,6 @@
 /* Tiptap Editor Styles */
 .tiptap-paragraph-editor {
-  @apply prose prose-sm max-w-none;
+  @apply prose max-w-none;
 }
 
 .tiptap-paragraph-editor p {
@@ -45,7 +45,7 @@
 
 /* Preview Styles */
 .preview-content {
-  @apply prose prose-sm max-w-none;
+  @apply prose max-w-none;
 }
 
 .preview-content p {
@@ -86,4 +86,100 @@
 
 .preview-content u {
   @apply underline;
+}
+
+/* Emoji Picker Styles */
+.emoji-picker-container {
+  z-index: 100;
+}
+
+.emoji-picker-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Make sure emoji picker is always on top */
+.tippy-box {
+  z-index: 1000 !important;
+}
+
+/* Custom tippy theme */
+.tippy-box[data-theme~="light-border"] {
+  background-color: white;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.08);
+  color: hsl(var(--foreground));
+}
+
+/* Remove the black border around the tippy box */
+.tippy-box[data-theme~="light-border"] .tippy-content {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+.tippy-box[data-animation="shift-away"][data-state="hidden"] {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+/* Custom styling for emoji picker to match site design */
+.EmojiPickerReact {
+  --epr-bg-color: white !important;
+  --epr-category-label-bg-color: white !important;
+  --epr-hover-bg-color: theme("colors.secondary.DEFAULT") !important;
+  --epr-search-input-bg-color: theme("colors.white") !important;
+  --epr-search-input-border-color: theme("colors.border") !important;
+  --epr-text-color: theme("colors.foreground") !important;
+  --epr-highlight-color: theme("colors.primary.DEFAULT") !important;
+
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  border: none !important;
+  max-height: 350px !important;
+  overflow: hidden !important;
+  background-color: white !important;
+}
+
+/* Ensure no borders at the edges of the picker */
+.EmojiPickerReact,
+.EmojiPickerReact .epr-body,
+.EmojiPickerReact .epr-emoji-category-content {
+  border: none !important;
+}
+
+.EmojiPickerReact .epr-search-container input {
+  border-radius: var(--radius) !important;
+  border: 1px solid theme("colors.border") !important;
+}
+
+.EmojiPickerReact .epr-category-nav {
+  padding: 8px !important;
+  background-color: white !important;
+}
+
+.EmojiPickerReact .epr-emoji-category-label {
+  font-family: var(--font-sans) !important;
+  font-size: 0.8rem !important;
+  background-color: white !important;
+}
+
+.EmojiPickerReact .epr-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.EmojiPickerReact .epr-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.EmojiPickerReact .epr-body::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+.EmojiPickerReact .epr-body::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
 }

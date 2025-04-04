@@ -261,6 +261,7 @@ function BlockItem({
         viewport={viewport}
         onSplit={onSplitPopulated}
         canSplit={canSplit}
+        isOnlyBlockInArea={totalBlocks === 1}
       />
     </div>
   );
