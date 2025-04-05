@@ -100,14 +100,8 @@ export const useBlockDrag = (
       const dragId = `drag-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 9)}`;
-      console.log(
-        `[useBlockDrag:${dragId}] End handler fired for item:`,
-        item?.id
-      ); // Log entry
 
       if (!item) {
-        console.log(`[useBlockDrag:${dragId}] End handler: No item found.`);
-        // If we have the block.id, we should still untack it
         untrackBlockDrag(block.id);
         return;
       }
@@ -121,39 +115,14 @@ export const useBlockDrag = (
       });
       window.dispatchEvent(event);
 
-      // Log the drop result for debugging
-      const dropResult = monitor.getDropResult();
-      const wasDropped = monitor.didDrop();
-
-      // console.log( // Keep logs commented out
-      //   `[useBlockDrag:${dragId}] Drag ended for block: ${item.id}`,
-      //   `\nDropped: ${wasDropped}`,
-      //   `\nDrop result: ${JSON.stringify(dropResult)}`,
-      //   `\nSource area: ${item.sourceDropAreaId}`,
-      //   `\nOriginal index: ${item.originalIndex}`
-      // );
-
       // If no drop result but drag ended, make sure UI is reset
-      console.log(
-        `[useBlockDrag:${dragId}] Checking drop status. wasDropped: ${wasDropped}`
-      ); // Log drop status
-      if (!wasDropped) {
-        console.log(
-          `[useBlockDrag:${dragId}] Drop was not successful (wasDropped is false). Attempting to reset hover state.`
-        ); // Log condition met
-        // Call the global reset function if it exists
+      if (!monitor.didDrop()) {
         // @ts-ignore - Accessing window property
         const resetFnExists =
           typeof window.resetDropAreaContentHover === "function";
-        console.log(
-          `[useBlockDrag:${dragId}] Does window.resetDropAreaContentHover exist? ${resetFnExists}`
-        ); // Log function existence
         if (resetFnExists) {
           // @ts-ignore
           window.resetDropAreaContentHover();
-          console.log(
-            `[useBlockDrag:${dragId}] Called window.resetDropAreaContentHover.`
-          ); // Log function call
         }
       }
     },

@@ -18,6 +18,7 @@ import {
   Share,
   Download,
   Library,
+  Trash,
 } from "lucide-react";
 import { useBlocksStore } from "@/store/blocks-store";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,8 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ProfileSheet } from "@/components/sheets/profile";
 import { SettingsSheet } from "@/components/sheets/settings";
+import { deleteProjectFromDatabase } from "@/lib/supabase/database";
+import { deleteProjectFromStorage } from "@/lib/supabase/storage";
 
 interface NavbarProps {
   currentView?: "dashboard" | "editor" | "mediathek";
@@ -48,8 +51,14 @@ export default function Navbar({
   onTitleChange,
 }: NavbarProps) {
   const router = useRouter();
-  const { saveProject, isSaving, autoSaveEnabled, toggleAutoSave, lastSaved } =
-    useBlocksStore();
+  const {
+    saveProject,
+    isSaving,
+    autoSaveEnabled,
+    toggleAutoSave,
+    lastSaved,
+    currentProjectId,
+  } = useBlocksStore();
   const { user, supabase } = useSupabase();
   const [title, setTitle] = useState(projectTitle);
   const [isEditing, setIsEditing] = useState(false);
@@ -59,6 +68,7 @@ export default function Navbar({
   const [showLastSaved, setShowLastSaved] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Update title when projectTitle prop changes
   useEffect(() => {
@@ -79,13 +89,23 @@ export default function Navbar({
     };
   }, [lastSaved]);
 
+  // Effect to handle error display
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   const handleSave = async () => {
     setSaveStatus("saving");
     try {
       // Check authentication status before saving
       if (!user) {
         setSaveStatus("error");
-        console.error("Authentication required to save. Please sign in.");
+        setError("Authentication required to save. Please sign in.");
         setTimeout(() => setSaveStatus("idle"), 3000);
         return;
       }
@@ -97,15 +117,15 @@ export default function Navbar({
         setTimeout(() => setSaveStatus("idle"), 2000);
       } else {
         setSaveStatus("error");
-        console.error(
+        setError(
           "Failed to save project. Please check your connection and permissions."
         );
         // Reset to idle after 3 seconds
         setTimeout(() => setSaveStatus("idle"), 3000);
       }
-    } catch (error) {
-      console.error("Error saving project:", error);
+    } catch (error: unknown) {
       setSaveStatus("error");
+      setError(error instanceof Error ? error.message : "Error saving project");
       // Reset to idle after 3 seconds
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
@@ -140,6 +160,30 @@ export default function Navbar({
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
+  };
+
+  const handleDeleteProject = async () => {
+    if (!currentProjectId) {
+      setError("No project selected to delete.");
+      return;
+    }
+    try {
+      // Lösche den Projektdatensatz aus der Datenbank
+      const dbDeleted = await deleteProjectFromDatabase(currentProjectId);
+      // Lösche die zugehörigen Dateien aus dem Storage
+      const storageDeleted = await deleteProjectFromStorage(currentProjectId);
+
+      if (dbDeleted || storageDeleted) {
+        // Bei erfolgreichem Löschen, navigiere zum Dashboard
+        router.replace("/dashboard");
+      } else {
+        throw new Error("Failed to delete project");
+      }
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "Error deleting project"
+      );
+    }
   };
 
   return (
@@ -351,6 +395,17 @@ export default function Navbar({
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Exportieren</span>
               </Button>
+
+              {/* Delete button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteProject}
+                className="flex items-center gap-1 text-red-600 border-red-600 hover:bg-red-100 hover:text-red-700"
+              >
+                <Trash className="h-4 w-4" />
+                <span className="hidden sm:inline">Löschen</span>
+              </Button>
             </>
           )}
 
@@ -411,6 +466,13 @@ export default function Navbar({
           )}
         </div>
       </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-md shadow-lg z-50">
+          {error}
+        </div>
+      )}
 
       {/* Sheet Components */}
       <ProfileSheet

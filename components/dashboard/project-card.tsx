@@ -39,6 +39,7 @@ export default function ProjectCard({
 }: ProjectCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,8 +53,8 @@ export default function ProjectCard({
       if (success && onDelete) {
         onDelete();
       }
-    } catch (error) {
-      console.error("Error deleting project:", error);
+    } catch (error: any) {
+      setError(error.message || "Error deleting project");
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);

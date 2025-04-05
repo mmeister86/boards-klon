@@ -107,20 +107,10 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     const { currentProjectTitle, currentProjectId, isSaving, autoSaveEnabled } =
       get();
 
-    // console.log("[debouncedSave] Checking conditions:", { // Removed log
-    //   isSaving,
-    //   currentProjectId,
-    //   autoSaveEnabled,
-    // });
-
     if (isSaving || !currentProjectId || !autoSaveEnabled) {
-      // console.log( // Removed log
-      //   "[debouncedSave] Auto-save skipped: Already saving, no project ID, or disabled"
-      // );
       return;
     }
 
-    // console.log("Auto-save triggered for project:", currentProjectId); // Can keep this one if desired
     set({ isSaving: true });
 
     try {
@@ -129,10 +119,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         lastSaved: success ? new Date() : null,
         isSaving: false,
       });
-      // console.log("Auto-save", success ? "successful" : "failed"); // Removed log
-    } catch (error) {
+    } catch (error: any) {
       set({ isSaving: false });
-      console.error("Auto-save error:", error); // Keep error log
+      throw new Error(`Auto-save error: ${error.message}`);
     }
   }, 2000);
 
@@ -158,7 +147,6 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
     // Block Actions
     addBlock: (block, dropAreaId) => {
-      console.log(`[Store Action] addBlock called for area: ${dropAreaId}`); // ADD THIS LOG
       const id = `block-${Date.now()}`;
       const newBlock: BlockType = {
         ...block,
@@ -172,8 +160,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       set((state) => {
         const targetArea = findDropAreaById(state.dropAreas, dropAreaId);
         if (!targetArea) {
-          console.error(`Drop area ${dropAreaId} not found`);
-          return state;
+          throw new Error(`Drop area ${dropAreaId} not found`);
         }
 
         const updated = updateDropAreaById(
@@ -222,28 +209,16 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     moveBlock: (blockId, sourceAreaId, targetAreaId) => {
-      console.log(
-        `[Store Action] moveBlock called for block ${blockId} from ${sourceAreaId} to ${targetAreaId}`
-      ); // ADD THIS LOG
-      // const traceId = `move_${Date.now()}_${Math.floor(Math.random() * 1000)}`; // Removed log
-      // console.log( // Removed log
-      //   `[${traceId}] Moving block ${blockId} from ${sourceAreaId} to ${targetAreaId}`
-      // );
-
       set((state) => {
         try {
           const { block: foundBlock, dropAreaId: actualSourceAreaId } =
             findBlockById(state.dropAreas, blockId);
           if (!foundBlock) {
-            // console.error(`[${traceId}] Block ${blockId} not found`); // Removed log
-            return state;
+            throw new Error(`Block ${blockId} not found`);
           }
 
           const sourceAreaToUse = actualSourceAreaId || sourceAreaId;
           if (sourceAreaToUse === targetAreaId) {
-            // console.log( // Removed log
-            //   `[${traceId}] Source and target are the same, skipping`
-            // );
             return state;
           }
 
@@ -311,10 +286,8 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           );
 
           return { ...state, dropAreas: rootAreas };
-        } catch {
-          // Removed unused 'error' variable
-          // console.error(`[${traceId}] Error moving block:`, error); // Removed log
-          return state;
+        } catch (error: any) {
+          throw new Error(`Error moving block: ${error.message}`);
         }
       });
 
@@ -329,8 +302,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         const { block: foundBlock, dropAreaId: actualDropAreaId } =
           findBlockById(state.dropAreas, blockId);
         if (!foundBlock) {
-          console.error(`Block ${blockId} not found`);
-          return state;
+          throw new Error(`Block ${blockId} not found`);
         }
 
         const dropAreaToUse = actualDropAreaId || dropAreaId;
@@ -362,8 +334,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         const { block: foundBlock, dropAreaId: actualDropAreaId } =
           findBlockById(state.dropAreas, blockId);
         if (!foundBlock) {
-          console.error(`Block ${blockId} not found`);
-          return state;
+          throw new Error(`Block ${blockId} not found`);
         }
 
         const dropAreaToUse = actualDropAreaId || dropAreaId;
@@ -389,9 +360,6 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     selectBlock: (id) => set({ selectedBlockId: id }),
 
     reorderBlocks: (dropAreaId, blocks) => {
-      console.log(
-        `[Store Action] reorderBlocks called for area: ${dropAreaId}`
-      ); // ADD THIS LOG
       set((state) => {
         const blocksCopy = blocks.map((block) => ({ ...block }));
         const updated = updateDropAreaById(
@@ -410,9 +378,6 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     addBlockAtIndex: (block, dropAreaId, index) => {
-      console.log(
-        `[Store Action] addBlockAtIndex called for area: ${dropAreaId}, index: ${index}`
-      ); // ADD THIS LOG
       const id = `block-${Date.now()}`;
       const newBlock: BlockType = {
         ...block,
@@ -429,10 +394,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         const targetArea = findDropAreaById(dropAreasCopy, dropAreaId);
 
         if (!targetArea) {
-          console.error(
+          throw new Error(
             `[addBlockAtIndex] Target drop area ${dropAreaId} not found.`
           );
-          return state; // Return original state if area not found
         }
 
         // Insert block at the specified index directly into the found area's blocks
@@ -578,8 +542,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     deleteDropArea: (dropAreaId) => {
       set((state) => {
         if (state.dropAreas.length <= 1) {
-          console.error("Cannot delete the only drop area");
-          return state;
+          throw new Error("Cannot delete the only drop area");
         }
 
         const updated = state.dropAreas.filter(
@@ -680,15 +643,10 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
     // Project Actions
     loadProject: async (projectId) => {
-      // set({ isLoading: true }); // Keep logs for load/save
-      // console.log(`Loading project: ${projectId}`);
-
       try {
         const projectData = await loadProjectFromStorage(projectId);
         if (!projectData) {
-          console.error(`Project ${projectId} not found`);
-          set({ isLoading: false });
-          return false;
+          throw new Error(`Project ${projectId} not found`);
         }
 
         const dropAreasCopy = JSON.parse(JSON.stringify(projectData.dropAreas));
@@ -701,10 +659,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         });
 
         return true;
-      } catch (error) {
-        console.error(`Error loading project ${projectId}:`, error);
+      } catch (error: any) {
         set({ isLoading: false });
-        return false;
+        throw new Error(`Error loading project ${projectId}: ${error.message}`);
       }
     },
 
@@ -715,7 +672,6 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         return !!newId;
       }
 
-      // set({ isSaving: true }); // Keep logs for load/save
       try {
         const existingProjectData = await loadProjectFromStorage(
           currentProjectId
@@ -737,10 +693,11 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         });
 
         return success;
-      } catch (error) {
-        console.error(`Error saving project ${currentProjectId}:`, error);
+      } catch (error: any) {
         set({ isSaving: false });
-        return false;
+        throw new Error(
+          `Error saving project ${currentProjectId}: ${error.message}`
+        );
       }
     },
 
@@ -762,7 +719,6 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         return currentProjectId;
       }
 
-      // set({ isSaving: true }); // Keep logs for load/save
       try {
         const newProjectId = `project-${Date.now()}`;
         const projectData: ProjectData = {
@@ -797,10 +753,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         });
 
         return newProjectId;
-      } catch (error) {
-        console.error("Error creating new project:", error);
+      } catch (error: any) {
         set({ isSaving: false });
-        return null;
+        throw new Error("Error creating new project: " + error.message);
       }
     },
 
@@ -818,20 +773,10 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     toggleAutoSave: (enabled) => set({ autoSaveEnabled: enabled }),
 
     triggerAutoSave: () => {
-      // console.log("[triggerAutoSave] Called"); // Removed log
       const { autoSaveEnabled, currentProjectId, isSaving } = get();
-      // console.log("[triggerAutoSave] Conditions:", { // Removed log
-      //   isSaving,
-      //   autoSaveEnabled,
-      //   currentProjectId,
-      // });
       if (isSaving || !autoSaveEnabled || !currentProjectId) {
-        // console.log( // Removed log
-        //   "[triggerAutoSave] Skipping debouncedSave call due to conditions."
-        // );
         return;
       }
-      // console.log("[triggerAutoSave] Calling debouncedSave..."); // Removed log
       debouncedSave();
     },
 
@@ -848,8 +793,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         );
 
         if (beforeIndex === -1 || afterIndex === -1) {
-          console.error("Could not find areas to insert between");
-          return state;
+          throw new Error("Could not find areas to insert between");
         }
 
         rootAreas.splice(afterIndex, 0, {
@@ -894,8 +838,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           const { block: foundBlock, dropAreaId: actualSourceAreaId } =
             findBlockById(updatedAreas, item.id);
           if (!foundBlock) {
-            console.error(`Block ${item.id} not found for insertion`);
-            return state;
+            throw new Error(`Block ${item.id} not found for insertion`);
           }
 
           updatedAreas = updateDropAreaById(

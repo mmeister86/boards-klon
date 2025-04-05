@@ -49,6 +49,7 @@ export function DropAreaContent({
   const [draggedItemOriginalIndex, setDraggedItemOriginalIndex] = useState<
     number | null
   >(null); // Track original index of dragged item
+  const [error, setError] = useState<string | null>(null); // Track errors
 
   // Ensure blockRefs array has the correct size
   useEffect(() => {
@@ -70,6 +71,20 @@ export function DropAreaContent({
       delete window.resetDropAreaContentHover;
     };
   }, []); // Empty dependency array ensures it runs once
+
+  // Reset hover state when window is blurred
+  useEffect(() => {
+    const handleBlur = () => {
+      setHoverIndex(null);
+    };
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, []);
+
+  // Handle errors
+  const handleError = (error: Error) => {
+    setError(error.message);
+  };
 
   // --- Container Drop Logic ---
   const [{ isOverContainer, canDropOnContainer }, dropContainer] = useDrop<
@@ -377,11 +392,8 @@ export function DropAreaContent({
             targetIndex // Pass the calculated insertion index
           );
         }
-      } catch (error) {
-        console.error(
-          `[DropAreaContent:${dropId}] Error during drop operation:`,
-          error
-        );
+      } catch (error: any) {
+        handleError(error);
       }
 
       // Always reset state

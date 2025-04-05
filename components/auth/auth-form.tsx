@@ -58,9 +58,8 @@ export default function AuthForm() {
         router.push("/editor");
         router.refresh();
       }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -91,9 +90,8 @@ export default function AuthForm() {
       } else {
         setSuccess("Check your email to confirm your account!");
       }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }

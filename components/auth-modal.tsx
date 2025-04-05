@@ -74,9 +74,8 @@ export default function AuthModal({
           "Magischer Link gesendet! Überprüfen Sie Ihre E-Mail, um sich anzumelden"
         );
       }
-    } catch (err) {
-      setError("Ein unerwarteter Fehler ist aufgetreten");
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -106,9 +105,8 @@ export default function AuthModal({
           "Magischer Link gesendet! Überprüfen Sie Ihre E-Mail, um die Registrierung abzuschließen"
         );
       }
-    } catch (err) {
-      setError("Ein unerwarteter Fehler ist aufgetreten");
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
