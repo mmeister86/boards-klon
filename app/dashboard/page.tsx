@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PlusCircle, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,31 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Force refresh of project list
   const [refreshCounter, setRefreshCounter] = useState(0);
+
+  // Memoize the toast notifications to maintain stable references
+  const showErrorToast = useCallback(
+    (title: string, description: string) => {
+      toast({
+        title,
+        description,
+        variant: "destructive",
+      });
+    },
+    [toast]
+  );
+
+  const showInfoToast = useCallback(
+    (title: string, description: string) => {
+      toast({
+        title,
+        description,
+      });
+    },
+    [toast]
+  );
 
   // Force refresh when returning to dashboard page
   useEffect(() => {
@@ -34,7 +55,6 @@ export default function DashboardPage() {
     // Also add event listener for when the page becomes visible again (tab focus)
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("Dashboard visible again, refreshing projects list");
         setRefreshCounter((prev) => prev + 1);
       }
     };
@@ -49,107 +69,46 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadProjects() {
       setIsLoading(true);
-      console.log(`Loading projects (refresh #${refreshCounter})`);
 
       try {
         // Initialize storage with better error handling
-        let storageInitialized = false;
-        try {
-          storageInitialized = await initializeStorage();
-          if (!storageInitialized) {
-            console.warn(
-              "Storage initialization failed, showing empty dashboard"
-            );
-          }
-        } catch (initError) {
-          console.error("Error initializing storage:", initError);
-          // Continue anyway - we'll try to load projects or show empty dashboard
-        }
-
-        // Check if we need to migrate mock projects
-        if (!isInitialized) {
-          try {
-            const storedProjects = await listProjectsFromStorage();
-
-            // If no projects in storage, show empty dashboard
-            if (!storedProjects || storedProjects.length === 0) {
-              console.log(
-                "No projects found in storage. Showing empty dashboard..."
-              );
-              // No mock projects to migrate, just show empty dashboard
-              setProjects([]);
-            }
-            setIsInitialized(true);
-          } catch (migrateError) {
-            console.error(
-              "Error checking projects:",
-              migrateError
-            );
-            // If we can't check projects, show empty dashboard
-            setProjects([]);
-            setIsInitialized(true);
-            setIsLoading(false);
-
-            toast({
-              title: "Speicherfehler",
-              description:
-                "Kein Zugriff auf Cloud-Speicher möglich. Bitte versuchen Sie es später erneut.",
-              variant: "destructive",
-            });
-
-            return;
-          }
-        }
-
-        // Load projects from storage (with forced cache bypass)
-        try {
-          // Add a timestamp to force fresh data
-          const loadedProjects = await listProjectsFromStorage();
-          if (loadedProjects && loadedProjects.length > 0) {
-            setProjects(loadedProjects);
-            console.log(
-              `Successfully loaded ${loadedProjects.length} projects from storage`
-            );
-          } else {
-            // Show empty dashboard if no projects found
-            console.warn("No projects found in storage, showing empty dashboard");
-            setProjects([]);
-
-            toast({
-              title: "Keine Projekte",
-              description:
-                "Keine gespeicherten Projekte gefunden. Erstellen Sie ein neues Projekt.",
-            });
-          }
-        } catch (loadError) {
-          console.error("Error loading projects from storage:", loadError);
-          // Show empty dashboard with error message
+        const storageInitialized = await initializeStorage();
+        if (!storageInitialized) {
           setProjects([]);
-
-          toast({
-            title: "Fehler beim Laden der Projekte",
-            description:
-              "Ihre Projekte konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
-            variant: "destructive",
-          });
+          showErrorToast(
+            "Speicherfehler",
+            "Verbindung zum Cloud-Speicher nicht möglich. Bitte versuchen Sie es später erneut."
+          );
+          setIsLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error("Error in loadProjects:", error);
+
+        // Load projects from storage
+        const loadedProjects = await listProjectsFromStorage();
+        if (loadedProjects && loadedProjects.length > 0) {
+          setProjects(loadedProjects);
+        } else {
+          // Show empty dashboard if no projects found
+          setProjects([]);
+          showInfoToast(
+            "Keine Projekte",
+            "Keine gespeicherten Projekte gefunden. Erstellen Sie ein neues Projekt."
+          );
+        }
+      } catch {
         // Show empty dashboard with error message
         setProjects([]);
-        toast({
-          title: "Fehler beim Laden der Projekte",
-          description:
-            "Verwende lokale Daten. Änderungen werden nicht gespeichert.",
-          variant: "destructive",
-        });
+        showErrorToast(
+          "Fehler beim Laden der Projekte",
+          "Die Projekte konnten nicht geladen werden. Bitte versuchen Sie es später erneut."
+        );
       } finally {
         setIsLoading(false);
       }
     }
 
     loadProjects();
-  }, [isInitialized, toast, refreshCounter]);
+  }, [showErrorToast, showInfoToast, refreshCounter]);
 
   // Filter projects based on search query
   const filteredProjects = projects.filter((project) =>
@@ -170,12 +129,15 @@ export default function DashboardPage() {
     try {
       const loadedProjects = await listProjectsFromStorage();
       setProjects(loadedProjects);
-      toast({
-        title: "Projekt gelöscht",
-        description: "Das Projekt wurde erfolgreich gelöscht.",
-      });
-    } catch (error) {
-      console.error("Error refreshing projects:", error);
+      showInfoToast(
+        "Projekt gelöscht",
+        "Das Projekt wurde erfolgreich gelöscht."
+      );
+    } catch {
+      showErrorToast(
+        "Fehler beim Aktualisieren",
+        "Die Projektliste konnte nicht aktualisiert werden."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -183,11 +145,10 @@ export default function DashboardPage() {
 
   // Force manual refresh
   const forceRefresh = () => {
-    console.log("Manual refresh triggered");
     setRefreshCounter((prev) => prev + 1);
   };
 
-  // Debug log projects
+  // Remove debug logging
   useEffect(() => {
     if (projects.length > 0) {
       console.log("Loaded projects:", projects);

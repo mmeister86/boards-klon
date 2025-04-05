@@ -64,28 +64,12 @@ export async function saveProjectToStorage(
     const isAuthenticated = !!sessionData.session;
 
     if (!isAuthenticated) {
-      // Try localStorage fallback immediately
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem(
-          `project_${projectData.id}`,
-          JSON.stringify(projectData)
-        );
-        return true;
-      }
       return false;
     }
 
     // Initialize storage and check bucket access
     const initResult = await initializeStorage();
     if (!initResult) {
-      // Try localStorage fallback
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem(
-          `project_${projectData.id}`,
-          JSON.stringify(projectData)
-        );
-        return true;
-      }
       return false;
     }
 
@@ -107,14 +91,6 @@ export async function saveProjectToStorage(
       });
 
     if (error) {
-      // Try fallback to localStorage if browser storage is available
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem(
-          `project_${projectData.id}`,
-          JSON.stringify(projectData)
-        );
-        return true;
-      }
       return false;
     }
 
@@ -149,18 +125,7 @@ export async function loadProjectFromStorage(
       .from(BUCKET_NAME)
       .download(`${projectId}.json?t=${timestamp}`);
 
-    if (error) {
-      // Try to load from localStorage as a fallback
-      if (typeof window !== "undefined" && window.localStorage) {
-        const localData = localStorage.getItem(`project_${projectId}`);
-        if (localData) {
-          return JSON.parse(localData) as ProjectData;
-        }
-      }
-      return null;
-    }
-
-    if (!data) {
+    if (error || !data) {
       return null;
     }
 
@@ -192,43 +157,6 @@ export async function listProjectsFromStorage(): Promise<Project[]> {
     });
 
     if (error || !data || data.length === 0) {
-      // Try to get projects from localStorage
-      if (typeof window !== "undefined" && window.localStorage) {
-        const localProjects: Project[] = [];
-
-        // Loop through localStorage keys to find projects
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith("project_")) {
-            try {
-              // Extract project data from localStorage
-              const localProjectData = JSON.parse(
-                localStorage.getItem(key) || "{}"
-              ) as ProjectData;
-
-              // Convert to Project type
-              localProjects.push({
-                id: localProjectData.id,
-                title: localProjectData.title,
-                description: localProjectData.description,
-                createdAt: localProjectData.createdAt,
-                updatedAt: localProjectData.updatedAt,
-                blocks: localProjectData.dropAreas.reduce(
-                  (count, area) => count + area.blocks.length,
-                  0
-                ),
-                thumbnail: undefined,
-              });
-            } catch {
-              continue;
-            }
-          }
-        }
-
-        if (localProjects.length > 0) {
-          return localProjects;
-        }
-      }
       return [];
     }
 
