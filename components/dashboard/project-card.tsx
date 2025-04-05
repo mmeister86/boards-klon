@@ -50,14 +50,20 @@ export default function ProjectCard({
     setIsDeleting(true);
     try {
       const success = await deleteProjectFromStorage(project.id);
-      if (success && onDelete) {
-        onDelete();
+      if (success) {
+        setShowDeleteDialog(false);
+        if (onDelete) {
+          onDelete();
+        }
+      } else {
+        throw new Error("Failed to delete project");
       }
-    } catch (error: any) {
-      setError(error.message || "Error deleting project");
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "Error deleting project"
+      );
     } finally {
       setIsDeleting(false);
-      setShowDeleteDialog(false);
     }
   };
 
@@ -65,6 +71,13 @@ export default function ProjectCard({
     <>
       <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group">
         <div className="relative" onClick={onClick}>
+          {error && (
+            <div className="absolute inset-0 bg-destructive/10 flex items-center justify-center z-10">
+              <span className="text-sm text-destructive font-medium px-3 py-1 bg-background rounded-md">
+                {error}
+              </span>
+            </div>
+          )}
           <div
             className="aspect-video bg-muted overflow-hidden"
             style={{

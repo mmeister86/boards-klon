@@ -37,11 +37,13 @@
     "framer-motion": "^12.6.2",
     "lucide-react": "^0.485.0",
     "next": "14.2.25",
+    "next-themes": "^0.4.6",
     "react": "^18",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18",
     "react-icons": "^5.5.0",
+    "sonner": "^2.0.3",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.3"

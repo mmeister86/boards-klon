@@ -12,12 +12,11 @@ import {
   initializeStorage,
 } from "@/lib/supabase/storage";
 import type { Project } from "@/lib/types";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import Navbar from "@/components/layout/navbar";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,26 +25,17 @@ export default function DashboardPage() {
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Memoize the toast notifications to maintain stable references
-  const showErrorToast = useCallback(
-    (title: string, description: string) => {
-      toast({
-        title,
-        description,
-        variant: "destructive",
-      });
-    },
-    [toast]
-  );
+  const showErrorToast = useCallback((title: string, description: string) => {
+    toast.error(title, {
+      description: description,
+    });
+  }, []);
 
-  const showInfoToast = useCallback(
-    (title: string, description: string) => {
-      toast({
-        title,
-        description,
-      });
-    },
-    [toast]
-  );
+  const showInfoToast = useCallback((title: string, description: string) => {
+    toast(title, {
+      description: description,
+    });
+  }, []);
 
   // Force refresh when returning to dashboard page
   useEffect(() => {
@@ -127,12 +117,22 @@ export default function DashboardPage() {
     // Refresh the projects list
     setIsLoading(true);
     try {
+      // Show deletion success toast immediately
+      toast.error("Projekt gelöscht", {
+        description: "Das Projekt wurde erfolgreich gelöscht",
+        style: {
+          backgroundColor: "hsl(var(--destructive))",
+          color: "white",
+        },
+      });
+
+      // Then refresh the project list
       const loadedProjects = await listProjectsFromStorage();
-      setProjects(loadedProjects);
-      showInfoToast(
-        "Projekt gelöscht",
-        "Das Projekt wurde erfolgreich gelöscht."
-      );
+      if (loadedProjects) {
+        setProjects(loadedProjects);
+      } else {
+        throw new Error("Fehler beim Laden der Projekte");
+      }
     } catch {
       showErrorToast(
         "Fehler beim Aktualisieren",
