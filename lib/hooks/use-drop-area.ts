@@ -2,7 +2,7 @@
 
 import { useDrop } from "react-dnd";
 import { useState, useEffect, useRef } from "react";
-import { ItemTypes } from "@/lib/item-types";
+import { ItemTypes, markDropHandled } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 // Removed duplicate imports
 import type { DropAreaType } from "@/lib/types";
@@ -45,7 +45,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
 
   const [{ isOver, canDrop }, drop] = useDrop<
     DragItem,
-    { name: string } | undefined,
+    { name: string; handled: boolean; dropAreaId: string } | undefined,
     { isOver: boolean; canDrop: boolean }
   >({
     accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK], // Accepts new blocks and existing blocks
@@ -70,32 +70,77 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     },
     drop: (
       item: DragItem,
-      monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
+      monitor: DropTargetMonitor<DragItem, { name: string; handled: boolean; dropAreaId: string } | undefined>
     ) => {
       // Generate a unique ID for this drop operation for tracking in logs
-      const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`; // Keep ID generation
+      const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      
+      // Get item ID - for existing blocks use actual ID, for new blocks generate a unique ID
+      const itemId = item.id || `new-${item.type}-${Date.now()}`;
 
       // *** IMPORTANT: Check if the drop was already handled by a parent container (the Canvas gap drop) ***
       if (monitor.didDrop()) {
-        // console.log( // Removed log
-        //   `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
-        // );
+        console.log(
+          `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
+        );
         return undefined; // Let the parent handler deal with it
+      }
+      
+      // CRITICAL NEW CHECK: Check with the global drop tracker if this drop is already being handled
+      if (!markDropHandled(`DropArea-${dropArea.id}`, itemId)) {
+        console.log(
+          `[${dropOpId}] DropArea ${dropArea.id}: Drop for item ${itemId} rejected by global tracker.`
+        );
+        return undefined; // Another handler has claimed this drop
       }
 
       // If drop wasn't handled by parent, proceed
-      // console.log( // Removed log
-      //   `[${dropOpId}] DropArea ${dropArea.id}: Potential drop target.`
-      // );
+      console.log(
+        `[${dropOpId}] DropArea ${dropArea.id}: Potential drop target.`
+      );
       try {
+        // EXTRA CHECK: If this is an EXISTING_BLOCK and sourceDropAreaId matches this area
+        // Let the internal DropAreaContent handler handle it for reordering
+        if (item.type === ItemTypes.EXISTING_BLOCK && item.sourceDropAreaId === dropArea.id) {
+          console.log(
+            `[${dropOpId}] DropArea ${dropArea.id}: This is a reordering operation within this area. Letting DropAreaContent handle it.`
+          );
+          return undefined;
+        }
+        
         // *** NEW CHECK: If this area is populated, let nested targets handle it ***
         // We only handle drops directly here if the area is EMPTY.
         // Drops onto populated areas are handled by DropAreaContent's internal useDrop.
         if (dropArea.blocks.length > 0) {
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Area is populated. Allowing nested drop targets (like DropAreaContent) to handle.`
-          // );
-          // Returning undefined allows the event to potentially be handled by other drop targets.
+          console.log(
+            `[${dropOpId}] DropArea ${dropArea.id}: Area is populated. Allowing nested drop targets (like DropAreaContent) to handle.`
+          );
+          
+          // CRITICAL FIX: If this is an EXISTING_BLOCK from a different area, we need
+          // to handle it at this level regardless of whether the area is populated
+          if (item.type === ItemTypes.EXISTING_BLOCK && item.sourceDropAreaId !== dropArea.id && item.id) {
+            console.log(
+              `[${dropOpId}] DropArea ${dropArea.id}: IMPORTANT - Block is from a different area (${item.sourceDropAreaId}). Handling at this level to prevent duplication.`
+            );
+            
+            // Create a result before modifying state
+            const result = {
+              name: `Moved to Area ${dropArea.id}`,
+              handled: true,
+              dropAreaId: dropArea.id,
+              dropOpId,
+            };
+            
+            // Move the block in the next event loop tick
+            setTimeout(() => {
+              console.log(`[${dropOpId}] DropArea ${dropArea.id}: Moving block ${item.id} from ${item.sourceDropAreaId} to ${dropArea.id}`);
+              moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
+            }, 0);
+            
+            return result;
+          }
+          
+          // For other cases, let the nested handlers handle it
           return undefined;
         }
 
@@ -131,6 +176,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           const result = {
             name: `Dropped in Area ${dropArea.id}`,
             handled: true,
+            dropAreaId: dropArea.id,
             dropOpId,
           };
 
@@ -166,6 +212,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           const result = {
             name: `Added Block to ${dropArea.id}`,
             handled: true,
+            dropAreaId: dropArea.id,
             dropOpId,
           };
 

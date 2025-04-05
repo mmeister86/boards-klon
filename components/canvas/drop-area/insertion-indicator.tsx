@@ -11,17 +11,17 @@ export function InsertionIndicator({ isVisible }: InsertionIndicatorProps) {
     return null;
   }
 
-  // When visible, render a div that takes up space to push content down
-  // When not visible, render nothing (or a zero-height div if needed for transitions)
+  // Use margin to create space, keep height minimal for the bar itself
   return (
     <div
-      className={`transition-all duration-200 ease-out overflow-hidden ${
-        isVisible ? "h-10 py-1" : "h-0 py-0" // Use height and padding to create space
+      className={`transition-opacity duration-150 ease-out ${
+        isVisible ? "opacity-100 my-2" : "opacity-0 h-0 my-0" // Use margin-y (my-2) for spacing
       }`}
       aria-hidden="true"
     >
-      {/* Inner visual bar */}
-      <div className="h-2 w-full rounded-full bg-green-500/20 gap-6" />
+      {/* Inner visual bar - give it a small height */}
+      <div className="h-2 my-4 w-full rounded-full bg-primary/40" />{" "}
+      {/* Use primary color */}
     </div>
   );
 }

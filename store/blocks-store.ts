@@ -158,6 +158,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
     // Block Actions
     addBlock: (block, dropAreaId) => {
+      console.log(`[Store Action] addBlock called for area: ${dropAreaId}`); // ADD THIS LOG
       const id = `block-${Date.now()}`;
       const newBlock: BlockType = {
         ...block,
@@ -221,6 +222,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     moveBlock: (blockId, sourceAreaId, targetAreaId) => {
+      console.log(
+        `[Store Action] moveBlock called for block ${blockId} from ${sourceAreaId} to ${targetAreaId}`
+      ); // ADD THIS LOG
       // const traceId = `move_${Date.now()}_${Math.floor(Math.random() * 1000)}`; // Removed log
       // console.log( // Removed log
       //   `[${traceId}] Moving block ${blockId} from ${sourceAreaId} to ${targetAreaId}`
@@ -385,6 +389,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     selectBlock: (id) => set({ selectedBlockId: id }),
 
     reorderBlocks: (dropAreaId, blocks) => {
+      console.log(
+        `[Store Action] reorderBlocks called for area: ${dropAreaId}`
+      ); // ADD THIS LOG
       set((state) => {
         const blocksCopy = blocks.map((block) => ({ ...block }));
         const updated = updateDropAreaById(
@@ -403,6 +410,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     addBlockAtIndex: (block, dropAreaId, index) => {
+      console.log(
+        `[Store Action] addBlockAtIndex called for area: ${dropAreaId}, index: ${index}`
+      ); // ADD THIS LOG
       const id = `block-${Date.now()}`;
       const newBlock: BlockType = {
         ...block,
