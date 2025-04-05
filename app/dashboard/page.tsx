@@ -80,18 +80,18 @@ export default function DashboardPage() {
         } else {
           // Show empty dashboard if no projects found
           setProjects([]);
-          showInfoToast(
-            "Keine Projekte",
-            "Keine gespeicherten Projekte gefunden. Erstellen Sie ein neues Projekt."
-          );
         }
       } catch {
         // Show empty dashboard with error message
         setProjects([]);
-        showErrorToast(
-          "Fehler beim Laden der Projekte",
-          "Die Projekte konnten nicht geladen werden. Bitte versuchen Sie es später erneut."
-        );
+        toast.error("Fehler beim Laden", {
+          description:
+            "Die Projekte konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+          style: {
+            backgroundColor: "hsl(var(--destructive))",
+            color: "white",
+          },
+        });
       } finally {
         setIsLoading(false);
       }
