@@ -114,12 +114,12 @@ export function CustomDragLayer() {
     }));
 
   // Enhanced logging with timestamp for tracking drag previews
-  if (isDragging) {
-    console.log(`🔵 [${new Date().toISOString()}] DRAG PREVIEW RENDERING:`);
-    console.log(`Item type: ${String(itemType)}`);
-    console.log("Item data:", item);
-    console.log("Current offset:", currentOffset);
-  }
+  // if (isDragging) { // Removed log block
+  //   console.log(`🔵 [${new Date().toISOString()}] DRAG PREVIEW RENDERING:`);
+  //   console.log(`Item type: ${String(itemType)}`);
+  //   console.log("Item data:", item);
+  //   console.log("Current offset:", currentOffset);
+  // }
 
   // Only show for existing block items from the canvas
   if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {

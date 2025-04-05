@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // Import useState
 import { useBlocksStore } from "@/store/blocks-store";
 import type { BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
@@ -14,6 +14,7 @@ import React from "react";
 interface CanvasBlockProps {
   block: BlockType;
   viewport?: ViewportType;
+  index: number; // Add index prop
   onSplit?: () => void;
   canSplit?: boolean;
   isOnlyBlockInArea?: boolean;
@@ -21,6 +22,7 @@ interface CanvasBlockProps {
 
 export function CanvasBlock({
   block,
+  index, // Destructure index
   viewport = "desktop",
   onSplit,
   canSplit = true,
@@ -28,7 +30,9 @@ export function CanvasBlock({
 }: CanvasBlockProps) {
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
   const isSelected = selectedBlockId === block.id;
-  const { isDragging, drag } = useBlockDrag(block);
+  // Pass index to useBlockDrag
+  const { isDragging, drag } = useBlockDrag(block, index);
+  const [isHovering, setIsHovering] = useState(false); // Add hover state
 
   // Clear selection when dragging starts
   useEffect(() => {
@@ -62,17 +66,22 @@ export function CanvasBlock({
         transition-all duration-200 hover:shadow-md
       `}
         onClick={handleBlockClick}
+        onMouseEnter={() => setIsHovering(true)} // Add mouse enter handler
+        onMouseLeave={() => setIsHovering(false)} // Add mouse leave handler
         data-id={block.id}
         data-drop-area-id={block.dropAreaId}
       >
-        <BlockControls
-          onDelete={handleDelete}
-          onSplit={onSplit}
-          canSplit={canSplit && !!onSplit}
-          isDragging={isDragging}
-          drag={drag as any} // Pass drag ref down
-          showDeleteButton={!isOnlyBlockInArea}
-        />
+        {/* Conditionally render controls based on hover or selection */}
+        {(isHovering || isSelected) && (
+          <BlockControls
+            onDelete={handleDelete}
+            onSplit={onSplit}
+            canSplit={canSplit && !!onSplit}
+            isDragging={isDragging}
+            drag={drag as any} // Pass drag ref down
+            showDeleteButton={!isOnlyBlockInArea}
+          />
+        )}
         <div>
           <BlockContent block={block} viewport={viewport} />
         </div>
@@ -102,11 +111,11 @@ function BlockControls({
 
   return (
     <>
-      {/* Delete button - show on hover, only if showDeleteButton is true */}
+      {/* Delete button - show if allowed */}
       {showDeleteButton && (
         <button
           className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md
-                  hover:bg-red-600 transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
+                  hover:bg-red-600 transition-colors duration-200 z-10" // Removed opacity/group-hover
           onClick={onDelete}
           title="Block löschen"
         >
@@ -114,13 +123,13 @@ function BlockControls({
         </button>
       )}
 
-      {/* Split button - show on hover if splitting is allowed */}
+      {/* Split button - show if splitting is allowed */}
       {canSplit && onSplit && (
         <button
           className="absolute top-6 -right-2 bg-blue-500 text-white p-1.5 rounded-full shadow-md
-                    hover:bg-blue-600 transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
+                    hover:bg-blue-600 transition-colors duration-200 z-10" // Removed opacity/group-hover
           onClick={(e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // Keep stopPropagation here
             onSplit();
           }}
           title="Bereich teilen"
@@ -129,14 +138,14 @@ function BlockControls({
         </button>
       )}
 
-      {/* Move handle - only show on hover */}
+      {/* Move handle */}
       <button
         ref={drag}
         className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-2 rounded-full
                   shadow-md hover:bg-primary/90 cursor-grab active:cursor-grabbing
-                  ring-4 ring-background pulse-animation transition-all opacity-0 group-hover:opacity-100 z-20"
+                  ring-4 ring-background pulse-animation transition-colors z-20" // Removed opacity/group-hover
         title="Zum Verschieben ziehen"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()} // Keep stopPropagation here
       >
         <Move size={16} />
       </button>

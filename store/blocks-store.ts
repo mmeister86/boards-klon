@@ -37,6 +37,11 @@ interface BlocksState {
 
   // Block Actions
   addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => void;
+  addBlockAtIndex: (
+    block: Omit<BlockType, "id">,
+    dropAreaId: string,
+    index: number
+  ) => void; // New action
   moveBlock: (
     blockId: string,
     sourceAreaId: string,
@@ -102,14 +107,20 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     const { currentProjectTitle, currentProjectId, isSaving, autoSaveEnabled } =
       get();
 
+    // console.log("[debouncedSave] Checking conditions:", { // Removed log
+    //   isSaving,
+    //   currentProjectId,
+    //   autoSaveEnabled,
+    // });
+
     if (isSaving || !currentProjectId || !autoSaveEnabled) {
-      console.log(
-        "Auto-save skipped: Already saving, no project ID, or disabled"
-      );
+      // console.log( // Removed log
+      //   "[debouncedSave] Auto-save skipped: Already saving, no project ID, or disabled"
+      // );
       return;
     }
 
-    console.log("Auto-save triggered for project:", currentProjectId);
+    // console.log("Auto-save triggered for project:", currentProjectId); // Can keep this one if desired
     set({ isSaving: true });
 
     try {
@@ -118,10 +129,10 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         lastSaved: success ? new Date() : null,
         isSaving: false,
       });
-      console.log("Auto-save", success ? "successful" : "failed");
+      // console.log("Auto-save", success ? "successful" : "failed"); // Removed log
     } catch (error) {
       set({ isSaving: false });
-      console.error("Auto-save error:", error);
+      console.error("Auto-save error:", error); // Keep error log
     }
   }, 2000);
 
@@ -167,10 +178,13 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         const updated = updateDropAreaById(
           state.dropAreas,
           dropAreaId,
-          (area) => ({
-            ...area,
-            blocks: [...area.blocks, newBlock],
-          })
+          (area) => {
+            // Create a deep copy of the area before modifying to ensure isolation
+            const areaCopy = JSON.parse(JSON.stringify(area));
+            // Modify the copy
+            areaCopy.blocks.push(newBlock);
+            return areaCopy; // Return the modified deep copy
+          }
         );
 
         // Add new empty area if needed
@@ -207,25 +221,25 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     moveBlock: (blockId, sourceAreaId, targetAreaId) => {
-      const traceId = `move_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      console.log(
-        `[${traceId}] Moving block ${blockId} from ${sourceAreaId} to ${targetAreaId}`
-      );
+      // const traceId = `move_${Date.now()}_${Math.floor(Math.random() * 1000)}`; // Removed log
+      // console.log( // Removed log
+      //   `[${traceId}] Moving block ${blockId} from ${sourceAreaId} to ${targetAreaId}`
+      // );
 
       set((state) => {
         try {
           const { block: foundBlock, dropAreaId: actualSourceAreaId } =
             findBlockById(state.dropAreas, blockId);
           if (!foundBlock) {
-            console.error(`[${traceId}] Block ${blockId} not found`);
+            // console.error(`[${traceId}] Block ${blockId} not found`); // Removed log
             return state;
           }
 
           const sourceAreaToUse = actualSourceAreaId || sourceAreaId;
           if (sourceAreaToUse === targetAreaId) {
-            console.log(
-              `[${traceId}] Source and target are the same, skipping`
-            );
+            // console.log( // Removed log
+            //   `[${traceId}] Source and target are the same, skipping`
+            // );
             return state;
           }
 
@@ -293,8 +307,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           );
 
           return { ...state, dropAreas: rootAreas };
-        } catch (error) {
-          console.error(`[${traceId}] Error moving block:`, error);
+        } catch {
+          // Removed unused 'error' variable
+          // console.error(`[${traceId}] Error moving block:`, error); // Removed log
           return state;
         }
       });
@@ -385,6 +400,45 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       });
 
       get().triggerAutoSave();
+    },
+
+    addBlockAtIndex: (block, dropAreaId, index) => {
+      const id = `block-${Date.now()}`;
+      const newBlock: BlockType = {
+        ...block,
+        id,
+        dropAreaId, // Ensure dropAreaId is set on the block itself
+        ...(block.type === "heading" && {
+          headingLevel: block.headingLevel || 1,
+        }),
+      };
+
+      set((state) => {
+        // --- Simplified State Update ---
+        const dropAreasCopy = JSON.parse(JSON.stringify(state.dropAreas));
+        const targetArea = findDropAreaById(dropAreasCopy, dropAreaId);
+
+        if (!targetArea) {
+          console.error(
+            `[addBlockAtIndex] Target drop area ${dropAreaId} not found.`
+          );
+          return state; // Return original state if area not found
+        }
+
+        // Insert block at the specified index directly into the found area's blocks
+        targetArea.blocks.splice(index, 0, newBlock);
+
+        // Note: Unlike addBlock, we don't automatically add a new empty area here.
+        // Insertion should happen within the target area.
+        return { ...state, dropAreas: dropAreasCopy };
+        // --- End Simplified State Update ---
+      });
+
+      // Cleanup and auto-save
+      setTimeout(() => {
+        get().cleanupEmptyDropAreas();
+        get().triggerAutoSave();
+      }, 0);
     },
 
     // Drop Area Actions
@@ -616,8 +670,8 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
     // Project Actions
     loadProject: async (projectId) => {
-      set({ isLoading: true });
-      console.log(`Loading project: ${projectId}`);
+      // set({ isLoading: true }); // Keep logs for load/save
+      // console.log(`Loading project: ${projectId}`);
 
       try {
         const projectData = await loadProjectFromStorage(projectId);
@@ -651,7 +705,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         return !!newId;
       }
 
-      set({ isSaving: true });
+      // set({ isSaving: true }); // Keep logs for load/save
       try {
         const existingProjectData = await loadProjectFromStorage(
           currentProjectId
@@ -698,7 +752,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         return currentProjectId;
       }
 
-      set({ isSaving: true });
+      // set({ isSaving: true }); // Keep logs for load/save
       try {
         const newProjectId = `project-${Date.now()}`;
         const projectData: ProjectData = {
@@ -754,10 +808,20 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     toggleAutoSave: (enabled) => set({ autoSaveEnabled: enabled }),
 
     triggerAutoSave: () => {
+      // console.log("[triggerAutoSave] Called"); // Removed log
       const { autoSaveEnabled, currentProjectId, isSaving } = get();
+      // console.log("[triggerAutoSave] Conditions:", { // Removed log
+      //   isSaving,
+      //   autoSaveEnabled,
+      //   currentProjectId,
+      // });
       if (isSaving || !autoSaveEnabled || !currentProjectId) {
+        // console.log( // Removed log
+        //   "[triggerAutoSave] Skipping debouncedSave call due to conditions."
+        // );
         return;
       }
+      // console.log("[triggerAutoSave] Calling debouncedSave..."); // Removed log
       debouncedSave();
     },
 

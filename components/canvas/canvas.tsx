@@ -28,7 +28,6 @@ interface DragItem {
 export default function Canvas() {
   const {
     dropAreas,
-    selectBlock,
     cleanupEmptyDropAreas,
     insertBlockInNewArea, // Get the new store action
     previewMode,
@@ -88,11 +87,6 @@ export default function Canvas() {
       }
     };
   }, []); // Empty dependency array ensures this runs only on mount and unmount
-
-  const handleCanvasClick = () => {
-    // Deselect any selected block when clicking on the canvas background
-    selectBlock(null);
-  };
 
   // --- Centralized Drop Logic for Gaps ---
   const [, drop] = useDrop<DragItem, void, { isOverCanvas: boolean }>({
@@ -223,14 +217,14 @@ export default function Canvas() {
       }
 
       if (hoveredInsertionIndex !== null) {
-        console.log(
-          `Canvas: Drop detected in gap at index ${hoveredInsertionIndex}`
-        );
+        // console.log( // Removed log
+        //   `Canvas: Drop detected in gap at index ${hoveredInsertionIndex}`
+        // );
         insertBlockInNewArea(item, hoveredInsertionIndex);
         setHoveredInsertionIndex(null); // Reset state immediately on drop
         return undefined;
       }
-      console.log("Canvas: Drop not in gap, letting DropArea handle.");
+      // console.log("Canvas: Drop not in gap, letting DropArea handle."); // Removed log
       return undefined;
     },
     collect: (monitor) => ({
@@ -245,10 +239,7 @@ export default function Canvas() {
   };
 
   return (
-    <div
-      className="flex-1 bg-muted overflow-auto p-6"
-      onClick={handleCanvasClick}
-    >
+    <div className="flex-1 bg-muted overflow-auto p-6">
       {/* Header with centered viewport selector and right-aligned preview toggle */}
       <div className="relative flex justify-center items-center mb-6">
         <ViewportSelector />

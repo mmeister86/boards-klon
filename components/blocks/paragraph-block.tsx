@@ -231,6 +231,10 @@ export function ParagraphBlock({
           view.dom.style.cursor = "text";
           return false;
         },
+        // --- Reverted drag event handlers ---
+        // dragover: ... (removed)
+        // drop: ... (removed)
+        // --- End reverted drag event handlers ---
       },
       handleKeyDown: (view, event) => {
         // Ctrl/Cmd + B for bold

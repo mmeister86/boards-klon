@@ -73,47 +73,58 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
     ) => {
       // Generate a unique ID for this drop operation for tracking in logs
-      const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-      console.log(
-        `[${dropOpId}] DROP START - Area ${dropArea.id} - Item: `,
-        item
-      );
+      const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`; // Keep ID generation
 
       // *** IMPORTANT: Check if the drop was already handled by a parent container (the Canvas gap drop) ***
       if (monitor.didDrop()) {
-        console.log(
-          `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
-        );
+        // console.log( // Removed log
+        //   `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
+        // );
         return undefined; // Let the parent handler deal with it
       }
 
-      // If drop wasn't handled by parent, proceed with dropping directly into this area
-      console.log(
-        `[${dropOpId}] DropArea ${dropArea.id}: Handling drop directly.`
-      );
+      // If drop wasn't handled by parent, proceed
+      // console.log( // Removed log
+      //   `[${dropOpId}] DropArea ${dropArea.id}: Potential drop target.`
+      // );
       try {
-        // Ensure we are actually over this specific target
-        if (!monitor.isOver({ shallow: true })) {
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Drop occurred but not directly over, ignoring.`
-          );
+        // *** NEW CHECK: If this area is populated, let nested targets handle it ***
+        // We only handle drops directly here if the area is EMPTY.
+        // Drops onto populated areas are handled by DropAreaContent's internal useDrop.
+        if (dropArea.blocks.length > 0) {
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: Area is populated. Allowing nested drop targets (like DropAreaContent) to handle.`
+          // );
+          // Returning undefined allows the event to potentially be handled by other drop targets.
           return undefined;
         }
 
-        // Handle moving an existing block
+        // --- Area is EMPTY, proceed with handling the drop directly ---
+        // console.log( // Removed log
+        //   `[${dropOpId}] DropArea ${dropArea.id}: Area is EMPTY. Handling drop directly.`
+        // );
+
+        // Ensure we are actually over this specific target (still relevant for empty areas)
+        if (!monitor.isOver({ shallow: true })) {
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: Drop occurred but not directly over the empty area, ignoring.`
+          // );
+          return undefined;
+        }
+
+        // Handle moving an existing block (rare case: moving into an empty top-level area?)
         if (item.sourceDropAreaId && item.id) {
           // Don't allow dropping back into the same area it came from
           if (item.sourceDropAreaId === dropArea.id) {
-            console.log(
-              `[${dropOpId}] DropArea ${dropArea.id}: Block dropped back into original area, ignoring.`
-            );
+            // console.log( // Removed log
+            //   `[${dropOpId}] DropArea ${dropArea.id}: Block dropped back into original area, ignoring.`
+            // );
             return undefined;
           }
 
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED drop for block ${item.id} from ${item.sourceDropAreaId} to here. Preparing result...`
-          );
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED drop for block ${item.id} from ${item.sourceDropAreaId} to here. Preparing result...`
+          // );
 
           // First, create and return a result BEFORE modifying state
           // This is critical - it tells react-dnd that this handler has claimed this drop
@@ -124,32 +135,32 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           };
 
           // Schedule the moveBlock call to run AFTER this drop handler returns
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Scheduling moveBlock operation to run AFTER drop completes`
-          );
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: Scheduling moveBlock operation to run AFTER drop completes`
+          // );
 
           // Use setTimeout to move this to the next event loop tick
           setTimeout(() => {
-            console.log(
-              `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING moveBlock(${item.id}, ${item.sourceDropAreaId}, ${dropArea.id})`
-            );
+            // console.log( // Removed log
+            //   `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING moveBlock(${item.id}, ${item.sourceDropAreaId}, ${dropArea.id})`
+            // );
             // Add non-null assertions as item.id and item.sourceDropAreaId are checked above
             moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
-            console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`);
+            // console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`); // Removed log
           }, 0);
 
           // Return the result immediately
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
-            result
-          );
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
+          //   result
+          // );
           return result;
         }
-        // Handle adding a new block (dragged from sidebar)
+        // Handle adding a new block (dragged from sidebar) into this EMPTY area
         else {
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED new block of type ${item.type}. Preparing result...`
-          );
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED new block of type ${item.type} into EMPTY area. Preparing result...`
+          // );
 
           // Return a result BEFORE calling addBlock
           const result = {
@@ -159,15 +170,15 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           };
 
           // Schedule the addBlock call to run AFTER this drop handler returns
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Scheduling addBlock operation to run AFTER drop completes`
-          );
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: Scheduling addBlock operation to run AFTER drop completes`
+          // );
 
           // Add the block AFTER setting the result
           setTimeout(() => {
-            console.log(
-              `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING addBlock for new ${item.type} block`
-            );
+            // console.log( // Removed log
+            //   `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING addBlock for new ${item.type} block`
+            // );
             addBlock(
               {
                 // Create the block data
@@ -177,14 +188,14 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               },
               dropArea.id // Target drop area ID
             );
-            console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`);
+            // console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`); // Removed log
           }, 0);
 
           // Return the result immediately
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
-            result
-          );
+          // console.log( // Removed log
+          //   `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
+          //   result
+          // );
           return result;
         }
       } catch (error) {
@@ -235,7 +246,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     if (!isHovering || !mousePosition || !dropTargetRef.current) {
       // If not hovering or missing data, ensure merge target is cleared
       if (mergeTarget !== null) {
-        // console.log(
+        // console.log( // Removed log
         //   `${dropArea.id}: Clearing merge target (not hovering or missing data)`
         // );
         setMergeTarget(null);
@@ -247,21 +258,21 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     if (!isNearEdge(mousePosition, dropTargetRef.current)) {
       // If not near edge, ensure merge target is cleared
       if (mergeTarget !== null) {
-        // console.log(`${dropArea.id}: Clearing merge target (not near edge)`);
+        // console.log(`${dropArea.id}: Clearing merge target (not near edge)`); // Removed log
         setMergeTarget(null);
       }
       return;
     }
 
     // --- Proximity check passed, proceed with merge logic ---
-    // console.log(`${dropArea.id}: Near edge, checking merge possibility...`);
+    // console.log(`${dropArea.id}: Near edge, checking merge possibility...`); // Removed log
 
     // We need to be part of a split area to merge
     if (!dropArea.parentId) {
       if (mergeTarget !== null) {
-        console.log(
-          `${dropArea.id}: Clearing merge target because no parent ID`
-        );
+        // console.log( // Removed log
+        //   `${dropArea.id}: Clearing merge target because no parent ID`
+        // );
         setMergeTarget(null);
       }
       return;
@@ -273,9 +284,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       : null;
     if (!parent || !parent.isSplit || parent.splitAreas.length !== 2) {
       if (mergeTarget !== null) {
-        console.log(
-          `${dropArea.id}: Clearing merge target because no valid parent found`
-        );
+        // console.log( // Removed log
+        //   `${dropArea.id}: Clearing merge target because no valid parent found`
+        // );
         setMergeTarget(null);
       }
       return;
@@ -287,9 +298,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     ); // Added type DropAreaType
     if (!sibling) {
       if (mergeTarget !== null) {
-        console.log(
-          `${dropArea.id}: Clearing merge target because no sibling found`
-        );
+        // console.log( // Removed log
+        //   `${dropArea.id}: Clearing merge target because no sibling found`
+        // );
         setMergeTarget(null);
       }
       return;
@@ -299,7 +310,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     if (canMerge(dropArea.id, sibling.id)) {
       // Only update if changing
       if (mergeTarget !== sibling.id) {
-        console.log(`${dropArea.id}: Setting merge target to ${sibling.id}`);
+        // console.log(`${dropArea.id}: Setting merge target to ${sibling.id}`); // Removed log
 
         // Set the merge position based on which side we're on
         const isLeftArea = parent.splitAreas[0].id === dropArea.id;
@@ -311,9 +322,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     } else {
       // Clear the merge target if we can't merge
       if (mergeTarget !== null) {
-        console.log(
-          `${dropArea.id}: Clearing merge target because cannot merge with sibling`
-        );
+        // console.log( // Removed log
+        //   `${dropArea.id}: Clearing merge target because cannot merge with sibling`
+        // );
         setMergeTarget(null);
       }
     }
@@ -410,26 +421,26 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
 
     // --- DEBUG LOGGING ---
     // Only log if the state might be relevant (hovering or indicator was expected)
-    if (isHovering || finalShouldShow) {
-      // Update log condition
-      console.log(`[Split Indicator Debug] Area: ${dropArea.id}`, {
-        "Prop: showSplitIndicator": showSplitIndicator,
-        "State: isHovering": isHovering,
-        "State: isOver": isOver,
-        "State: isEmpty": dropArea.blocks.length === 0,
-        "Result: canSplit()": isSplittable,
-        "State: mergeTarget": mergeTarget, // Keep for context
-        "Check: shouldShowMergeIndicator()": showMerge, // Add merge check result
-        "FINAL shouldShow": finalShouldShow, // Log final decision
-        "Area Details": {
-          id: dropArea.id,
-          splitLevel: dropArea.splitLevel,
-          isSplit: dropArea.isSplit,
-          parentId: dropArea.parentId,
-        },
-        viewport: viewport,
-      });
-    }
+    // if (isHovering || finalShouldShow) { // Removed log block
+    //   // Update log condition
+    //   console.log(`[Split Indicator Debug] Area: ${dropArea.id}`, {
+    //     "Prop: showSplitIndicator": showSplitIndicator,
+    //     "State: isHovering": isHovering,
+    //     "State: isOver": isOver,
+    //     "State: isEmpty": dropArea.blocks.length === 0,
+    //     "Result: canSplit()": isSplittable,
+    //     "State: mergeTarget": mergeTarget, // Keep for context
+    //     "Check: shouldShowMergeIndicator()": showMerge, // Add merge check result
+    //     "FINAL shouldShow": finalShouldShow, // Log final decision
+    //     "Area Details": {
+    //       id: dropArea.id,
+    //       splitLevel: dropArea.splitLevel,
+    //       isSplit: dropArea.isSplit,
+    //       parentId: dropArea.parentId,
+    //     },
+    //     viewport: viewport,
+    //   });
+    // }
     // --- END DEBUG LOGGING ---
 
     return finalShouldShow; // Return the refined value
