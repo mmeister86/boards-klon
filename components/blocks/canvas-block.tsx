@@ -31,6 +31,7 @@ export function CanvasBlock({
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
   const isSelected = selectedBlockId === block.id;
   // Pass index to useBlockDrag
+  // Use the drag hook directly - our tracking system will prevent duplicate drags
   const { isDragging, drag } = useBlockDrag(block, index);
   const [isHovering, setIsHovering] = useState(false); // Add hover state
 
