@@ -196,7 +196,9 @@ function BlockContent({ block, viewport }: BlockContentProps) {
 
     return (
       <HeadingBlock
-        level={validatedLevel} // Use validated level
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        level={validatedLevel}
         content={block.content}
         onChange={handleHeadingChange}
       />

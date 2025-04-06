@@ -3,8 +3,77 @@
   @apply prose max-w-none;
 }
 
+.tiptap-heading-editor {
+  @apply prose max-w-none;
+  min-height: 2.5rem !important; /* Base height matching h3 */
+  height: auto !important;
+}
+
+.tiptap-heading-editor h1 {
+  @apply my-0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 3.5rem !important;
+  line-height: 3.5rem !important;
+}
+
+.tiptap-heading-editor h2 {
+  @apply my-0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 3rem !important;
+  line-height: 3rem !important;
+}
+
+.tiptap-heading-editor h3,
+.tiptap-heading-editor h4,
+.tiptap-heading-editor h5,
+.tiptap-heading-editor h6 {
+  @apply my-0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 2.5rem !important;
+  line-height: 2.5rem !important;
+}
+
+.tiptap-heading-editor p {
+  @apply my-0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 2.5rem !important;
+  line-height: 2.5rem !important;
+}
+
 .tiptap-paragraph-editor p {
   @apply my-2;
+}
+
+.tiptap-paragraph-editor h1 {
+  @apply text-4xl font-bold tracking-tight mt-4 mb-2;
+}
+
+.tiptap-paragraph-editor h2 {
+  @apply text-3xl font-bold tracking-tight mt-4 mb-2;
+}
+
+.tiptap-paragraph-editor h3 {
+  @apply text-2xl font-bold tracking-tight mt-3 mb-2;
+}
+
+.tiptap-paragraph-editor h4 {
+  @apply text-xl font-bold tracking-tight mt-3 mb-2;
+}
+
+.tiptap-paragraph-editor h5 {
+  @apply text-lg font-bold tracking-tight mt-2 mb-1;
+}
+
+.tiptap-paragraph-editor h6 {
+  @apply text-base font-bold tracking-tight mt-2 mb-1;
 }
 
 .tiptap-paragraph-editor ul {
@@ -50,6 +119,30 @@
 
 .preview-content p {
   @apply my-2;
+}
+
+.preview-content h1 {
+  @apply text-4xl font-bold tracking-tight mt-4 mb-2;
+}
+
+.preview-content h2 {
+  @apply text-3xl font-bold tracking-tight mt-4 mb-2;
+}
+
+.preview-content h3 {
+  @apply text-2xl font-bold tracking-tight mt-3 mb-2;
+}
+
+.preview-content h4 {
+  @apply text-xl font-bold tracking-tight mt-3 mb-2;
+}
+
+.preview-content h5 {
+  @apply text-lg font-bold tracking-tight mt-2 mb-1;
+}
+
+.preview-content h6 {
+  @apply text-base font-bold tracking-tight mt-2 mb-1;
 }
 
 .preview-content ul {

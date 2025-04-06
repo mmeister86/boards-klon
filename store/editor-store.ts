@@ -12,6 +12,12 @@ interface EditorState {
     orderedList: boolean;
     blockquote: boolean;
     link: boolean;
+    heading1: boolean;
+    heading2: boolean;
+    heading3: boolean;
+    heading4: boolean;
+    heading5: boolean;
+    heading6: boolean;
   };
   // Actions
   setFocus: (focused: boolean) => void;
@@ -31,6 +37,12 @@ export const useEditorStore = create<EditorState>((set) => ({
     orderedList: false,
     blockquote: false,
     link: false,
+    heading1: false,
+    heading2: false,
+    heading3: false,
+    heading4: false,
+    heading5: false,
+    heading6: false,
   },
 
   // Actions
@@ -50,6 +62,12 @@ export const useEditorStore = create<EditorState>((set) => ({
         orderedList: false,
         blockquote: false,
         link: false,
+        heading1: false,
+        heading2: false,
+        heading3: false,
+        heading4: false,
+        heading5: false,
+        heading6: false,
       },
     }),
 }));
