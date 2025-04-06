@@ -125,9 +125,11 @@ export function CustomDragLayer() {
   }
 
   // Only show for existing block items from the canvas
-  if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {
-    return null;
-  }
+  /* Temporarily commented out for inspection */
+  // if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {
+  //   return null;
+  // }
+  /* End temporary comment */
 
   function renderPreview() {
     if (item && typeof item === "object" && "type" in item) {
