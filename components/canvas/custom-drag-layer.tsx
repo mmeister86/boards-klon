@@ -35,7 +35,7 @@ function BlockPreview({ item }: { item: BlockType }) {
         {/* Heading block */}
         {item.type === "heading" && (
           <div
-            className={blockStyle}
+            className={`${blockStyle} prose prose-sm max-w-none`} // Added prose classes
             dangerouslySetInnerHTML={{ __html: item.content || "Überschrift" }}
           />
         )}
@@ -120,6 +120,9 @@ export function CustomDragLayer() {
   //   console.log("Item data:", item);
   //   console.log("Current offset:", currentOffset);
   // }
+  if (isDragging && itemType === ItemTypes.EXISTING_BLOCK) {
+    console.log('Drag Layer Item:', item); // <-- ADDED LOG
+  }
 
   // Only show for existing block items from the canvas
   if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {

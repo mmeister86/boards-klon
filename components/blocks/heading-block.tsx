@@ -174,6 +174,7 @@ export function HeadingBlock({
     content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
+      console.log('Tiptap Output:', html); // <-- ADDED LOG
       updateBlockContent(blockId, dropAreaId, html);
       // Call the onChange prop with the current heading level
       const currentLevel =
