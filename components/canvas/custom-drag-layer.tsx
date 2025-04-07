@@ -1,63 +1,127 @@
 "use client";
 
 import React from "react";
-import { useDragLayer } from "react-dnd";
+import { useDragLayer, DragLayerMonitor } from "react-dnd"; // Import DragLayerMonitor
 import { ItemTypes } from "@/lib/item-types";
-import type { BlockType } from "@/lib/types";
 import { Move } from "@/lib/icons";
 import { getBlockStyle } from "@/lib/utils/block-utils";
+// Import the actual block components
+import { HeadingBlock } from "@/components/blocks/heading-block";
+import { ParagraphBlock } from "@/components/blocks/paragraph-block";
+import type { Level } from "@tiptap/extension-heading"; // Import Level type
 
-// Preview component that exactly mirrors the CanvasBlock component
-function BlockPreview({ item }: { item: BlockType }) {
-  // Get the same block style that's used in BlockContent
+// Define specific types for the dragged items
+interface SidebarDragItem {
+  type: string; // The block type (e.g., 'heading')
+  content: string;
+  isSidebarItem: true;
+}
+
+interface BlockDragItem {
+  id: string;
+  type: typeof ItemTypes.EXISTING_BLOCK;
+  originalType: string; // The actual block type (e.g., 'heading')
+  content: string;
+  sourceDropAreaId: string;
+  originalIndex: number;
+  headingLevel?: number;
+}
+
+// Union type for the item collected by the drag layer
+type DragLayerItem = SidebarDragItem | BlockDragItem;
+
+// Preview component rendering logic
+function BlockPreview({
+  item,
+  itemType,
+}: {
+  item: DragLayerItem; // Use the specific union type
+  itemType: string | symbol | null;
+}) {
+  const isExistingBlock = itemType === ItemTypes.EXISTING_BLOCK;
+  // Determine the type based on whether it's an existing block or a sidebar item
+  const blockTypeToRender = isExistingBlock
+    ? (item as BlockDragItem).originalType
+    : item.type;
+  // Get base style - remove 'as any' cast
   const blockStyle = getBlockStyle(item, "desktop");
 
-  return (
-    <div className="relative">
-      {/* This mirrors the exact container in CanvasBlock */}
-      <div
-        className="p-4 bg-background border rounded-lg shadow-sm relative
-        border-border
-        transition-all duration-200 hover:shadow-md"
-        style={{
-          width: "300px",
-          maxHeight: "200px",
-          overflow: "hidden",
-        }}
-      >
-        {/* Image block */}
-        {item.type === "image" && (
-          <div className="bg-gray-100 aspect-video flex items-center justify-center rounded-md">
-            <span className="text-muted-foreground">Bild</span>
-          </div>
-        )}
+  // Render actual components for existing blocks
+  if (isExistingBlock) {
+    const existingItem = item as BlockDragItem; // Type assertion
+    if (blockTypeToRender === "heading") {
+      // Validate and cast headingLevel to Level
+      const validLevels: Level[] = [1, 2, 3, 4, 5, 6];
+      const level = (
+        validLevels.includes((existingItem.headingLevel || 1) as Level)
+          ? existingItem.headingLevel || 1
+          : 1
+      ) as Level;
 
-        {/* Heading block */}
-        {item.type === "heading" && (
-          <div
-            className={`${blockStyle} prose prose-sm max-w-none`} // Added prose classes
-            dangerouslySetInnerHTML={{ __html: item.content || "Überschrift" }}
-          />
-        )}
+      return (
+        <HeadingBlock
+          blockId={existingItem.id}
+          dropAreaId={existingItem.sourceDropAreaId}
+          content={existingItem.content}
+          level={level} // Pass validated level
+          readOnly={true}
+          onChange={() => {}} // Dummy onChange for readOnly
+        />
+      );
+    }
+    if (blockTypeToRender === "paragraph") {
+      return (
+        <ParagraphBlock
+          blockId={existingItem.id}
+          dropAreaId={existingItem.sourceDropAreaId}
+          content={existingItem.content}
+          readOnly={true}
+          // viewport prop might not be needed for preview
+        />
+      );
+    }
+    // Add cases for other existing block types if needed
+  }
 
-        {/* Paragraph block - match the editor styling */}
-        {item.type === "paragraph" && (
-          <div
-            className="prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{
-              __html: item.content || "Paragraph text",
-            }}
-          />
-        )}
+  // --- Fallback / Sidebar Item Previews ---
+  const sidebarItem = item as SidebarDragItem; // Type assertion
 
-        {/* Default for other block types */}
-        {item.type !== "heading" &&
-          item.type !== "paragraph" &&
-          item.type !== "image" && (
-            <div className={blockStyle}>{item.content || item.type}</div>
-          )}
+  // Image block (applies to both sidebar and existing if not handled above)
+  if (blockTypeToRender === "image") {
+    return (
+      <div className="bg-gray-100 aspect-video flex items-center justify-center rounded-md">
+        <span className="text-muted-foreground">Bild</span>
       </div>
-    </div>
+    );
+  }
+
+  // Sidebar Heading/Paragraph Preview (simple HTML)
+  if (
+    !isExistingBlock &&
+    (blockTypeToRender === "heading" || blockTypeToRender === "paragraph")
+  ) {
+    return (
+      <div
+        className={
+          blockTypeToRender === "heading"
+            ? `${blockStyle} prose prose-sm max-w-none`
+            : "prose prose-sm max-w-none"
+        }
+        dangerouslySetInnerHTML={{
+          __html:
+            sidebarItem.content ||
+            (blockTypeToRender === "heading"
+              ? "Überschrift"
+              : "Paragraph text"),
+        }}
+      />
+    );
+  }
+
+  // Default for other block types (e.g., button, form, divider from sidebar)
+  // Or fallback for existing blocks not explicitly handled above
+  return (
+    <div className={blockStyle}>{sidebarItem.content || blockTypeToRender}</div>
   );
 }
 
@@ -105,7 +169,9 @@ function getItemStyles(
 
 export function CustomDragLayer() {
   const { itemType, isDragging, item, initialOffset, currentOffset } =
-    useDragLayer((monitor) => ({
+    useDragLayer((monitor: DragLayerMonitor<DragLayerItem>) => ({
+      // Use specific item type
+      // Use DragLayerMonitor type
       item: monitor.getItem(),
       itemType: monitor.getItemType(),
       initialOffset: monitor.getInitialSourceClientOffset(),
@@ -113,28 +179,33 @@ export function CustomDragLayer() {
       isDragging: monitor.isDragging(),
     }));
 
-  // Enhanced logging with timestamp for tracking drag previews
-  // if (isDragging) { // Removed log block
-  //   console.log(`🔵 [${new Date().toISOString()}] DRAG PREVIEW RENDERING:`);
-  //   console.log(`Item type: ${String(itemType)}`);
-  //   console.log("Item data:", item);
-  //   console.log("Current offset:", currentOffset);
-  // }
-  if (isDragging && itemType === ItemTypes.EXISTING_BLOCK) {
-    console.log('Drag Layer Item:', item); // <-- ADDED LOG
+  // Re-enable the condition to only show the layer when dragging an existing block
+  // or potentially other types if needed in the future.
+  // For now, we only care about EXISTING_BLOCK previews being accurate.
+  // Only render preview for existing blocks being dragged on the canvas
+  if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {
+    return null;
   }
 
-  // Only show for existing block items from the canvas
-  /* Temporarily commented out for inspection */
-  // if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {
-  //   return null;
-  // }
-  /* End temporary comment */
-
   function renderPreview() {
-    if (item && typeof item === "object" && "type" in item) {
-      return <BlockPreview item={item as BlockType} />;
+    // Check item and itemType before rendering BlockPreview
+    if (item && itemType) {
+      // Render the preview within the styled container
+      return (
+        <div
+          className="p-4 bg-background border rounded-lg shadow-lg relative border-border"
+          style={{
+            width: "300px", // Fixed width for preview
+            maxHeight: "200px", // Max height
+            overflow: "hidden", // Hide overflow
+            // Add pointer-events: none? Maybe not needed due to layerStyles
+          }}
+        >
+          <BlockPreview item={item} itemType={itemType} />
+        </div>
+      );
     }
+    // Fallback if item/itemType is somehow invalid during drag
     return <HandlePreview />;
   }
 

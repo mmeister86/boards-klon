@@ -17,6 +17,7 @@ interface ParagraphBlockProps {
   dropAreaId: string;
   content: string;
   viewport?: "mobile" | "tablet" | "desktop";
+  readOnly?: boolean; // Add readOnly prop
 }
 
 const TiptapToolbar = ({ editor }: { editor: Editor }) => {
@@ -174,6 +175,7 @@ export function ParagraphBlock({
   dropAreaId,
   content,
   viewport = "desktop",
+  readOnly = false, // Destructure readOnly prop
 }: ParagraphBlockProps) {
   const { updateBlockContent } = useBlocksStore();
   const { setFocus, resetFormats } = useEditorStore();
@@ -186,6 +188,7 @@ export function ParagraphBlock({
       : "text-xl";
 
   const editor = useEditor({
+    editable: !readOnly, // Control editability based on readOnly prop
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
@@ -211,22 +214,36 @@ export function ParagraphBlock({
     ],
     content: content,
     onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      updateBlockContent(blockId, dropAreaId, html);
+      // Only update if not readOnly
+      if (!readOnly) {
+        const html = editor.getHTML();
+        updateBlockContent(blockId, dropAreaId, html);
+      }
     },
     onFocus: () => {
-      setFocus(true);
+      // Only handle focus if not readOnly
+      if (!readOnly) {
+        setFocus(true);
+      }
     },
     onBlur: () => {
-      setFocus(false);
-      resetFormats();
+      // Only handle blur if not readOnly
+      if (!readOnly) {
+        setFocus(false);
+        resetFormats();
+      }
     },
     editorProps: {
       attributes: {
-        class: "focus:outline-none",
+        class: `focus:outline-none ${readOnly ? "cursor-default" : ""}`, // Add cursor style for readOnly
       },
       handleDOMEvents: {
-        mousedown: (view) => {
+        mousedown: (view, event) => {
+          // Prevent interaction if readOnly
+          if (readOnly) {
+            event.preventDefault();
+            return true;
+          }
           // Enable text selection on first click
           view.dom.style.cursor = "text";
           return false;
@@ -237,6 +254,10 @@ export function ParagraphBlock({
         // --- End reverted drag event handlers ---
       },
       handleKeyDown: (view, event) => {
+        // Prevent all keydown events if readOnly
+        if (readOnly) {
+          return true;
+        }
         // Ctrl/Cmd + B for bold
         if ((event.ctrlKey || event.metaKey) && event.key === "b") {
           event.preventDefault();
@@ -281,13 +302,28 @@ export function ParagraphBlock({
     },
   });
 
+  // Ensure editor is destroyed when component unmounts or readOnly changes
+  useEffect(() => {
+    return () => {
+      editor?.destroy();
+    };
+  }, [editor]);
+
   return (
     <div className="h-full flex flex-col relative">
-      {editor && <TiptapToolbar editor={editor} />}
-      {editor && (
+      {editor && !readOnly && <TiptapToolbar editor={editor} />}
+      {editor ? ( // Always render EditorContent if editor exists
         <EditorContent
           editor={editor}
-          className={`h-full overflow-y-auto border border-gray-300 rounded p-2 mt-2 tiptap-paragraph-editor ${textSizeClass}`}
+          className={`h-full overflow-y-auto ${
+            !readOnly ? "border border-gray-300" : "" // Only add border if editable
+          } rounded p-2 mt-2 tiptap-paragraph-editor ${textSizeClass}`}
+        />
+      ) : (
+        // Fallback for initial render or if editor fails (shouldn't happen with editable prop)
+        <div
+          className={`prose prose-sm max-w-none ${textSizeClass} p-2`} // Add basic styling
+          dangerouslySetInnerHTML={{ __html: content }}
         />
       )}
     </div>

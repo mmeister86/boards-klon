@@ -174,7 +174,7 @@ export function HeadingBlock({
     content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      console.log('Tiptap Output:', html); // <-- ADDED LOG
+      // console.log("Tiptap Output:", html); // <-- REMOVED LOG
       updateBlockContent(blockId, dropAreaId, html);
       // Call the onChange prop with the current heading level
       const currentLevel =
@@ -208,42 +208,7 @@ export function HeadingBlock({
           }
           return false;
         },
-        dragstart: (view, event) => {
-          if (!event.dataTransfer) return false;
-
-          // Get the rendered content from the editor
-          const renderedContent = view.dom.querySelector(
-            "h1, h2, h3, h4, h5, h6"
-          );
-          if (renderedContent) {
-            // Clone the rendered content to avoid modifying the original
-            const clone = renderedContent.cloneNode(true) as HTMLElement;
-
-            // Set the rendered content as drag data
-            event.dataTransfer.setData("text/html", clone.outerHTML);
-            event.dataTransfer.setData("text/plain", clone.textContent || "");
-
-            // Create a drag preview element
-            const previewEl = document.createElement("div");
-            previewEl.className = "preview-content";
-            previewEl.appendChild(clone);
-            document.body.appendChild(previewEl);
-
-            // Position off-screen for measurement
-            previewEl.style.position = "absolute";
-            previewEl.style.left = "-9999px";
-            previewEl.style.top = "-9999px";
-
-            // Use the preview element for drag image
-            event.dataTransfer.setDragImage(previewEl, 0, 0);
-
-            // Clean up the preview element after drag starts
-            requestAnimationFrame(() => {
-              document.body.removeChild(previewEl);
-            });
-          }
-          return false;
-        },
+        // Removed commented-out dragstart handler
       },
     },
   });
