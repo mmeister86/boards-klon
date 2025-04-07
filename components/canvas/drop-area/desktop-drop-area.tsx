@@ -17,7 +17,7 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
   ({ dropArea, showSplitIndicator }, ref) => {
     const { canMerge, mergeDropAreas, deleteDropArea } = useBlocksStore();
     const [showDeleteButton, setShowDeleteButton] = useState(false);
-    const [isMerging, setIsMerging] = useState(false); // Added merging state
+    const [isMerging, setIsMerging] = useState(false); // State for merge animation
 
     if (!dropArea.isSplit || dropArea.splitAreas.length !== 2) {
       return (
@@ -29,9 +29,10 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
       );
     }
 
-    // Check if the two areas can be merged
+    // Get IDs for the split areas
     const leftAreaId = dropArea.splitAreas[0].id;
     const rightAreaId = dropArea.splitAreas[1].id;
+    // Check directly if these two areas can be merged using the store function
     const areasCanMerge = canMerge(leftAreaId, rightAreaId);
 
     // Handler for merge gap click with animation
@@ -72,13 +73,13 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
             dropArea={dropArea.splitAreas[0]}
             showSplitIndicator={true}
             viewport="desktop"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
-        {/* Center the indicator wrapper */}
-        <div className="self-center">
-          {/* Use the animation handler */}
+        {/* Center the indicator wrapper and handle merge logic */}
+        <div className="self-center px-2">
+          {" "}
+          {/* Added some padding */}
+          {/* MergeGapIndicator now gets canMerge status and calls merge directly */}
           <MergeGapIndicator
             canMerge={areasCanMerge}
             onClick={handleMergeWithAnimation}
@@ -89,8 +90,6 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
             dropArea={dropArea.splitAreas[1]}
             showSplitIndicator={true}
             viewport="desktop"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
 

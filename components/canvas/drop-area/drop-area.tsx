@@ -5,58 +5,47 @@ import { useDropArea } from "@/lib/hooks/use-drop-area";
 import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { DropAreaContent } from "./drop-area-content";
-import { DropIndicators } from "./drop-indicators";
 import { MobileDropArea } from "./mobile-drop-area";
 import { TabletDropArea } from "./tablet-drop-area";
 import { DesktopDropArea } from "./desktop-drop-area";
 import { useBlocksStore } from "@/store/blocks-store";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 
 interface DropAreaProps {
   dropArea: DropAreaType;
   showSplitIndicator?: boolean;
   viewport: ViewportType;
-  hideInternalMergeIndicator?: boolean;
-  // Removed unused isBelowInsertionPoint prop
-  isParentMerging?: boolean; // Added prop for parent-controlled animation
 }
 
 // Wrap component with forwardRef
 export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
   (
-    {
-      dropArea,
-      showSplitIndicator = false,
-      viewport,
-      hideInternalMergeIndicator = false,
-      // Removed isBelowInsertionPoint destructuring
-      isParentMerging = false, // Destructure new prop
-    },
+    { dropArea, showSplitIndicator = false, viewport },
     ref // Receive the forwarded ref
   ) => {
     const { splitPopulatedDropArea, splitDropArea, canSplit, deleteDropArea } =
       useBlocksStore();
     const [isSplitting, setIsSplitting] = useState(false);
-    // Removed isMerging state
     const [showDeleteButton, setShowDeleteButton] = useState(false);
+
     const {
       isOver, // Is an item hovering directly over this area?
-      canDrop, // Can this area accept the current dragged item?
-      // isHovering, // No longer needed here
-      setIsHovering, // Function to manually set the hover state (used for mouse enter/leave)
+      isHovering, // Is the mouse hovering over the area?
       drop, // The drop ref connector from react-dnd for this area
       getDropAreaStyles, // Function to get dynamic styles based on state
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      handleSplit, // Function to trigger splitting this area
-      handleMerge, // Function to trigger merging this area
-      shouldShowSplitIndicator, // Function to determine if split indicator should show
-      shouldShowMergeIndicator, // Function to determine if merge indicator should show
-      mergePosition, // Which side the merge indicator should appear on ('left' or 'right')
-      dropError, // Any error message from the last drop attempt
-    } = useDropArea(dropArea, viewport); // The core logic hook
+    } = useDropArea(dropArea); // Pass only dropArea
 
     // Check if this drop area can be split based on viewport and level
     const canSplitThisArea = canSplit(dropArea.id, viewport);
+    const isAreaEmpty = dropArea.blocks.length === 0;
+
+    // --- NEW: Logic for showing the split button ---
+    const shouldShowSplitButton =
+      showSplitIndicator && // Prop check from parent
+      isHovering && // Is mouse over?
+      !isOver && // Is an item NOT being dragged over?
+      isAreaEmpty && // Is the area empty?
+      canSplitThisArea; // Can this specific area be split?
 
     // Handle splitting a populated drop area (when split button is clicked)
     const handleSplitPopulated = () => {
@@ -81,12 +70,10 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         }, 300);
       } // Added missing closing brace for the if statement
     }; // Added missing closing brace for the handleSplitEmpty function
-    // Removed handleMergeWithAnimation function
 
     // Reset animation states if the drop area ID changes
     useEffect(() => {
       setIsSplitting(false);
-      // Removed isMerging reset
     }, [dropArea.id]);
 
     // --- Render different layouts based on viewport and split state ---
@@ -139,11 +126,9 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         ref={combinedRef} // Use the combined ref
         className={`group relative ${getDropAreaStyles()} ${
           isSplitting ? "scale-105 shadow-lg" : ""
-        } ${isParentMerging ? "scale-105 shadow-lg" : ""}
-          mb-6 transition-all duration-300`} // Removed conditional mt-10, kept mb-6
+        } mb-6 transition-all duration-300`} // Removed isParentMerging style
         onMouseEnter={() => {
           // console.log(`Mouse enter ${dropArea.id}`); // Reduce console noise
-          setIsHovering(true);
           setShowDeleteButton(true);
         }}
         onMouseLeave={(e) => {
@@ -154,7 +139,6 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
             !e.currentTarget.contains(e.relatedTarget)
           ) {
             // console.log(`Mouse leave ${dropArea.id}`); // Reduce console noise
-            setIsHovering(false);
             setShowDeleteButton(false);
           }
         }}
@@ -168,37 +152,22 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           </div>
         )}
 
-        {/* Merging Animation Overlay Background - Controlled by parent */}
-        {isParentMerging && (
-          <div className="absolute inset-0 bg-green-500/10 rounded-xl z-30 pointer-events-none">
-            {" "}
-            {/* Use z-30 */}
-            {/* Text box removed from here, only background remains */}
+        {/* NEW: Split Button (replaces old split indicator logic) */}
+        {shouldShowSplitButton && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent potential parent handlers
+                handleSplitEmpty(); // Call the existing split function
+              }}
+              className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
+              title="Drop-Bereich aufteilen"
+              aria-label="Split drop area"
+            >
+              <Plus size={18} />
+            </button>
           </div>
         )}
-
-        {/* Drop Error Overlay */}
-        {dropError && (
-          <div className="absolute inset-0 bg-red-500/10 rounded-xl z-20 flex items-center justify-center pointer-events-none">
-            <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-              {dropError}
-            </div>
-          </div>
-        )}
-
-        <DropIndicators
-          isOver={isOver}
-          canDrop={canDrop}
-          shouldShowSplitIndicator={shouldShowSplitIndicator(
-            showSplitIndicator
-          )}
-          shouldShowMergeIndicator={
-            !hideInternalMergeIndicator && shouldShowMergeIndicator()
-          }
-          onSplit={handleSplitEmpty}
-          onMerge={handleMerge} // Pass the direct merge handler from the hook (no animation here)
-          mergePosition={mergePosition}
-        />
 
         <DropAreaContent
           dropArea={dropArea}

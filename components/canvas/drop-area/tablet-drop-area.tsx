@@ -17,7 +17,7 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
   ({ dropArea, showSplitIndicator }, ref) => {
     const { canMerge, mergeDropAreas, deleteDropArea } = useBlocksStore();
     const [showDeleteButton, setShowDeleteButton] = useState(false);
-    const [isMerging, setIsMerging] = useState(false); // Added merging state
+    const [isMerging, setIsMerging] = useState(false); // State for merge animation
 
     if (!dropArea.isSplit || dropArea.splitAreas.length !== 2) {
       return (
@@ -40,13 +40,11 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
                 dropArea={dropArea.splitAreas[0].splitAreas[0]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
               <DropArea
                 dropArea={dropArea.splitAreas[0].splitAreas[1]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
             </>
           ) : (
@@ -54,7 +52,6 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
               dropArea={dropArea.splitAreas[0]}
               showSplitIndicator={showSplitIndicator}
               viewport="tablet"
-              hideInternalMergeIndicator={true}
             />
           )}
 
@@ -65,13 +62,11 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
                 dropArea={dropArea.splitAreas[1].splitAreas[0]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
               <DropArea
                 dropArea={dropArea.splitAreas[1].splitAreas[1]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
             </>
           ) : (
@@ -79,16 +74,17 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
               dropArea={dropArea.splitAreas[1]}
               showSplitIndicator={showSplitIndicator}
               viewport="tablet"
-              hideInternalMergeIndicator={true}
             />
           )}
         </div>
       );
     }
 
-    // For first-level split, add merge gap indicator between areas
+    // --- First-level split logic (side-by-side) ---
+    // Get IDs for the split areas
     const leftAreaId = dropArea.splitAreas[0].id;
     const rightAreaId = dropArea.splitAreas[1].id;
+    // Check directly if these areas can merge
     const areasCanMerge = canMerge(leftAreaId, rightAreaId);
 
     // Handler for merge gap click with animation
@@ -133,15 +129,13 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
             dropArea={dropArea.splitAreas[0]}
             showSplitIndicator={showSplitIndicator}
             viewport="tablet"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
-        {/* Center the indicator wrapper */}
-        <div className="self-center">
+        {/* Center the indicator wrapper and handle merge */}
+        <div className="self-center px-2">
           <MergeGapIndicator
             canMerge={areasCanMerge}
-            onClick={handleMergeWithAnimation} // Use animation handler
+            onClick={handleMergeWithAnimation}
           />
         </div>
         <div className="flex-1">
@@ -149,8 +143,6 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
             dropArea={dropArea.splitAreas[1]}
             showSplitIndicator={showSplitIndicator}
             viewport="tablet"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
 

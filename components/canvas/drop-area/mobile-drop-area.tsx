@@ -17,7 +17,7 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
   ({ dropArea, showSplitIndicator }, ref) => {
     const { canMerge, mergeDropAreas, deleteDropArea } = useBlocksStore();
     const [showDeleteButton, setShowDeleteButton] = useState(false);
-    const [isMerging, setIsMerging] = useState(false); // Added merging state
+    const [isMerging, setIsMerging] = useState(false); // State for merge animation
 
     if (!dropArea.isSplit || dropArea.splitAreas.length !== 2) {
       return (
@@ -29,9 +29,10 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
       );
     }
 
-    // For mobile, we'll place a horizontal merge indicator between the vertical areas
+    // For mobile, get IDs for vertical split areas
     const topAreaId = dropArea.splitAreas[0].id;
     const bottomAreaId = dropArea.splitAreas[1].id;
+    // Check directly if these can merge
     const areasCanMerge = canMerge(topAreaId, bottomAreaId);
 
     // Handler for merge gap click with animation
@@ -112,18 +113,16 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
         {/* Removed Merging Animation Overlay from here */}
         <DropArea
           dropArea={dropArea.splitAreas[0]}
-          showSplitIndicator={false}
+          showSplitIndicator={false} // Don't allow splitting further on mobile for now
           viewport="mobile"
-          hideInternalMergeIndicator={true}
-          isParentMerging={isMerging} // Pass state down
+          // Removed internal merge/parent merging props
         />
         <MobileHorizontalMergeIndicator />
         <DropArea
           dropArea={dropArea.splitAreas[1]}
-          showSplitIndicator={false}
+          showSplitIndicator={false} // Don't allow splitting further on mobile for now
           viewport="mobile"
-          hideInternalMergeIndicator={true}
-          isParentMerging={isMerging} // Pass state down
+          // Removed internal merge/parent merging props
         />
 
         {/* Delete button for the entire split area */}

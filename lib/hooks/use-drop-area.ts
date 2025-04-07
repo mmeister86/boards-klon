@@ -70,188 +70,96 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     },
     drop: (
       item: DragItem,
-      monitor: DropTargetMonitor<DragItem, { name: string; handled: boolean; dropAreaId: string } | undefined>
+      monitor: DropTargetMonitor<
+        DragItem,
+        { name: string; handled: boolean; dropAreaId: string } | undefined
+      >
     ) => {
-      // Generate a unique ID for this drop operation for tracking in logs
       const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      
-      // Get item ID - for existing blocks use actual ID, for new blocks generate a unique ID
-      const itemId = item.id || `new-${item.type}-${Date.now()}`;
 
-      // *** IMPORTANT: Check if the drop was already handled by a parent container (the Canvas gap drop) ***
+      // Check if handled by parent
       if (monitor.didDrop()) {
         console.log(
-          `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Drop already handled by parent, ignoring.`
         );
-        return undefined; // Let the parent handler deal with it
+        return undefined;
       }
-      
-      // CRITICAL NEW CHECK: Check with the global drop tracker if this drop is already being handled
-      if (!markDropHandled(`DropArea-${dropArea.id}`, itemId)) {
+
+      // Ensure drop target is still valid and we are directly over it
+      if (!dropTargetRef.current || !monitor.isOver({ shallow: true })) {
+        console.warn(
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Drop target ref is null or not directly over.`
+        );
+        return undefined;
+      }
+
+      // --- Core Logic: Determine if this hook should handle the drop ---
+      const isAreaEmpty = dropArea.blocks.length === 0;
+      const isExistingBlock = item.type === ItemTypes.EXISTING_BLOCK;
+      const isExternalBlock =
+        isExistingBlock && item.sourceDropAreaId !== dropArea.id && item.id;
+
+      // Handle drops only if:
+      // 1. Area is empty (for both new and external blocks)
+      // 2. OR it's an external block (even to populated areas)
+      const shouldHandleDrop = isAreaEmpty || isExternalBlock;
+
+      if (!shouldHandleDrop) {
         console.log(
-          `[${dropOpId}] DropArea ${dropArea.id}: Drop for item ${itemId} rejected by global tracker.`
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Delegating drop to nested handlers.`
         );
-        return undefined; // Another handler has claimed this drop
+        return undefined;
       }
 
-      // If drop wasn't handled by parent, proceed
-      console.log(
-        `[${dropOpId}] DropArea ${dropArea.id}: Potential drop target.`
-      );
       try {
-        // EXTRA CHECK: If this is an EXISTING_BLOCK and sourceDropAreaId matches this area
-        // Let the internal DropAreaContent handler handle it for reordering
-        if (item.type === ItemTypes.EXISTING_BLOCK && item.sourceDropAreaId === dropArea.id) {
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: This is a reordering operation within this area. Letting DropAreaContent handle it.`
-          );
-          return undefined;
-        }
-        
-        // *** NEW CHECK: If this area is populated, let nested targets handle it ***
-        // We only handle drops directly here if the area is EMPTY.
-        // Drops onto populated areas are handled by DropAreaContent's internal useDrop.
-        if (dropArea.blocks.length > 0) {
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Area is populated. Allowing nested drop targets (like DropAreaContent) to handle.`
-          );
-          
-          // CRITICAL FIX: If this is an EXISTING_BLOCK from a different area, we need
-          // to handle it at this level regardless of whether the area is populated
-          if (item.type === ItemTypes.EXISTING_BLOCK && item.sourceDropAreaId !== dropArea.id && item.id) {
-            console.log(
-              `[${dropOpId}] DropArea ${dropArea.id}: IMPORTANT - Block is from a different area (${item.sourceDropAreaId}). Handling at this level to prevent duplication.`
-            );
-            
-            // Create a result before modifying state
-            const result = {
-              name: `Moved to Area ${dropArea.id}`,
-              handled: true,
-              dropAreaId: dropArea.id,
-              dropOpId,
-            };
-            
-            // Move the block in the next event loop tick
-            setTimeout(() => {
-              console.log(`[${dropOpId}] DropArea ${dropArea.id}: Moving block ${item.id} from ${item.sourceDropAreaId} to ${dropArea.id}`);
-              moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
-            }, 0);
-            
-            return result;
-          }
-          
-          // For other cases, let the nested handlers handle it
-          return undefined;
-        }
-
-        // --- Area is EMPTY, proceed with handling the drop directly ---
-        // console.log( // Removed log
-        //   `[${dropOpId}] DropArea ${dropArea.id}: Area is EMPTY. Handling drop directly.`
-        // );
-
-        // Ensure we are actually over this specific target (still relevant for empty areas)
-        if (!monitor.isOver({ shallow: true })) {
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Drop occurred but not directly over the empty area, ignoring.`
-          // );
-          return undefined;
-        }
-
-        // Handle moving an existing block (rare case: moving into an empty top-level area?)
-        if (item.sourceDropAreaId && item.id) {
-          // Don't allow dropping back into the same area it came from
-          if (item.sourceDropAreaId === dropArea.id) {
-            // console.log( // Removed log
-            //   `[${dropOpId}] DropArea ${dropArea.id}: Block dropped back into original area, ignoring.`
-            // );
-            return undefined;
-          }
-
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED drop for block ${item.id} from ${item.sourceDropAreaId} to here. Preparing result...`
-          // );
-
-          // First, create and return a result BEFORE modifying state
-          // This is critical - it tells react-dnd that this handler has claimed this drop
-          const result = {
-            name: `Dropped in Area ${dropArea.id}`,
-            handled: true,
-            dropAreaId: dropArea.id,
-            dropOpId,
-          };
-
-          // Schedule the moveBlock call to run AFTER this drop handler returns
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Scheduling moveBlock operation to run AFTER drop completes`
-          // );
-
-          // Use setTimeout to move this to the next event loop tick
-          setTimeout(() => {
-            // console.log( // Removed log
-            //   `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING moveBlock(${item.id}, ${item.sourceDropAreaId}, ${dropArea.id})`
-            // );
-            // Add non-null assertions as item.id and item.sourceDropAreaId are checked above
-            moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
-            // console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`); // Removed log
-          }, 0);
-
-          // Return the result immediately
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
-          //   result
-          // );
-          return result;
-        }
-        // Handle adding a new block (dragged from sidebar) into this EMPTY area
-        else {
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED new block of type ${item.type} into EMPTY area. Preparing result...`
-          // );
-
-          // Return a result BEFORE calling addBlock
+        // Handle new block into empty area
+        if (!isExistingBlock && isAreaEmpty) {
           const result = {
             name: `Added Block to ${dropArea.id}`,
             handled: true,
             dropAreaId: dropArea.id,
-            dropOpId,
           };
 
-          // Schedule the addBlock call to run AFTER this drop handler returns
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Scheduling addBlock operation to run AFTER drop completes`
-          // );
-
-          // Add the block AFTER setting the result
           setTimeout(() => {
-            // console.log( // Removed log
-            //   `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING addBlock for new ${item.type} block`
-            // );
             addBlock(
               {
-                // Create the block data
-                type: item.type || "square", // Default to square if type missing
-                content: item.content || "Dropped Content", // Default content
-                dropAreaId: dropArea.id, // Assign to this drop area
+                type: item.type,
+                content: item.content || "",
+                dropAreaId: dropArea.id,
               },
-              dropArea.id // Target drop area ID
+              dropArea.id
             );
-            // console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`); // Removed log
           }, 0);
 
-          // Return the result immediately
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
-          //   result
-          // );
           return result;
         }
+
+        // Handle external block move (to either empty or populated area)
+        if (isExternalBlock) {
+          const result = {
+            name: `Moved Block to ${dropArea.id}`,
+            handled: true,
+            dropAreaId: dropArea.id,
+          };
+
+          setTimeout(() => {
+            moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
+          }, 0);
+
+          return result;
+        }
+
+        return undefined;
       } catch (error) {
         console.error(
-          `[${dropOpId}] DropArea ${dropArea.id}: ERROR during drop operation:`,
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Error during drop:`,
           error
         );
-        setDropError("Failed to drop item"); // Set error state for UI feedback
-        return undefined; // Indicate drop failed
+        setDropError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
+        setIsHovering(false);
+        return undefined;
       }
     },
     collect: (

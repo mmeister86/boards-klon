@@ -5,7 +5,7 @@ import type { DropAreaType, BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { CanvasBlock } from "@/components/blocks/canvas-block";
 import { useDrop, type DropTargetMonitor } from "react-dnd";
-import { ItemTypes, markDropHandled } from "@/lib/item-types"; // Import markDropHandled
+import { ItemTypes } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 import { InsertionIndicator } from "./insertion-indicator"; // Import existing indicator
 
@@ -24,17 +24,34 @@ interface DraggedExistingBlockItem {
   originalIndex: number;
   originalType: string; // Add original type
   content: string; // Add content (might be needed by drop handler)
-  headingLevel?: number; // Add heading level
+}
+
+// Interface for new blocks that are specifically Headings
+interface DraggedHeadingBlockItem extends DraggedNewBlockItem {
+  type: "heading"; // Literal type for specific block type check
+  headingLevel: 1 | 2 | 3 | 4 | 5 | 6; // Use specific union type matching BlockType
 }
 
 interface DraggedNewBlockItem {
   id?: string; // New blocks might not have an ID yet
-  type: typeof ItemTypes.BLOCK | typeof ItemTypes.SQUARE; // Use literal types
+  type: string; // Use string, assuming it holds the specific block type like 'heading', 'paragraph'
   content: string;
   sourceDropAreaId?: string; // Might not be relevant for new blocks
 }
 
 type AcceptedDragItem = DraggedExistingBlockItem | DraggedNewBlockItem;
+
+// Type guard to check if a dragged item is a heading block
+function isDraggedHeading(
+  item: AcceptedDragItem
+): item is DraggedHeadingBlockItem {
+  // Check the specific block type string and ensure headingLevel exists and is a number
+  return (
+    item.type === "heading" &&
+    "headingLevel" in item &&
+    typeof item.headingLevel === "number"
+  );
+}
 
 export function DropAreaContent({
   dropArea,
@@ -49,7 +66,6 @@ export function DropAreaContent({
   const [draggedItemOriginalIndex, setDraggedItemOriginalIndex] = useState<
     number | null
   >(null); // Track original index of dragged item
-  const [error, setError] = useState<string | null>(null); // Track errors
 
   // Ensure blockRefs array has the correct size
   useEffect(() => {
@@ -60,14 +76,14 @@ export function DropAreaContent({
 
   // Expose a reset function globally (use with caution - consider context/store later)
   useEffect(() => {
-    // @ts-ignore - Attaching to window for simplicity
+    // Attaching to window for simplicity (consider alternatives for production)
     window.resetDropAreaContentHover = () => {
       console.log("[Window Reset] Resetting DropAreaContent hover state");
       setHoverIndex(null);
       setDraggedItemOriginalIndex(null);
     };
     return () => {
-      // @ts-ignore
+      // Cleanup window property
       delete window.resetDropAreaContentHover;
     };
   }, []); // Empty dependency array ensures it runs once
@@ -81,62 +97,18 @@ export function DropAreaContent({
     return () => window.removeEventListener("blur", handleBlur);
   }, []);
 
-  // Handle errors
-  const handleError = (error: Error) => {
-    setError(error.message);
-  };
-
   // --- Container Drop Logic ---
   const [{ isOverContainer, canDropOnContainer }, dropContainer] = useDrop<
     AcceptedDragItem, // Use the union type
     void,
     { isOverContainer: boolean; canDropOnContainer: boolean }
   >({
-    // Accept existing blocks being reordered AND new blocks being added
-    accept: [ItemTypes.EXISTING_BLOCK, ItemTypes.BLOCK, ItemTypes.SQUARE], // Keep accepting all relevant types
-    canDrop: (item) => {
-      // Revised logic:
-      // Allow drop if:
-      // 1. It's NOT an EXISTING_BLOCK (meaning it's a new block type like 'paragraph', 'image', 'button', etc.)
-      // OR
-      // 2. It IS an EXISTING_BLOCK, but it originates from THIS dropArea (meaning it's being reordered within the same area)
-      const isNewBlockType = item.type !== ItemTypes.EXISTING_BLOCK;
-      const isReorderingWithinArea =
-        item.type === ItemTypes.EXISTING_BLOCK &&
-        item.sourceDropAreaId === dropArea.id;
-
-      // EXTRA SAFETY: If it's an existing block from another area, ALWAYS reject it
-      const isFromAnotherArea =
-        item.type === ItemTypes.EXISTING_BLOCK &&
-        item.sourceDropAreaId !== dropArea.id;
-
-      if (isFromAnotherArea) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent] REJECTING drop for item from another area: ${
-        //     (item as DraggedExistingBlockItem).id
-        //   } from ${(item as DraggedExistingBlockItem).sourceDropAreaId} to ${
-        //     dropArea.id
-        //   }`
-        // );
-        return false;
-      }
-
-      const canItDrop = isNewBlockType || isReorderingWithinArea;
-
-      // Add debug info with item details for better troubleshooting
-      // const itemDetails = // Keep logs commented out
-      //   item.type === ItemTypes.EXISTING_BLOCK
-      //     ? `id: ${(item as DraggedExistingBlockItem).id}, sourceArea: ${
-      //         (item as DraggedExistingBlockItem).sourceDropAreaId
-      //       }, origIndex: ${(item as DraggedExistingBlockItem).originalIndex}`
-      //     : `content: ${
-      //         (item as DraggedNewBlockItem).content?.substring(0, 15) || "none"
-      //       }`;
-
-      // console.log( // Keep logs commented out
-      //   `[DropAreaContent] canDrop check for item type ${item.type} (isNew: ${isNewBlockType}, isReorder: ${isReorderingWithinArea}): ${canItDrop}. Item details: ${itemDetails}`
-      // );
-      return canItDrop;
+    accept: [ItemTypes.EXISTING_BLOCK, ItemTypes.BLOCK, ItemTypes.SQUARE],
+    canDrop: () => {
+      // Revised logic: If canDrop is called, react-dnd has already verified
+      // the item type against the 'accept' array. So, we can always return true here.
+      // The actual handling logic is in the drop handlers.
+      return true;
     },
     hover: (item, monitor: DropTargetMonitor<AcceptedDragItem>) => {
       // Check if item is an existing block to access originalIndex safely
@@ -214,38 +186,23 @@ export function DropAreaContent({
       }
     },
     drop: (item, monitor) => {
-      // Get the fresh item reference - CRITICAL for proper operation
+      // Get the fresh item reference
       const freshItem = monitor.getItem();
 
       // Create a unique ID for tracking this drop operation
       const dropId = `drop-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 9)}`;
-      // console.log( // Keep logs commented out
-      //   `[DropAreaContent:${dropId}] Drop triggered for item type: ${freshItem.type}`
-      // );
 
-      // IMPORTANT: Check if drop was already handled elsewhere in the hierarchy
+      // Check if drop was already handled elsewhere
       if (monitor.didDrop()) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent:${dropId}] Drop already handled by another target, ignoring.`
-        // );
         setHoverIndex(null);
         setDraggedItemOriginalIndex(null);
         return undefined;
       }
 
-      // Get item ID (for existing blocks use ID, for new blocks use a unique ID)
-      const itemId =
-        freshItem.type === ItemTypes.EXISTING_BLOCK
-          ? (freshItem as DraggedExistingBlockItem).id
-          : `new-${freshItem.type}-${Date.now()}`;
-
-      // CRITICAL: Check with the global drop tracker if this drop is already being handled
-      if (!markDropHandled(`DropAreaContent-${dropArea.id}`, itemId)) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent:${dropId}] Drop for item ${itemId} rejected by global tracker`
-        // );
+      // Ensure we are over the container specifically
+      if (!monitor.isOver({ shallow: true })) {
         setHoverIndex(null);
         setDraggedItemOriginalIndex(null);
         return undefined;
@@ -254,109 +211,31 @@ export function DropAreaContent({
       // Get the current target index from hover state
       const targetIndex = hoverIndex;
       if (targetIndex === null) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent:${dropId}] Drop cancelled: No valid hover index`
-        // );
         setHoverIndex(null);
         setDraggedItemOriginalIndex(null);
         return undefined;
       }
 
       try {
+        // Handle internal reordering
         if (freshItem.type === ItemTypes.EXISTING_BLOCK) {
-          // This is a reordering operation
           const existingItem = freshItem as DraggedExistingBlockItem;
-          const blockId = existingItem.id;
-          if (
-            existingItem.originalIndex === undefined ||
-            existingItem.originalIndex === null
-          ) {
-            // Falls kein originalIndex vorhanden ist, behandle es als neues Element
-            const newItem = freshItem as DraggedNewBlockItem;
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] Adding new block of type ${newItem.type} at index ${targetIndex}`
-            // );
 
-            useBlocksStore.getState().addBlockAtIndex(
-              {
-                type: newItem.type,
-                content: newItem.content || "",
-                dropAreaId: dropArea.id,
-              },
-              dropArea.id,
-              targetIndex
-            );
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] New ${newItem.type} block added at index ${targetIndex}`
-            // );
-
-            // Setze den Zustand zurück
-            setHoverIndex(null);
-            setDraggedItemOriginalIndex(null);
-            return undefined;
+          // Only handle if it's an internal reorder (same drop area)
+          if (existingItem.sourceDropAreaId !== dropArea.id) {
+            return undefined; // Let parent useDropArea handle external moves
           }
+
           const sourceIndex = existingItem.originalIndex;
-          const sourceAreaId = existingItem.sourceDropAreaId;
 
-          // We should never reach this check due to the safeguard above, but keep it for robustness
-          if (sourceAreaId !== dropArea.id) {
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] Block ${blockId} is from another area (${sourceAreaId}), not reordering`
-            // );
-            return undefined;
-          }
-
-          // Verify valid data
-          if (!dropArea.blocks || !Array.isArray(dropArea.blocks)) {
-            console.error(
-              `[DropAreaContent:${dropId}] Invalid blocks array`,
-              dropArea
-            );
-            return undefined;
-          }
-
-          if (sourceIndex < 0 || sourceIndex >= dropArea.blocks.length) {
-            console.error(
-              `[DropAreaContent:${dropId}] Invalid source index: ${sourceIndex}, length: ${dropArea.blocks.length}`
-            );
-            return undefined;
-          }
-
-          // Prevent dropping in the same spot or right after itself (which is a no-op)
+          // Prevent dropping in the same spot or right after itself
           if (targetIndex === sourceIndex || targetIndex === sourceIndex + 1) {
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] Drop at same position, ignoring`,
-            //   { targetIndex, sourceIndex }
-            // );
             return undefined;
           }
 
-          // Calculate adjusted target index (if dropping after removal point)
+          // Calculate adjusted target index
           const adjustedTargetIndex =
             targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
-
-          // console.log( // Keep logs commented out
-          //   `[DropAreaContent:${dropId}] Reordering block ${blockId}:`,
-          //   {
-          //     from: sourceIndex,
-          //     to: adjustedTargetIndex,
-          //     blocks: dropArea.blocks.length,
-          //   }
-          // );
-
-          // Verify the block ID at source index matches
-          const blockToMove = dropArea.blocks[sourceIndex];
-          if (blockToMove.id !== blockId) {
-            console.error(
-              `[DropAreaContent:${dropId}] Block ID mismatch at source index!`,
-              {
-                expected: blockId,
-                found: blockToMove.id,
-                index: sourceIndex,
-              }
-            );
-            return undefined;
-          }
 
           // Create a new copy of the blocks array
           const newBlocks = [...dropArea.blocks];
@@ -367,40 +246,45 @@ export function DropAreaContent({
           // Insert at the new position
           newBlocks.splice(adjustedTargetIndex, 0, movedItem);
 
-          // Apply the reordering
-          console.log(
-            `[DropAreaContent:${dropId}] Calling reorderBlocks for ${blockId}`
-          ); // ADD THIS LOG
-          reorderBlocks(dropArea.id, newBlocks);
-          console.log(
-            `[DropAreaContent:${dropId}] Called reorderBlocks for ${blockId}`
-          ); // ADD THIS LOG
-        } else {
-          // This is a new block being added
-          const newItem = freshItem as DraggedNewBlockItem;
-          // console.log( // Removed log
-          //   `[DropAreaContent:${dropId}] Adding new block of type ${newItem.type} at index ${targetIndex}`
-          // );
-          // Call the new addBlockAtIndex action
-          useBlocksStore.getState().addBlockAtIndex(
-            {
-              type: newItem.type,
-              content: newItem.content || "",
-              dropAreaId: dropArea.id, // Pass dropAreaId for the block data
-            },
-            dropArea.id, // Pass target dropAreaId
-            targetIndex // Pass the calculated insertion index
-          );
+          // Apply the reordering with the updated blocks array
+          setTimeout(() => {
+            reorderBlocks(dropArea.id, newBlocks);
+          }, 0);
         }
-      } catch (error: any) {
-        handleError(error);
+        // Handle new blocks onto populated areas
+        else {
+          const newItem = freshItem as DraggedNewBlockItem;
+
+          // Prepare base block data
+          const newBlockDataBase = {
+            type: newItem.type,
+            content: newItem.content || "",
+            dropAreaId: dropArea.id,
+          };
+
+          // Add heading level if it's a heading block
+          const finalNewBlockData = isDraggedHeading(freshItem)
+            ? {
+                ...newBlockDataBase,
+                type: "heading",
+                headingLevel: freshItem.headingLevel,
+              }
+            : newBlockDataBase;
+
+          // Schedule block addition AFTER drop handler returns
+          setTimeout(() => {
+            useBlocksStore
+              .getState()
+              .addBlockAtIndex(finalNewBlockData, dropArea.id, targetIndex);
+          }, 0);
+        }
+      } catch (error: unknown) {
+        console.error(`[DropAreaContent:${dropId}] Error during drop:`, error);
       }
 
-      // Always reset state
+      // Reset state
       setHoverIndex(null);
       setDraggedItemOriginalIndex(null);
-
-      // Return undefined to satisfy the type requirement
       return undefined;
     },
     collect: (monitor) => ({
