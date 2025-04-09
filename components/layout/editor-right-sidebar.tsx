@@ -13,8 +13,7 @@ import {
   ChevronUp,
   Settings, // Icon for Properties tab
   Library, // Icon for Media tab
-  Loader2, // Add Loader2 for loading states
-  Trash2, // Add Trash2 icon for delete button
+  Loader2,
 } from "lucide-react";
 import { useBlocksStore } from "@/store/blocks-store";
 import { Input } from "@/components/ui/input";
@@ -23,17 +22,9 @@ import { Button } from "@/components/ui/button";
 import { findBlockById } from "@/store/blocks/utils"; // Assuming this utility exists
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
+import { v4 as uuidv4 } from "uuid";
+import { useSupabase } from "@/components/providers/supabase-provider";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 // Updated MediaItem interface to match our database schema
 interface MediaItem {
@@ -55,7 +46,6 @@ interface MediaCategoryProps {
   type: string;
   isActive: boolean;
   onSelect: () => void;
-  onDelete: (item: MediaItem) => void;
 }
 
 function MediaCategory({
@@ -66,7 +56,6 @@ function MediaCategory({
   type,
   isActive,
   onSelect,
-  onDelete,
 }: MediaCategoryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const displayItems = isExpanded ? items : items.slice(0, 4);
@@ -83,7 +72,7 @@ function MediaCategory({
       }
     })();
 
-    if (item.file_type.startsWith("image/")) {
+    if (item.file_type === "image") {
       return (
         <div
           key={item.id}
@@ -98,18 +87,6 @@ function MediaCategory({
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(item);
-              }}
-              className="p-2 text-white hover:text-red-400 transition-colors"
-              title="Löschen"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-          </div>
           <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
             <p className="text-xs text-white truncate">{item.file_name}</p>
           </div>
@@ -120,7 +97,7 @@ function MediaCategory({
     return (
       <div
         key={item.id}
-        className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg cursor-pointer group relative"
+        className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg cursor-pointer"
       >
         {icon}
         <div className="flex-1 min-w-0">
@@ -129,16 +106,6 @@ function MediaCategory({
             {(item.size / 1024 / 1024).toFixed(1)} MB
           </p>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(item);
-          }}
-          className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-red-400 transition-colors"
-          title="Löschen"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
       </div>
     );
   };
@@ -197,20 +164,14 @@ function MediaCategory({
   );
 }
 
-function MediaLibraryContent(): JSX.Element {
+function MediaLibraryContent() {
+  const { user } = useSupabase();
   const [isDragging, setIsDragging] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("image");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [itemToDelete, setItemToDelete] = useState<MediaItem | null>(null);
-
-  // Helper function to extract file path from URL
-  const getFilePathFromUrl = (url: string, bucket: string): string => {
-    const baseUrl = `https://supabase.matthias.lol/storage/v1/object/public/${bucket}/`;
-    return decodeURIComponent(url.replace(baseUrl, ""));
-  };
 
   // Helper function to get file dimensions (for images)
   const getImageDimensions = async (
@@ -221,7 +182,7 @@ function MediaLibraryContent(): JSX.Element {
     }
 
     return new Promise((resolve) => {
-      const img = new (window.Image as { new (): HTMLImageElement })();
+      const img = new window.Image();
       img.onload = () => {
         resolve({
           width: img.width,
@@ -243,23 +204,44 @@ function MediaLibraryContent(): JSX.Element {
     return "documents";
   };
 
+  // Fetch media items from Supabase
+  useEffect(() => {
+    async function fetchMediaItems() {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from("media_items")
+          .select("*")
+          .eq("user_id", user?.id)
+          .order("uploaded_at", { ascending: false });
+
+        if (error) throw error;
+        setMediaItems(data || []);
+      } catch (error) {
+        console.error("Error fetching media items:", error);
+        toast.error("Fehler beim Laden der Medien");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (user) {
+      fetchMediaItems();
+    }
+  }, [user]);
+
   // Handle file upload
-  const handleFileUpload = async (files: FileList | null) => {
+  const handleFileUpload = async (files: File[]) => {
     if (!files || files.length === 0) return;
+    if (!user) {
+      toast.error("Sie müssen angemeldet sein, um Medien hochzuladen");
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("Bitte melde dich an, um Dateien hochzuladen");
-      setIsUploading(false);
-      return;
-    }
-
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       try {
         // Check file size (50MB limit)
         if (file.size > 50 * 1024 * 1024) {
@@ -288,15 +270,19 @@ function MediaLibraryContent(): JSX.Element {
         // Get dimensions if it's an image
         const dimensions = await getImageDimensions(file);
 
-        // Add to media_items table
+        // Generate a UUID for the new item
+        const newId = uuidv4();
+
+        // Add to media_items table with user_id
         const { error: dbError } = await supabase.from("media_items").insert({
+          id: newId,
           file_name: file.name,
           file_type: file.type,
           url: publicUrl,
           size: file.size,
           width: dimensions.width,
           height: dimensions.height,
-          user_id: session.user.id, // Add user_id for RLS
+          user_id: user.id,
         });
 
         if (dbError) throw dbError;
@@ -304,7 +290,7 @@ function MediaLibraryContent(): JSX.Element {
         // Add the new item to the state
         setMediaItems((prev) => [
           {
-            id: Date.now().toString(), // Temporary ID until we refresh
+            id: newId,
             file_name: file.name,
             file_type: file.type,
             url: publicUrl,
@@ -312,7 +298,6 @@ function MediaLibraryContent(): JSX.Element {
             size: file.size,
             width: dimensions.width,
             height: dimensions.height,
-            user_id: session.user.id,
           },
           ...prev,
         ]);
@@ -329,37 +314,33 @@ function MediaLibraryContent(): JSX.Element {
     setUploadProgress(0);
   };
 
-  // Fetch media items from Supabase
-  useEffect(() => {
-    async function fetchMediaItems() {
-      try {
-        setIsLoading(true);
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
 
-        if (!session) {
-          toast.error("Bitte melde dich an, um deine Medien zu sehen");
-          return;
-        }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
-        const { data, error } = await supabase
-          .from("media_items")
-          .select("*")
-          .order("uploaded_at", { ascending: false });
-
-        if (error) throw error;
-        setMediaItems(data || []);
-      } catch (error) {
-        console.error("Error fetching media items:", error);
-        toast.error("Fehler beim Laden der Medien");
-      } finally {
-        setIsLoading(false);
-      }
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files);
     }
+  };
 
-    fetchMediaItems();
-  }, []);
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   // Group media items by type
   const groupedMedia = mediaItems.reduce((acc, item) => {
@@ -409,84 +390,6 @@ function MediaLibraryContent(): JSX.Element {
     },
   ];
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFileUpload(e.dataTransfer.files);
-  };
-
-  // Delete media item
-  const handleDelete = async (item: MediaItem) => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.error("Bitte melde dich an, um Medien zu löschen");
-        return;
-      }
-
-      // Determine bucket from file type
-      const bucket = item.file_type.startsWith("image/")
-        ? "images"
-        : item.file_type.startsWith("video/")
-        ? "videos"
-        : item.file_type.startsWith("audio/")
-        ? "audio"
-        : "documents";
-
-      // Get file path from URL
-      const filePath = getFilePathFromUrl(item.url, bucket);
-
-      // Delete from storage bucket
-      const { error: storageError } = await supabase.storage
-        .from(bucket)
-        .remove([filePath]);
-
-      if (storageError) throw storageError;
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from("media_items")
-        .delete()
-        .eq("id", item.id);
-
-      if (dbError) throw dbError;
-
-      // Update local state
-      setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
-      toast.success("Datei erfolgreich gelöscht");
-    } catch (error) {
-      console.error("Delete error:", error);
-      toast.error("Fehler beim Löschen der Datei");
-    } finally {
-      setItemToDelete(null);
-    }
-  };
-
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Lade Medien...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 pb-5">
@@ -501,13 +404,10 @@ function MediaLibraryContent(): JSX.Element {
               type={category.type}
               isActive={activeCategory === category.type}
               onSelect={() => setActiveCategory(category.type)}
-              onDelete={(item) => setItemToDelete(item)}
             />
           ))}
         </div>
       </div>
-
-      {/* Upload Area */}
       <div className="border-t border-border p-4">
         <div
           className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
@@ -524,8 +424,12 @@ function MediaLibraryContent(): JSX.Element {
             multiple
             className="hidden"
             id="fileUpload"
-            onChange={(e) => handleFileUpload(e.target.files)}
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              if (files.length > 0) {
+                handleFileUpload(files);
+              }
+            }}
           />
           <label
             htmlFor="fileUpload"
@@ -554,32 +458,6 @@ function MediaLibraryContent(): JSX.Element {
           )}
         </div>
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={!!itemToDelete}
-        onOpenChange={() => setItemToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Datei löschen</AlertDialogTitle>
-            <AlertDialogDescription>
-              Möchtest du die Datei &quot;{itemToDelete?.file_name}&quot;
-              wirklich löschen? Diese Aktion kann nicht rückgängig gemacht
-              werden.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => itemToDelete && handleDelete(itemToDelete)}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              Löschen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

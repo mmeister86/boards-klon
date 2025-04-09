@@ -1,0 +1,1 @@
+{"project_id":"default","api":{"url":"http://localhost:54321","service_key":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc0MzI1NTMwMCwiZXhwIjo0ODk4OTI4OTAwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.7NeJ_fm9yQfzf70SmKdXb8o7bRDkY1Ge5rboMXXD04Y"},"db":{"host":"localhost","port":54322,"user":"postgres","password":"postgres","db":"postgres"}}

@@ -1,50 +1,70 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Image as LucideImage,
   Video,
   Music,
-  Link2,
   FileText,
   Search,
   Loader2,
   Upload,
+  Trash2,
+  Film,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { useRouter } from "next/navigation";
 
-// Updated MediaItem type to match our database schema
+// Updated MediaItem type to match our database schema exactly
 interface MediaItem {
-  id: string;
+  id: string; // UUID stored as string in TypeScript
   file_name: string;
   file_type: string;
   url: string;
-  uploaded_at: string;
+  uploaded_at: string | null; // timestamp with time zone can be null
   size: number;
-  width?: number;
-  height?: number;
+  width: number | null;
+  height: number | null;
+  user_id: string | null; // UUID stored as string in TypeScript
 }
 
 export default function MediathekView() {
+  const { user, supabase, session } = useSupabase();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const router = useRouter();
+
+  console.log("MediathekView rendered:", {
+    hasUser: !!user,
+    userId: user?.id,
+    hasSession: !!session,
+    hasSupabase: !!supabase,
+    timestamp: new Date().toISOString(),
+  });
 
   // Fetch media items from Supabase
   useEffect(() => {
     async function fetchMediaItems() {
+      if (!supabase || !user) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         const { data, error } = await supabase
           .from("media_items")
           .select("*")
+          .eq("user_id", user.id)
           .order("uploaded_at", { ascending: false });
 
         if (error) throw error;
@@ -58,15 +78,22 @@ export default function MediathekView() {
     }
 
     fetchMediaItems();
-  }, []);
+  }, [user, supabase]);
+
+  // Redirect if no session
+  useEffect(() => {
+    if (!session && !isLoading) {
+      router.push("/auth/login");
+    }
+  }, [session, isLoading, router]);
 
   // Filter media based on search query
   const filteredMedia = mediaItems.filter((item) =>
     item.file_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Group media by type
-  const groupedMedia = filteredMedia.reduce((acc, item) => {
+  // Group media items by type
+  const groupedMedia = mediaItems.reduce((acc, item) => {
     const type = item.file_type.startsWith("image/")
       ? "image"
       : item.file_type.startsWith("video/")
@@ -81,6 +108,37 @@ export default function MediathekView() {
     acc[type].push(item);
     return acc;
   }, {} as Record<string, MediaItem[]>);
+
+  const categories = [
+    {
+      title: "Fotos",
+      icon: <LucideImage size={18} />,
+      iconColor: "text-blue-500",
+      type: "image",
+      items: groupedMedia["image"] || [],
+    },
+    {
+      title: "Videos",
+      icon: <Film size={18} />,
+      iconColor: "text-red-500",
+      type: "video",
+      items: groupedMedia["video"] || [],
+    },
+    {
+      title: "Audio",
+      icon: <Music size={18} />,
+      iconColor: "text-green-500",
+      type: "audio",
+      items: groupedMedia["audio"] || [],
+    },
+    {
+      title: "Dokumente",
+      icon: <FileText size={18} />,
+      iconColor: "text-purple-500",
+      type: "document",
+      items: groupedMedia["document"] || [],
+    },
+  ];
 
   // Render media preview with actual image URLs
   const renderMediaPreview = (item: MediaItem) => {
@@ -103,6 +161,14 @@ export default function MediathekView() {
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => handleDelete(item)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         );
       case "video":
@@ -111,6 +177,14 @@ export default function MediathekView() {
             <div className="w-full h-full flex items-center justify-center">
               <Video className="h-8 w-8 text-muted-foreground" />
             </div>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => handleDelete(item)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         );
       case "audio":
@@ -119,6 +193,14 @@ export default function MediathekView() {
             <div className="w-full h-full flex items-center justify-center">
               <Music className="h-8 w-8 text-muted-foreground" />
             </div>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => handleDelete(item)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         );
       case "document":
@@ -127,6 +209,14 @@ export default function MediathekView() {
             <div className="w-full h-full flex items-center justify-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => handleDelete(item)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         );
       default:
@@ -159,7 +249,15 @@ export default function MediathekView() {
           {displayItems.map((item) => (
             <div key={item.id} className="relative group">
               {renderMediaPreview(item)}
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-b-lg">
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleDelete(item)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-sm truncate">{item.file_name}</p>
                 <p className="text-xs opacity-75">
                   {(item.size / 1024 / 1024).toFixed(1)} MB
@@ -215,75 +313,92 @@ export default function MediathekView() {
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    try {
+      if (!user || !session || !supabase) {
+        toast.error("Sie müssen angemeldet sein, um Dateien hochzuladen");
+        router.push("/auth/login");
+        return;
+      }
 
-    for (const file of Array.from(files)) {
-      try {
-        // Check file size (50MB limit)
-        if (file.size > 50 * 1024 * 1024) {
-          toast.error(`${file.name} ist zu groß (Max: 50MB)`);
-          continue;
-        }
+      setIsUploading(true);
+      setUploadProgress(0);
 
-        const bucket = getBucketForFile(file);
-        const filePath = `${Date.now()}-${file.name}`;
+      for (const file of Array.from(files)) {
+        try {
+          // Check file size (50MB limit)
+          if (file.size > 50 * 1024 * 1024) {
+            toast.error(`${file.name} ist zu groß (Max: 50MB)`);
+            continue;
+          }
 
-        // Upload file to storage
-        const { error: uploadError, data } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: true,
-          });
+          const bucket = getBucketForFile(file);
+          const filePath = `${user.id}/${Date.now()}-${file.name}`;
 
-        if (uploadError) throw uploadError;
+          // Upload file to storage with proper caching and content type
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file, {
+              cacheControl: "3600",
+              contentType: file.type,
+              upsert: true,
+            });
 
-        // Get the public URL
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          if (uploadError) {
+            console.error("Upload error:", uploadError);
+            throw uploadError;
+          }
 
-        // Get dimensions if it's an image
-        const dimensions = await getImageDimensions(file);
+          // Get the public URL
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-        // Add to media_items table
-        const { error: dbError } = await supabase.from("media_items").insert({
-          file_name: file.name,
-          file_type: file.type,
-          url: publicUrl,
-          size: file.size,
-          width: dimensions.width,
-          height: dimensions.height,
-        });
+          // Get dimensions if it's an image
+          const dimensions = await getImageDimensions(file);
 
-        if (dbError) throw dbError;
-
-        // Add the new item to the state
-        setMediaItems((prev) => [
-          {
-            id: Date.now().toString(), // Temporary ID until we refresh
+          // Prepare the media item data
+          const mediaItem: MediaItem = {
+            id: uuidv4(),
             file_name: file.name,
             file_type: file.type,
             url: publicUrl,
-            uploaded_at: new Date().toISOString(),
             size: file.size,
-            width: dimensions.width,
-            height: dimensions.height,
-          },
-          ...prev,
-        ]);
+            width: dimensions.width || null,
+            height: dimensions.height || null,
+            user_id: user.id,
+            uploaded_at: new Date().toISOString(),
+          };
 
-        toast.success(`${file.name} erfolgreich hochgeladen`);
-        setUploadProgress((prev) => prev + 100 / files.length);
-      } catch (error) {
-        console.error("Upload error:", error);
-        toast.error(`Fehler beim Hochladen von ${file.name}`);
+          // Insert into media_items table
+          const { error: dbError } = await supabase
+            .from("media_items")
+            .insert(mediaItem)
+            .select()
+            .single();
+
+          if (dbError) {
+            console.error("Database error:", dbError);
+            // Clean up the uploaded file if database insert fails
+            await supabase.storage.from(bucket).remove([filePath]);
+            throw dbError;
+          }
+
+          // Update local state
+          setMediaItems((prev) => [mediaItem, ...prev]);
+          toast.success(`${file.name} erfolgreich hochgeladen`);
+          setUploadProgress((prev) => prev + 100 / files.length);
+        } catch (error) {
+          console.error("File processing error:", error);
+          toast.error(`Fehler beim Hochladen von ${file.name}`);
+        }
       }
+    } catch (error) {
+      console.error("Upload process error:", error);
+      toast.error("Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
-
-    setIsUploading(false);
-    setUploadProgress(0);
   };
 
   // Handle drag and drop events
@@ -308,8 +423,86 @@ export default function MediathekView() {
     handleFileUpload(e.target.files);
   };
 
+  // Hilfsfunktion zum Formatieren der Dateigröße
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  // Helper function to get file path from URL
+  const getFilePathFromUrl = (url: string): string => {
+    try {
+      // Extract everything after /public/[bucket]/
+      const matches = url.match(/\/public\/[^/]+\/(.+)$/);
+      if (!matches || !matches[1]) {
+        throw new Error("Invalid URL format");
+      }
+      return decodeURIComponent(matches[1]);
+    } catch (error) {
+      console.error("Error parsing URL:", error);
+      throw new Error("Could not extract file path from URL");
+    }
+  };
+
+  // Update the handleDelete function
+  const handleDelete = async (item: MediaItem) => {
+    try {
+      if (!user || !supabase) {
+        toast.error("Sie müssen angemeldet sein, um Medien zu löschen");
+        return;
+      }
+
+      // Determine bucket based on file type
+      const bucket = getBucketForFile({ type: item.file_type } as File);
+      const filePath = getFilePathFromUrl(item.url);
+
+      console.log("Starting deletion process for:", {
+        id: item.id,
+        bucket,
+        filePath,
+        url: item.url,
+        userId: user.id,
+      });
+
+      // Delete from storage first
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .remove([filePath]);
+
+      if (storageError) {
+        console.error("Storage delete error:", storageError);
+        throw storageError;
+      }
+
+      console.log(
+        "Successfully deleted from storage, now deleting from database..."
+      );
+
+      // Delete from database with user_id check for security
+      const { error: dbError } = await supabase
+        .from("media_items")
+        .delete()
+        .match({
+          id: item.id,
+          user_id: user.id,
+        });
+
+      if (dbError) {
+        console.error("Database delete error:", dbError);
+        throw dbError;
+      }
+
+      // Update local state
+      setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
+      toast.success(`${item.file_name} wurde gelöscht`);
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error(`Fehler beim Löschen von ${item.file_name}`);
+    }
+  };
+
   return (
-    // Removed the outer div and Navbar from the original page structure
     <>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Mediathek</h1>
@@ -366,8 +559,6 @@ export default function MediathekView() {
         {/* Rechte Spalte: Upload-Bereich */}
         <div className="w-80">
           <div className="sticky top-8">
-            {" "}
-            {/* Adjust top value if needed based on final layout */}
             <h2 className="text-xl font-semibold mb-4">Medien hochladen</h2>
             <div
               className={`
