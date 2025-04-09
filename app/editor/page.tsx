@@ -1,3 +1,8 @@
+/**
+ * The `EditorPage` function in this TypeScript React component handles the initialization, loading,
+ * and rendering of a project editor interface, including error handling and navigation.
+ * @returns The `EditorPage` component returns different content based on the state of the application:
+ */
 "use client";
 
 import { useEffect, useState, useRef } from "react";

@@ -2,9 +2,7 @@
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
-  "deno.enablePaths": [
-    "supabase/functions"
-  ],
+  "deno.enablePaths": ["supabase/functions"],
   "deno.lint": true,
   "deno.unstable": [
     "bare-node-builtins",
@@ -21,5 +19,6 @@
     "http",
     "net"
   ],
-  "docwriter.language": "English"
+  "docwriter.language": "English",
+  "docwriter.style": "Auto-detect"
 }
