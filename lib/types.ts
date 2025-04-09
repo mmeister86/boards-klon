@@ -1,11 +1,12 @@
 export interface BlockType {
   id: string;
-  type: string;
+  type: 'heading' | 'paragraph' | 'image' | 'video' | 'audio' | 'document';
   content: string;
   dropAreaId: string;
   // Additional properties for specific block types
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
-  altText?: string; // Optional: Add alt text specifically for images
+  altText?: string; // For images
+  fileName?: string; // For documents
   // Add more properties for other block types as needed
 }
 

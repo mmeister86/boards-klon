@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 
 interface DraggableBlockProps {
   type: string;
-  content: string;
+  content: string | null;
   icon: LucideIcon;
   description: string;
 }

@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
 import type { DropAreaType } from "@/lib/types";
 import type { ProjectData } from "@/lib/types";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "./database.types";
 
 // Define the Project type for UI display
 interface Project {
@@ -370,4 +372,166 @@ export async function migrateMockProjects(
   } catch {
     return true;
   }
+}
+
+// Constants for supported media types and their corresponding buckets
+const SUPPORTED_MEDIA_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  video: ['video/mp4', 'video/webm', 'video/ogg'],
+  audio: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
+  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+} as const;
+
+const BUCKET_MAPPING = {
+  image: 'images',
+  video: 'videos',
+  audio: 'audio',
+  document: 'documents'
+} as const;
+
+type BucketType = typeof BUCKET_MAPPING[keyof typeof BUCKET_MAPPING];
+
+/**
+ * Get media type category from MIME type
+ * @param mimeType The MIME type of the file
+ * @returns The media category or null if unsupported
+ */
+function getMediaCategory(mimeType: string): keyof typeof BUCKET_MAPPING | null {
+  for (const [category, types] of Object.entries(SUPPORTED_MEDIA_TYPES)) {
+    if (types.includes(mimeType)) {
+      return category as keyof typeof BUCKET_MAPPING;
+    }
+  }
+  return null;
+}
+
+/**
+ * Upload a media file to the appropriate Supabase storage bucket
+ * @param file The file to upload
+ * @param userId The ID of the user uploading the file
+ * @param supabaseClient The Supabase client instance
+ * @returns The public URL of the uploaded file or null if upload fails
+ */
+export async function uploadMediaFile(
+  file: File,
+  userId: string,
+  supabaseClient: SupabaseClient<Database>
+): Promise<string | null> {
+  try {
+    const mediaCategory = getMediaCategory(file.type);
+    if (!mediaCategory) {
+      console.error('Unsupported file type:', file.type);
+      return null;
+    }
+
+    const bucket = BUCKET_MAPPING[mediaCategory];
+    const filePath = `${userId}/${Date.now()}-${file.name}`;
+
+    const { error: uploadError } = await supabaseClient.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabaseClient.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (error) {
+    console.error('Error in uploadMediaFile:', error);
+    return null;
+  }
+}
+
+/**
+ * Add a media item to the database
+ * @param file The original file
+ * @param url The public URL of the uploaded file
+ * @param userId The ID of the user
+ * @param supabaseClient The Supabase client instance
+ * @returns The created media item record or null if operation fails
+ */
+export async function addMediaItemToDatabase(
+  file: File,
+  url: string,
+  userId: string,
+  supabaseClient: SupabaseClient<Database>
+): Promise<Database['public']['Tables']['media_items']['Row'] | null> {
+  try {
+    const mediaCategory = getMediaCategory(file.type);
+    if (!mediaCategory) {
+      return null;
+    }
+
+    let dimensions = undefined;
+    if (mediaCategory === 'image') {
+      dimensions = await getImageDimensions(file);
+    }
+
+    const mediaItem = {
+      file_name: file.name,
+      file_type: file.type,
+      url: url,
+      size: file.size,
+      user_id: userId,
+      uploaded_at: new Date().toISOString(),
+      width: dimensions?.width ?? 0,
+      height: dimensions?.height ?? 0
+    };
+
+    const { data, error } = await supabaseClient
+      .from('media_items')
+      .insert(mediaItem)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding media item to database:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in addMediaItemToDatabase:', error);
+    return null;
+  }
+}
+
+/**
+ * Get dimensions of an image file
+ * @param file The image file
+ * @returns Promise resolving to width and height or undefined if not possible
+ */
+async function getImageDimensions(file: File): Promise<{ width: number; height: number } | undefined> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      resolve(undefined);
+      return;
+    }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({
+        width: img.width,
+        height: img.height
+      });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(undefined);
+    };
+
+    img.src = url;
+  });
 }

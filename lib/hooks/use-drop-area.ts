@@ -10,17 +10,22 @@ import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { findDropAreaById } from "@/lib/utils/drop-area-utils";
 import type { DropTargetMonitor } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { uploadMediaFile, addMediaItemToDatabase } from "@/lib/supabase/storage";
+import { toast } from "sonner";
 
 interface DragItem {
   id?: string; // ID of the block being dragged (if existing)
   type: string; // Type of the block (e.g., 'heading', 'paragraph')
   content: string; // Default content for new blocks
   sourceDropAreaId?: string; // Original drop area ID (if moving existing block)
+  files?: File[]; // Add files for NativeTypes.FILE
 }
 
 export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   const dropTargetRef = useRef<HTMLDivElement | null>(null);
-  // Removed isHoveringBetween and hoverPosition state
+  const { supabase: supabaseClient, user } = useSupabase();
 
   const {
     addBlock, // Function to add a new block
@@ -49,33 +54,52 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     { name: string; handled: boolean; dropAreaId: string } | undefined,
     { isOver: boolean; canDrop: boolean }
   >({
-    accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK], // Accepts new blocks and existing blocks
-    // Simplified hover: Only concerned with direct hover over this specific area
+    accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK, NativeTypes.FILE],
+
+    canDrop: (item: DragItem, monitor) => {
+      // Handle file drops
+      if (monitor.getItemType() === NativeTypes.FILE) {
+        const files = (item as { files: File[] }).files;
+        if (!files || files.length === 0) return false;
+
+        // Check if at least one file has a supported type
+        const hasValidFile = files.some(file => {
+          const type = file.type.toLowerCase();
+          return (
+            type.startsWith('image/') ||
+            type.startsWith('video/') ||
+            type.startsWith('audio/') ||
+            type === 'application/pdf' ||
+            type === 'application/msword' ||
+            type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          );
+        });
+
+        return hasValidFile;
+      }
+
+      // Default canDrop behavior for other item types
+      return true;
+    },
+
     hover: (
       item: DragItem,
       monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
     ) => {
-      // No complex edge detection needed here anymore
-      // We still might want to update isHovering state if needed for direct hover styles
-      const clientOffset = monitor.getClientOffset(); // Get mouse position
+      const clientOffset = monitor.getClientOffset();
       if (clientOffset) {
-        setMousePosition(clientOffset); // Update state
+        setMousePosition(clientOffset);
       }
 
       if (!monitor.isOver({ shallow: true })) {
-        if (isHovering) setIsHovering(false); // Clear hover if not over anymore
-        setMousePosition(null); // Clear mouse position when not hovering
+        if (isHovering) setIsHovering(false);
+        setMousePosition(null);
         return;
       }
-      if (!isHovering) setIsHovering(true); // Set hover if over
+      if (!isHovering) setIsHovering(true);
     },
-    drop: (
-      item: DragItem,
-      monitor: DropTargetMonitor<
-        DragItem,
-        { name: string; handled: boolean; dropAreaId: string } | undefined
-      >
-    ) => {
+
+    drop: (item: DragItem, monitor) => {
       const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
       // Check if handled by parent
@@ -92,6 +116,101 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           `[${dropOpId}] DropAreaHook ${dropArea.id}: Drop target ref is null or not directly over.`
         );
         return undefined;
+      }
+
+      // Handle file drops
+      if (monitor.getItemType() === NativeTypes.FILE) {
+        if (!supabaseClient || !user) {
+          toast.error("Please sign in to upload files");
+          return undefined;
+        }
+
+        const files = (item as { files: File[] }).files;
+        if (!files || files.length === 0) return undefined;
+
+        // Find the first supported file
+        const supportedFile = files.find(file => {
+          const type = file.type.toLowerCase();
+          return (
+            type.startsWith('image/') ||
+            type.startsWith('video/') ||
+            type.startsWith('audio/') ||
+            type === 'application/pdf' ||
+            type === 'application/msword' ||
+            type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          );
+        });
+
+        if (!supportedFile) {
+          toast.error("No supported file types found");
+          return undefined;
+        }
+
+        // Show loading state
+        const loadingToast = toast.loading("Uploading file...");
+
+        // Handle file upload in the background
+        (async () => {
+          try {
+            // Upload file
+            const url = await uploadMediaFile(supportedFile, user.id, supabaseClient);
+            if (!url) {
+              toast.dismiss(loadingToast);
+              toast.error("Failed to upload file");
+              return;
+            }
+
+            // Add to database
+            const mediaItem = await addMediaItemToDatabase(
+              supportedFile,
+              url,
+              user.id,
+              supabaseClient
+            );
+
+            if (!mediaItem) {
+              toast.dismiss(loadingToast);
+              toast.error("Failed to save file information");
+              return;
+            }
+
+            // Determine block type based on file type
+            let blockType: string;
+            if (supportedFile.type.startsWith('image/')) {
+              blockType = 'image';
+            } else if (supportedFile.type.startsWith('video/')) {
+              blockType = 'video';
+            } else if (supportedFile.type.startsWith('audio/')) {
+              blockType = 'audio';
+            } else {
+              blockType = 'document';
+            }
+
+            // Add block to store
+            addBlock(
+              {
+                type: blockType,
+                content: url,
+                dropAreaId: dropArea.id,
+                ...(blockType === 'image' && { altText: supportedFile.name }),
+              },
+              dropArea.id
+            );
+
+            toast.dismiss(loadingToast);
+            toast.success("File uploaded successfully");
+          } catch (error) {
+            console.error("Error handling file drop:", error);
+            toast.dismiss(loadingToast);
+            toast.error("Failed to process file");
+          }
+        })();
+
+        return {
+          name: "Started file upload",
+          handled: true,
+          dropAreaId: dropArea.id,
+        };
       }
 
       // --- Core Logic: Determine if this hook should handle the drop ---
@@ -163,11 +282,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         return undefined;
       }
     },
-    collect: (
-      monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
-    ) => ({
-      isOver: !!monitor.isOver({ shallow: true }), // Is an item hovering directly over this target?
-      canDrop: !!monitor.canDrop(), // Can this target accept the dragged item?
+    collect: (monitor) => ({
+      isOver: !!monitor.isOver({ shallow: true }),
+      canDrop: !!monitor.canDrop(),
     }),
   });
 

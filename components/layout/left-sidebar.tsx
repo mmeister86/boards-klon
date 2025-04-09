@@ -26,7 +26,7 @@ const blockTypes = [
   },
   {
     type: "image",
-    content: "Bild",
+    content: null,
     icon: ImageIcon,
     description: "Füge ein Bild ein",
   },

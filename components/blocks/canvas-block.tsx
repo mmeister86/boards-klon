@@ -9,7 +9,9 @@ import { Trash2, Move } from "@/lib/icons"; // Removed Split import
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
 import { ParagraphBlock } from "./paragraph-block";
 import { ImageBlock } from "./image-block"; // Import the new component
-import { getBlockStyle } from "@/lib/utils/block-utils";
+import { VideoBlock } from "./video-block";
+import { AudioBlock } from "./audio-block";
+import { DocumentBlock } from "./document-block";
 import React from "react";
 
 interface CanvasBlockProps {
@@ -143,7 +145,6 @@ interface BlockContentProps {
 
 function BlockContent({ block, viewport }: BlockContentProps) {
   const { updateBlockContent } = useBlocksStore();
-  const blockStyle = getBlockStyle(block, viewport);
 
   const handleHeadingChange = (data: { level: number; content: string }) => {
     // Ensure the level is valid before updating
@@ -191,8 +192,39 @@ function BlockContent({ block, viewport }: BlockContentProps) {
       <ImageBlock
         blockId={block.id}
         dropAreaId={block.dropAreaId}
-        content={block.content} // Pass the URL (or null)
-        altText={block.altText} // Pass alt text
+        content={block.content}
+        altText={block.altText}
+      />
+    );
+  }
+
+  if (block.type === "video") {
+    return (
+      <VideoBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+      />
+    );
+  }
+
+  if (block.type === "audio") {
+    return (
+      <AudioBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+      />
+    );
+  }
+
+  if (block.type === "document") {
+    return (
+      <DocumentBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+        fileName={block.fileName}
       />
     );
   }
@@ -208,6 +240,10 @@ function BlockContent({ block, viewport }: BlockContentProps) {
     );
   }
 
-  // Default for other block types
-  return <div className={blockStyle}>{block.content}</div>;
+  // Default fallback
+  return (
+    <div className="p-4 bg-red-50 text-red-500 rounded">
+      Unknown block type: {block.type}
+    </div>
+  );
 }
