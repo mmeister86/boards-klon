@@ -7,7 +7,7 @@ import LeftSidebar from "@/components/layout/left-sidebar";
 import Canvas from "@/components/canvas/canvas";
 // import RightSidebar from "@/components/layout/right-sidebar"; // Remove old import
 // import PropertiesPanel from "@/components/layout/properties-panel"; // Remove old import
-import EditorRightSidebar from "@/components/layout/editor-right-sidebar"; // Import the combined sidebar
+import { EditorRightSidebar } from "@/components/layout/editor-right-sidebar"; // Import using named import
 import { ViewportProvider } from "@/lib/hooks/use-viewport";
 import { useBlocksStore } from "@/store/blocks-store";
 import { initializeStorage } from "@/lib/supabase/storage";

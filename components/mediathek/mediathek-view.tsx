@@ -41,6 +41,7 @@ export default function MediathekView() {
   const [isUploading, setIsUploading] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const router = useRouter();
 
   console.log("MediathekView rendered:", {
@@ -150,6 +151,24 @@ export default function MediathekView() {
       ? "audio"
       : "document";
 
+    const isDeleting = deletingItemId === item.id;
+
+    const DeleteButton = () => (
+      <Button
+        variant="destructive"
+        size="icon"
+        className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={() => handleDelete(item)}
+        disabled={isDeleting}
+      >
+        {isDeleting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Trash2 className="h-4 w-4" />
+        )}
+      </Button>
+    );
+
     switch (type) {
       case "image":
         return (
@@ -161,14 +180,7 @@ export default function MediathekView() {
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => handleDelete(item)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <DeleteButton />
           </div>
         );
       case "video":
@@ -177,14 +189,7 @@ export default function MediathekView() {
             <div className="w-full h-full flex items-center justify-center">
               <Video className="h-8 w-8 text-muted-foreground" />
             </div>
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => handleDelete(item)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <DeleteButton />
           </div>
         );
       case "audio":
@@ -193,14 +198,7 @@ export default function MediathekView() {
             <div className="w-full h-full flex items-center justify-center">
               <Music className="h-8 w-8 text-muted-foreground" />
             </div>
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => handleDelete(item)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <DeleteButton />
           </div>
         );
       case "document":
@@ -209,14 +207,7 @@ export default function MediathekView() {
             <div className="w-full h-full flex items-center justify-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => handleDelete(item)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <DeleteButton />
           </div>
         );
       default:
@@ -249,14 +240,6 @@ export default function MediathekView() {
           {displayItems.map((item) => (
             <div key={item.id} className="relative group">
               {renderMediaPreview(item)}
-              <Button
-                variant="destructive"
-                size="icon"
-                className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDelete(item)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-sm truncate">{item.file_name}</p>
                 <p className="text-xs opacity-75">
@@ -453,6 +436,8 @@ export default function MediathekView() {
         return;
       }
 
+      setDeletingItemId(item.id);
+
       // Determine bucket based on file type
       const bucket = getBucketForFile({ type: item.file_type } as File);
       const filePath = getFilePathFromUrl(item.url);
@@ -495,10 +480,18 @@ export default function MediathekView() {
 
       // Update local state
       setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
-      toast.success(`${item.file_name} wurde gelöscht`);
+      toast.error(`${item.file_name} wurde gelöscht`, {
+        description: "Die Datei wurde erfolgreich gelöscht.",
+        style: {
+          backgroundColor: "hsl(var(--destructive))",
+          color: "white",
+        },
+      });
     } catch (error) {
       console.error("Delete error:", error);
       toast.error(`Fehler beim Löschen von ${item.file_name}`);
+    } finally {
+      setDeletingItemId(null);
     }
   };
 

@@ -92,7 +92,7 @@ export default function DashboardSidebar({
               <LogOut className="mr-2 h-4 w-4" />
               Abmelden
             </Button>
-            <div className="flex items-center gap-2 px-2 py-1 mt-2 border-t pt-2">
+            <div className="flex items-center gap-2 px-2 py-1 mt-2 pt-2 pb-4">
               <Avatar className="h-8 w-8">
                 <AvatarFallback>{user.email?.[0].toUpperCase()}</AvatarFallback>
               </Avatar>

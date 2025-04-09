@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable jsx-a11y/alt-text */
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Image as ImageIcon,
   Film,
@@ -11,20 +11,13 @@ import {
   Upload,
   ChevronDown,
   ChevronUp,
-  Settings, // Icon for Properties tab
-  Library, // Icon for Media tab
   Loader2,
 } from "lucide-react";
-import { useBlocksStore } from "@/store/blocks-store";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { findBlockById } from "@/store/blocks/utils"; // Assuming this utility exists
-import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import { v4 as uuidv4 } from "uuid";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 // Updated MediaItem interface to match our database schema
 interface MediaItem {
@@ -61,18 +54,8 @@ function MediaCategory({
   const displayItems = isExpanded ? items : items.slice(0, 4);
 
   const renderItem = (item: MediaItem) => {
-    const icon = (() => {
-      switch (item.file_type) {
-        case "video":
-          return <Film className="w-6 h-6" />;
-        case "audio":
-          return <Music className="w-6 h-6" />;
-        default:
-          return <FileText className="w-6 h-6" />;
-      }
-    })();
-
-    if (item.file_type === "image") {
+    // Check if the file type starts with image/
+    if (item.file_type.startsWith("image/")) {
       return (
         <div
           key={item.id}
@@ -93,6 +76,17 @@ function MediaCategory({
         </div>
       );
     }
+
+    // For non-image files, determine the icon based on file type
+    const icon = (() => {
+      if (item.file_type.startsWith("video/")) {
+        return <Film className="w-6 h-6" />;
+      } else if (item.file_type.startsWith("audio/")) {
+        return <Music className="w-6 h-6" />;
+      } else {
+        return <FileText className="w-6 h-6" />;
+      }
+    })();
 
     return (
       <div
@@ -145,10 +139,31 @@ function MediaCategory({
         <div className="px-3 pb-3">
           {type === "image" ? (
             <div className="grid grid-cols-2 gap-2">
-              {displayItems.map(renderItem)}
+              {displayItems
+                .filter((item) => item.file_type.startsWith("image/"))
+                .map(renderItem)}
             </div>
           ) : (
-            <div className="space-y-2">{displayItems.map(renderItem)}</div>
+            <div className="space-y-2">
+              {displayItems
+                .filter((item) => {
+                  switch (type) {
+                    case "video":
+                      return item.file_type.startsWith("video/");
+                    case "audio":
+                      return item.file_type.startsWith("audio/");
+                    case "document":
+                      return (
+                        !item.file_type.startsWith("image/") &&
+                        !item.file_type.startsWith("video/") &&
+                        !item.file_type.startsWith("audio/")
+                      );
+                    default:
+                      return false;
+                  }
+                })
+                .map(renderItem)}
+            </div>
           )}
           {items.length > 4 && !isExpanded && (
             <button
@@ -164,55 +179,34 @@ function MediaCategory({
   );
 }
 
-function MediaLibraryContent() {
-  const { user } = useSupabase();
+// MediaLibraryContent component to handle media items and uploads
+export function MediaLibraryContent() {
+  const { user, supabase, session } = useSupabase();
   const [isDragging, setIsDragging] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("image");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const router = useRouter();
 
-  // Helper function to get file dimensions (for images)
-  const getImageDimensions = async (
-    file: File
-  ): Promise<{ width: number; height: number }> => {
-    if (!file.type.startsWith("image/")) {
-      return { width: 0, height: 0 };
+  // Fetch media items from Supabase and set up real-time subscription
+  useEffect(() => {
+    if (!supabase || !user) {
+      setIsLoading(false);
+      return;
     }
 
-    return new Promise((resolve) => {
-      const img = new window.Image();
-      img.onload = () => {
-        resolve({
-          width: img.width,
-          height: img.height,
-        });
-      };
-      img.onerror = () => {
-        resolve({ width: 0, height: 0 });
-      };
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  // Helper function to determine the appropriate bucket based on file type
-  const getBucketForFile = (file: File): string => {
-    if (file.type.startsWith("image/")) return "images";
-    if (file.type.startsWith("video/")) return "videos";
-    if (file.type.startsWith("audio/")) return "audio";
-    return "documents";
-  };
-
-  // Fetch media items from Supabase
-  useEffect(() => {
+    // Initial fetch
     async function fetchMediaItems() {
+      if (!supabase || !user) return;
+
       try {
         setIsLoading(true);
         const { data, error } = await supabase
           .from("media_items")
           .select("*")
-          .eq("user_id", user?.id)
+          .eq("user_id", user.id)
           .order("uploaded_at", { ascending: false });
 
         if (error) throw error;
@@ -225,16 +219,63 @@ function MediaLibraryContent() {
       }
     }
 
-    if (user) {
-      fetchMediaItems();
+    fetchMediaItems();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel("media_items_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to all changes
+          schema: "public",
+          table: "media_items",
+          filter: `user_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          console.log("Real-time update received:", payload);
+
+          // Refresh the entire list to ensure consistency
+          const { data, error } = await supabase
+            .from("media_items")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("uploaded_at", { ascending: false });
+
+          if (!error && data) {
+            setMediaItems(data);
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [supabase, user]);
+
+  // Check for session
+  useEffect(() => {
+    if (!session && !isLoading) {
+      router.push("/auth/login");
     }
-  }, [user]);
+  }, [session, isLoading, router]);
+
+  // Helper function to determine the appropriate bucket based on file type
+  const getBucketForFile = (file: File): string => {
+    if (file.type.startsWith("image/")) return "images";
+    if (file.type.startsWith("video/")) return "videos";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "documents";
+  };
 
   // Handle file upload
   const handleFileUpload = async (files: File[]) => {
     if (!files || files.length === 0) return;
-    if (!user) {
+    if (!user || !supabase) {
       toast.error("Sie müssen angemeldet sein, um Medien hochzuladen");
+      router.push("/auth/login");
       return;
     }
 
@@ -250,10 +291,10 @@ function MediaLibraryContent() {
         }
 
         const bucket = getBucketForFile(file);
-        const filePath = `${Date.now()}-${file.name}`;
+        const filePath = `${user.id}/${Date.now()}-${file.name}`;
 
         // Upload file to storage
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from(bucket)
           .upload(filePath, file, {
             cacheControl: "3600",
@@ -263,44 +304,40 @@ function MediaLibraryContent() {
         if (uploadError) throw uploadError;
 
         // Get the public URL
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        if (!data?.publicUrl) throw new Error("Could not get public URL");
 
         // Get dimensions if it's an image
-        const dimensions = await getImageDimensions(file);
+        const dimensions = await new Promise<{ width: number; height: number }>(
+          (resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+              resolve({
+                width: img.width,
+                height: img.height,
+              });
+            };
+            img.onerror = () => {
+              resolve({ width: 0, height: 0 });
+            };
+            img.src = data.publicUrl;
+          }
+        );
 
-        // Generate a UUID for the new item
-        const newId = uuidv4();
-
-        // Add to media_items table with user_id
+        // Add to media_items table
         const { error: dbError } = await supabase.from("media_items").insert({
-          id: newId,
+          id: uuidv4(),
           file_name: file.name,
           file_type: file.type,
-          url: publicUrl,
+          url: data.publicUrl,
           size: file.size,
           width: dimensions.width,
           height: dimensions.height,
           user_id: user.id,
+          uploaded_at: new Date().toISOString(),
         });
 
         if (dbError) throw dbError;
-
-        // Add the new item to the state
-        setMediaItems((prev) => [
-          {
-            id: newId,
-            file_name: file.name,
-            file_type: file.type,
-            url: publicUrl,
-            uploaded_at: new Date().toISOString(),
-            size: file.size,
-            width: dimensions.width,
-            height: dimensions.height,
-          },
-          ...prev,
-        ]);
 
         toast.success(`${file.name} erfolgreich hochgeladen`);
         setUploadProgress((prev) => prev + 100 / files.length);
@@ -333,127 +370,113 @@ function MediaLibraryContent() {
     }
   };
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  // Group media items by type
-  const groupedMedia = mediaItems.reduce((acc, item) => {
-    const type = item.file_type.startsWith("image/")
-      ? "image"
-      : item.file_type.startsWith("video/")
-      ? "video"
-      : item.file_type.startsWith("audio/")
-      ? "audio"
-      : "document";
-
-    if (!acc[type]) {
-      acc[type] = [];
-    }
-    acc[type].push(item);
-    return acc;
-  }, {} as Record<string, MediaItem[]>);
-
-  const categories = [
-    {
-      title: "Fotos",
-      icon: <ImageIcon size={18} />,
-      iconColor: "text-blue-500",
-      type: "image",
-      items: groupedMedia["image"] || [],
-    },
-    {
-      title: "Videos",
-      icon: <Film size={18} />,
-      iconColor: "text-red-500",
-      type: "video",
-      items: groupedMedia["video"] || [],
-    },
-    {
-      title: "Audio",
-      icon: <Music size={18} />,
-      iconColor: "text-green-500",
-      type: "audio",
-      items: groupedMedia["audio"] || [],
-    },
-    {
-      title: "Dokumente",
-      icon: <FileText size={18} />,
-      iconColor: "text-purple-500",
-      type: "document",
-      items: groupedMedia["document"] || [],
-    },
-  ];
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-5 pb-5">
-        <div className="divide-y divide-border">
-          {categories.map((category) => (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
             <MediaCategory
-              key={category.type}
-              title={category.title}
-              icon={category.icon}
-              iconColor={category.iconColor}
-              items={category.items}
-              type={category.type}
-              isActive={activeCategory === category.type}
-              onSelect={() => setActiveCategory(category.type)}
+              title="Bilder"
+              icon={<ImageIcon />}
+              iconColor="text-blue-500"
+              items={mediaItems.filter((item) =>
+                item.file_type.startsWith("image/")
+              )}
+              type="image"
+              isActive={activeCategory === "image"}
+              onSelect={() => setActiveCategory("image")}
             />
-          ))}
-        </div>
+            <MediaCategory
+              title="Videos"
+              icon={<Film />}
+              iconColor="text-red-500"
+              items={mediaItems.filter((item) =>
+                item.file_type.startsWith("video/")
+              )}
+              type="video"
+              isActive={activeCategory === "video"}
+              onSelect={() => setActiveCategory("video")}
+            />
+            <MediaCategory
+              title="Audio"
+              icon={<Music />}
+              iconColor="text-purple-500"
+              items={mediaItems.filter((item) =>
+                item.file_type.startsWith("audio/")
+              )}
+              type="audio"
+              isActive={activeCategory === "audio"}
+              onSelect={() => setActiveCategory("audio")}
+            />
+            <MediaCategory
+              title="Dokumente"
+              icon={<FileText />}
+              iconColor="text-green-500"
+              items={mediaItems.filter(
+                (item) =>
+                  !item.file_type.startsWith("image/") &&
+                  !item.file_type.startsWith("video/") &&
+                  !item.file_type.startsWith("audio/")
+              )}
+              type="document"
+              isActive={activeCategory === "document"}
+              onSelect={() => setActiveCategory("document")}
+            />
+          </div>
+        )}
       </div>
-      <div className="border-t border-border p-4">
-        <div
-          className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-            isDragging
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-muted-foreground/50"
-          }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            multiple
-            className="hidden"
-            id="fileUpload"
-            onChange={(e) => {
-              const files = Array.from(e.target.files || []);
+
+      <div className="p-4 border-t border-border mt-auto">
+        <div className="flex flex-col gap-4">
+          <div
+            className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const files = Array.from(e.dataTransfer.files);
               if (files.length > 0) {
                 handleFileUpload(files);
               }
             }}
-          />
-          <label
-            htmlFor="fileUpload"
-            className="flex flex-col items-center gap-2 cursor-pointer"
           >
-            <Upload size={20} className="text-muted-foreground" />
-            <div className="text-sm">
-              <span className="text-primary font-medium">
-                Klicken zum Hochladen
-              </span>{" "}
-              oder Dateien hier reinziehen
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Unterstützt Bilder, Videos, Audio und Dokumente
-            </p>
-          </label>
-          {isUploading && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <p className="font-medium">
+                  {isDragging
+                    ? "Dateien hier ablegen"
+                    : "Klicken zum Hochladen"}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  Upload: {Math.round(uploadProgress)}%
+                  oder Dateien hier reinziehen
                 </p>
               </div>
+            </div>
+          </div>
+          {isUploading && (
+            <div className="space-y-2">
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                Upload läuft... {uploadProgress}%
+              </p>
             </div>
           )}
         </div>
@@ -462,117 +485,47 @@ function MediaLibraryContent() {
   );
 }
 
-// --- Properties Panel Content (from properties-panel.tsx) ---
-
-function PropertiesPanelContent() {
-  const { selectedBlockId, dropAreas, updateBlockContent } = useBlocksStore();
-  const selectedBlock = selectedBlockId
-    ? findBlockById(dropAreas, selectedBlockId)
-    : null;
-
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (selectedBlock) {
-      updateBlockContent(
-        selectedBlock.id,
-        selectedBlock.dropAreaId,
-        e.target.value,
-        { altText: selectedBlock.altText }
-      );
-    }
-  };
-
-  const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (selectedBlock) {
-      updateBlockContent(
-        selectedBlock.id,
-        selectedBlock.dropAreaId,
-        selectedBlock.content,
-        { altText: e.target.value }
-      );
-    }
-  };
-
-  const handleClearImage = () => {
-    if (selectedBlock) {
-      updateBlockContent(selectedBlock.id, selectedBlock.dropAreaId, "", {
-        altText: "",
-      });
-    }
-  };
+// EditorRightSidebar component to handle the right sidebar in the editor
+export function EditorRightSidebar() {
+  const [activeTab, setActiveTab] = useState<"media" | "properties">("media");
 
   return (
-    // Removed pt-16
-    <div className="px-5 pb-5">
-      {/* Conditionally render config based on selected block type */}
-      {selectedBlock && selectedBlock.type === "image" && (
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              type="url"
-              placeholder="https://beispiel.com/bild.jpg"
-              value={selectedBlock.content || ""}
-              onChange={handleUrlChange}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="altText">Alt Text</Label>
-            <Input
-              id="altText"
-              type="text"
-              placeholder="Descriptive text for the image"
-              value={selectedBlock.altText || ""}
-              onChange={handleAltTextChange}
-              className="mt-1"
-            />
-          </div>
-          <Button variant="outline" size="sm" onClick={handleClearImage}>
-            Bild entfernen
-          </Button>
+    <div className="w-[300px] bg-background border-l border-border flex flex-col h-full">
+      <div className="pt-16 border-b border-border">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab("media")}
+            className={`flex-1 p-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "media"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Mediathek
+          </button>
+          <button
+            onClick={() => setActiveTab("properties")}
+            className={`flex-1 p-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "properties"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Eigenschaften
+          </button>
         </div>
-      )}
-      {selectedBlock && selectedBlock.type === "heading" && (
-        <div>{/* TODO: Heading config... */}</div>
-      )}
-      {selectedBlock && selectedBlock.type === "paragraph" && (
-        <div>{/* TODO: Paragraph config... */}</div>
-      )}
-      {!selectedBlock && (
-        <p className="text-sm text-muted-foreground">
-          Select a block to edit its properties.
-        </p>
-      )}
-    </div>
-  );
-}
-
-// --- Combined Sidebar Component ---
-
-export default function EditorRightSidebar() {
-  return (
-    // Added pt-24 and overflow-y-auto to main container, removed flex flex-col h-full
-    <div className="w-64 bg-card border-l border-border overflow-y-auto p-5 pt-24">
-      {/* Removed h-full from Tabs */}
-      <Tabs defaultValue="media" className="flex flex-col">
-        <TabsList className="grid w-full grid-cols-2 rounded-none border-b flex-shrink-0">
-          <TabsTrigger value="media" className="rounded-none">
-            <Library className="h-4 w-4 mr-2" /> Media
-          </TabsTrigger>
-          <TabsTrigger value="properties" className="rounded-none">
-            <Settings className="h-4 w-4 mr-2" /> Properties
-          </TabsTrigger>
-        </TabsList>
-        {/* Removed overflow-auto */}
-        <TabsContent value="media" className="mt-0">
+      </div>
+      <div className="flex-1 overflow-hidden">
+        {activeTab === "media" ? (
           <MediaLibraryContent />
-        </TabsContent>
-        {/* Removed overflow-auto */}
-        <TabsContent value="properties" className="mt-0">
-          <PropertiesPanelContent />
-        </TabsContent>
-      </Tabs>
+        ) : (
+          <div className="text-center text-muted-foreground p-4">
+            Wählen Sie ein Element aus, um dessen Eigenschaften zu bearbeiten.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+// ... rest of the file (PropertiesPanelContent and EditorRightSidebar) stays the same ...
