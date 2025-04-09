@@ -10,7 +10,6 @@ import {
   Loader2,
   Upload,
   Trash2,
-  Film,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,37 +109,6 @@ export default function MediathekView() {
     return acc;
   }, {} as Record<string, MediaItem[]>);
 
-  const categories = [
-    {
-      title: "Fotos",
-      icon: <LucideImage size={18} />,
-      iconColor: "text-blue-500",
-      type: "image",
-      items: groupedMedia["image"] || [],
-    },
-    {
-      title: "Videos",
-      icon: <Film size={18} />,
-      iconColor: "text-red-500",
-      type: "video",
-      items: groupedMedia["video"] || [],
-    },
-    {
-      title: "Audio",
-      icon: <Music size={18} />,
-      iconColor: "text-green-500",
-      type: "audio",
-      items: groupedMedia["audio"] || [],
-    },
-    {
-      title: "Dokumente",
-      icon: <FileText size={18} />,
-      iconColor: "text-purple-500",
-      type: "document",
-      items: groupedMedia["document"] || [],
-    },
-  ];
-
   // Render media preview with actual image URLs
   const renderMediaPreview = (item: MediaItem) => {
     const type = item.file_type.startsWith("image/")
@@ -172,7 +140,7 @@ export default function MediathekView() {
     switch (type) {
       case "image":
         return (
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <Image
               src={item.url}
               alt={item.file_name}
@@ -185,7 +153,7 @@ export default function MediathekView() {
         );
       case "video":
         return (
-          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-muted rounded-[30px] overflow-hidden">
             <div className="w-full h-full flex items-center justify-center">
               <Video className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -194,7 +162,7 @@ export default function MediathekView() {
         );
       case "audio":
         return (
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <div className="w-full h-full flex items-center justify-center">
               <Music className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -203,7 +171,7 @@ export default function MediathekView() {
         );
       case "document":
         return (
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <div className="w-full h-full flex items-center justify-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -240,9 +208,9 @@ export default function MediathekView() {
           {displayItems.map((item) => (
             <div key={item.id} className="relative group">
               {renderMediaPreview(item)}
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                <p className="text-sm truncate">{item.file_name}</p>
-                <p className="text-xs opacity-75">
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-b-[30px]">
+                <p className="pl-4 text-sm truncate">{item.file_name}</p>
+                <p className="pl-4 text-xs opacity-75">
                   {(item.size / 1024 / 1024).toFixed(1)} MB
                 </p>
               </div>
@@ -292,6 +260,29 @@ export default function MediathekView() {
     });
   };
 
+  // --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen ---
+  const sanitizeFilename = (filename: string): string => {
+    // Umlaute und ß ersetzen
+    const umlautMap: { [key: string]: string } = {
+      ä: "ae",
+      ö: "oe",
+      ü: "ue",
+      Ä: "Ae",
+      Ö: "Oe",
+      Ü: "Ue",
+      ß: "ss",
+    };
+    let sanitized = filename;
+    for (const key in umlautMap) {
+      sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+    }
+
+    // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+    return sanitized
+      .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+      .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+  };
+
   // Handle file upload
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -315,7 +306,11 @@ export default function MediathekView() {
           }
 
           const bucket = getBucketForFile(file);
-          const filePath = `${user.id}/${Date.now()}-${file.name}`;
+          // --- MODIFIZIERT: Dateinamen bereinigen ---
+          const sanitizedFileName = sanitizeFilename(file.name);
+          const filePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
+
+          console.log(`Uploading to bucket: ${bucket}, path: ${filePath}`); // Logging hinzugefügt
 
           // Upload file to storage with proper caching and content type
           const { error: uploadError } = await supabase.storage
@@ -339,10 +334,10 @@ export default function MediathekView() {
           // Get dimensions if it's an image
           const dimensions = await getImageDimensions(file);
 
-          // Prepare the media item data
+          // Prepare the media item data (use original file.name for display)
           const mediaItem: MediaItem = {
             id: uuidv4(),
-            file_name: file.name,
+            file_name: file.name, // Originalnamen für die DB/Anzeige beibehalten
             file_type: file.type,
             url: publicUrl,
             size: file.size,
@@ -371,7 +366,7 @@ export default function MediathekView() {
           toast.success(`${file.name} erfolgreich hochgeladen`);
           setUploadProgress((prev) => prev + 100 / files.length);
         } catch (error) {
-          console.error("File processing error:", error);
+          console.error(`File processing error for ${file.name}:`, error);
           toast.error(`Fehler beim Hochladen von ${file.name}`);
         }
       }
@@ -404,13 +399,6 @@ export default function MediathekView() {
   // Handle file input change
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleFileUpload(e.target.files);
-  };
-
-  // Hilfsfunktion zum Formatieren der Dateigröße
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
   // Helper function to get file path from URL
@@ -495,6 +483,40 @@ export default function MediathekView() {
     }
   };
 
+  // Gemeinsame JSX-Elemente für beide Dropzone-Varianten
+  const UploadIconContent = () => (
+    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+      <Upload className="h-6 w-6 text-primary" />
+    </div>
+  );
+
+  const UploadingIndicator = () => (
+    <>
+      {isUploading && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">
+              {Math.round(uploadProgress)}%
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // Hidden File Input (needed for both dropzones)
+  const HiddenFileInput = () => (
+    <input
+      id="file-upload" // ID muss konsistent sein für das Label
+      type="file"
+      multiple
+      className="hidden"
+      onChange={handleFileInputChange}
+      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+    />
+  );
+
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -519,89 +541,113 @@ export default function MediathekView() {
             </div>
           ) : (
             <div className="space-y-8">
-              {renderMediaCategory(
-                "image",
-                "Bilder",
-                <LucideImage className="h-5 w-5" />
-              )}
-              {renderMediaCategory(
-                "video",
-                "Videos",
-                <Video className="h-5 w-5" />
-              )}
-              {renderMediaCategory(
-                "audio",
-                "Audio",
-                <Music className="h-5 w-5" />
-              )}
-              {renderMediaCategory(
-                "document",
-                "Dokumente",
-                <FileText className="h-5 w-5" />
-              )}
-              {/* Display message if no media matches search */}
-              {filteredMedia.length === 0 && !isLoading && (
-                <p className="text-muted-foreground text-center py-4">
-                  Keine Medien gefunden.
-                </p>
+              {/* Render categories only if there are items, otherwise the dropzone shows */}
+
+              {mediaItems.length > 0 && (
+                <>
+                  {renderMediaCategory(
+                    "image",
+                    "Bilder",
+                    <LucideImage className="h-5 w-5" />
+                  )}
+                  {renderMediaCategory(
+                    "video",
+                    "Videos",
+                    <Video className="h-5 w-5" />
+                  )}
+                  {renderMediaCategory(
+                    "audio",
+                    "Audio",
+                    <Music className="h-5 w-5" />
+                  )}
+                  {renderMediaCategory(
+                    "document",
+                    "Dokumente",
+                    <FileText className="h-5 w-5" />
+                  )}
+                  {/* Display message if no media matches search AND library is not empty */}
+                  {filteredMedia.length === 0 && !isLoading && (
+                    <p className="text-muted-foreground text-center py-4">
+                      Keine Medien für Ihre Suche gefunden.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Rechte Spalte: Upload-Bereich */}
-        <div className="w-80">
-          <div className="sticky top-8">
-            <h2 className="text-xl font-semibold mb-4">Medien hochladen</h2>
-            <div
-              className={`
-                relative border-2 border-dashed rounded-lg p-8
-                flex flex-col items-center justify-center gap-4
-                transition-colors duration-200
-                ${isDragging ? "border-primary bg-primary/5" : "border-border"}
-              `}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Upload className="h-6 w-6 text-primary" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Dateien hierher ziehen oder
-                </p>
-                <label htmlFor="file-upload">
-                  <Button variant="link" className="mt-1" asChild>
-                    <span>Dateien auswählen</span>
-                  </Button>
-                </label>
-                <input
-                  id="file-upload"
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileInputChange}
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Maximale Dateigröße: 50MB
+      {/* Verstecktes Datei-Input-Feld für beide Dropzone-Typen */}
+      <HiddenFileInput />
+
+      {/* Konditionale Anzeige der Dropzone */}
+      {mediaItems.length === 0 && !isLoading ? (
+        // 1. Große Dropzone, wenn Mediathek leer ist
+        <div className="mt-12 w-full">
+          <div
+            className={`
+                  relative border-2 border-dashed rounded-lg p-8
+                  flex flex-col items-center justify-center gap-4
+                  transition-colors duration-200 h-[75vH] bg-gray-50/80
+                  ${
+                    isDragging ? "border-primary bg-primary/5" : "border-border"
+                  }
+                `}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <UploadIconContent />
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">
+                Dateien hierher ziehen oder
               </p>
-              {isUploading && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Upload: {Math.round(uploadProgress)}%
-                    </p>
-                  </div>
-                </div>
-              )}
+              <label htmlFor="file-upload">
+                <Button variant="link" className="mt-1" asChild>
+                  <span>Dateien auswählen</span>
+                </Button>
+              </label>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Maximale Dateigröße: 50MB
+            </p>
+            <UploadingIndicator />
           </div>
         </div>
-      </div>
+      ) : mediaItems.length > 0 && !isLoading ? (
+        // 2. Kleine, fixierte Dropzone, wenn Mediathek NICHT leer ist
+        <label htmlFor="file-upload">
+          {" "}
+          {/* Label umschließt Button für Klickbarkeit */}
+          <div
+            className={`
+              fixed bottom-8 right-8 z-50
+              w-48 h-48 border-2 border-dashed rounded-xl {/* Größe und Ecken angepasst */}
+              flex items-center justify-center
+              cursor-pointer transition-all duration-200
+              hover:scale-105 hover:border-primary hover:bg-primary/10 {/* Leicht veränderte Hover-Skalierung */}
+              ${
+                isDragging
+                  ? "border-primary bg-primary/5 scale-105"
+                  : "border-border bg-background/80 backdrop-blur-sm"
+              } {/* Leicht veränderte Drag-Skalierung */}
+            `}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            title="Dateien hochladen" // Tooltip
+          >
+            {/* Vereinfachter Inhalt für kleine Dropzone */}
+            <Upload
+              className={`h-8 w-8 transition-colors ${
+                isDragging ? "text-primary" : "text-muted-foreground"
+              }`}
+            />
+            <UploadingIndicator />
+          </div>
+        </label>
+      ) : null}
     </>
   );
 }

@@ -375,13 +375,6 @@ export async function migrateMockProjects(
 }
 
 // Constants for supported media types and their corresponding buckets
-const SUPPORTED_MEDIA_TYPES = {
-  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  video: ['video/mp4', 'video/webm', 'video/ogg'],
-  audio: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
-  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-} as const;
-
 const BUCKET_MAPPING = {
   image: 'images',
   video: 'videos',
@@ -389,7 +382,22 @@ const BUCKET_MAPPING = {
   document: 'documents'
 } as const;
 
-type BucketType = typeof BUCKET_MAPPING[keyof typeof BUCKET_MAPPING];
+// --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen (kopiert aus mediathek-view) ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
 
 /**
  * Get media type category from MIME type
@@ -397,10 +405,19 @@ type BucketType = typeof BUCKET_MAPPING[keyof typeof BUCKET_MAPPING];
  * @returns The media category or null if unsupported
  */
 function getMediaCategory(mimeType: string): keyof typeof BUCKET_MAPPING | null {
-  for (const [category, types] of Object.entries(SUPPORTED_MEDIA_TYPES)) {
-    if (types.includes(mimeType)) {
-      return category as keyof typeof BUCKET_MAPPING;
-    }
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+  // Consider common document types
+  if (
+    [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain",
+    ].includes(mimeType)
+  ) {
+    return "document";
   }
   return null;
 }
@@ -417,35 +434,47 @@ export async function uploadMediaFile(
   userId: string,
   supabaseClient: SupabaseClient<Database>
 ): Promise<string | null> {
-  try {
-    const mediaCategory = getMediaCategory(file.type);
-    if (!mediaCategory) {
-      console.error('Unsupported file type:', file.type);
-      return null;
-    }
+  const category = getMediaCategory(file.type);
+  if (!category) {
+    console.error("Unsupported file type:", file.type);
+    return null;
+  }
 
-    const bucket = BUCKET_MAPPING[mediaCategory];
-    const filePath = `${userId}/${Date.now()}-${file.name}`;
+  const bucket = BUCKET_MAPPING[category];
+
+  // --- MODIFIZIERT: Dateinamen bereinigen ---
+  const sanitizedFileName = sanitizeFilename(file.name);
+  const filePath = `${userId}/${Date.now()}-${sanitizedFileName}`;
+
+  try {
+    console.log(
+      `Attempting to upload ${file.name} (sanitized: ${sanitizedFileName}) to bucket ${bucket} at path ${filePath}`
+    );
 
     const { error: uploadError } = await supabaseClient.storage
       .from(bucket)
       .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: true,
       });
 
     if (uploadError) {
-      console.error('Error uploading file:', uploadError);
+      console.error(`Error uploading file ${file.name}:`, uploadError);
+      throw uploadError; // Re-throw to be caught below
+    }
+
+    const { data } = supabaseClient.storage.from(bucket).getPublicUrl(filePath);
+
+    if (!data?.publicUrl) {
+      console.error(`Could not get public URL for ${filePath}`);
       return null;
     }
 
-    const { data: { publicUrl } } = supabaseClient.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
-
-    return publicUrl;
+    console.log(`Upload successful for ${file.name}. URL: ${data.publicUrl}`);
+    return data.publicUrl;
   } catch (error) {
-    console.error('Error in uploadMediaFile:', error);
+    console.error(`Failed during upload process for ${file.name}:`, error);
     return null;
   }
 }

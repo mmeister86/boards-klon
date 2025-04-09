@@ -16,6 +16,29 @@ import { useRouter } from "next/navigation";
 import { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
 
+// --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen (kopiert aus storage.ts) ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
 // Special value to indicate an empty image block
 const EMPTY_IMAGE_BLOCK = "__EMPTY_IMAGE_BLOCK__";
 
@@ -36,7 +59,11 @@ async function uploadImageToStorage(
   console.log(`Uploading file: ${file.name}`);
   if (!supabaseClient) throw new Error("Supabase client not available");
 
-  const filePath = `${userId}/${Date.now()}-${file.name}`; // Include userId in path
+  // --- MODIFIZIERT: Dateinamen bereinigen ---
+  const sanitizedFileName = sanitizeFilename(file.name);
+  const filePath = `${userId}/${Date.now()}-${sanitizedFileName}`; // Bereinigten Namen verwenden
+
+  console.log(`Sanitized path for upload: ${filePath}`); // Logging hinzugefügt
 
   try {
     // Upload file to storage

@@ -220,7 +220,7 @@ export default function ProjectsView() {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
+        <div className="flex items-center justify-center min-h-[calc(100vh-300px)] xl:pr-[150px]">
           <div className="text-center">
             <h3 className="text-lg font-medium mb-2">
               Keine Projekte gefunden

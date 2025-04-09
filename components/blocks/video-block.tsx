@@ -6,6 +6,24 @@ import { ItemTypes } from "@/lib/item-types";
 import { Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/* --- Hilfsfunktion zum Bereinigen von Dateinamen (für zukünftige Upload-Logik) ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+*/
+
 interface VideoBlockProps {
   blockId: string;
   dropAreaId: string;
