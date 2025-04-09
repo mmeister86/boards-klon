@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/layout/navbar";
 import LeftSidebar from "@/components/layout/left-sidebar";
 import Canvas from "@/components/canvas/canvas";
-import RightSidebar from "@/components/layout/right-sidebar";
+// import RightSidebar from "@/components/layout/right-sidebar"; // Remove old import
+// import PropertiesPanel from "@/components/layout/properties-panel"; // Remove old import
+import EditorRightSidebar from "@/components/layout/editor-right-sidebar"; // Import the combined sidebar
 import { ViewportProvider } from "@/lib/hooks/use-viewport";
 import { useBlocksStore } from "@/store/blocks-store";
 import { initializeStorage } from "@/lib/supabase/storage";
@@ -143,10 +145,12 @@ export default function EditorPage() {
         />
         <div className="flex flex-1 overflow-hidden">
           <LeftSidebar />
-          <div className="flex-1 bg-muted overflow-hidden flex flex-col">
+          <div className="flex-1 bg-muted overflow-auto flex flex-col">
             <Canvas />
           </div>
-          <RightSidebar />
+          {/* <RightSidebar /> */}
+          {/* <PropertiesPanel /> */}
+          <EditorRightSidebar /> {/* Use the combined sidebar */}
         </div>
       </div>
     </ViewportProvider>

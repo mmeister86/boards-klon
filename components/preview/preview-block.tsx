@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import type { BlockType } from "@/lib/types";
@@ -48,20 +49,33 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
     );
   };
 
+  // Conditionally render wrapper for non-image blocks
+  if (block.type === "image") {
+    // Render only the image for image blocks, without the wrapper div
+    return (
+      <img
+        src={block.content} // Use block content as image URL
+        alt={block.altText || ""} // Use altText or empty string
+        className="block w-full h-auto rounded-lg object-cover" // Basic styling, ensure it fills container if needed
+        loading="lazy" // Add lazy loading
+      />
+    );
+  }
+
+  // For other block types, render with the wrapper div
   return (
     <div
       className={`${blockStyle} p-4 bg-background border rounded-lg shadow-sm ${
         viewport === "mobile" ? "text-sm" : ""
       }`}
     >
-      {block.type === "image" ? (
-        <span className="text-muted-foreground">Bildblock</span>
-      ) : block.type === "heading" ? (
+      {block.type === "heading" ? (
         renderHeadingContent()
       ) : block.type === "paragraph" ? (
         renderParagraphContent()
       ) : (
-        block.content
+        // Default rendering for other types (if any)
+        <div className="preview-content">{block.content}</div>
       )}
     </div>
   );

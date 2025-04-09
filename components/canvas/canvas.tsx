@@ -239,73 +239,79 @@ export default function Canvas() {
   };
 
   return (
-    <div className="flex-1 bg-muted overflow-auto p-6">
-      {/* Header with centered viewport selector and right-aligned preview toggle */}
-      <div className="relative flex justify-center items-center mb-6">
-        <ViewportSelector />
-        <div className="absolute right-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPreviewMode(!previewMode)}
-            className="flex items-center gap-2"
-          >
-            {previewMode ? (
-              <>
-                <EyeOff className="h-4 w-4" />
-                <span>Vorschau beenden</span>
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4" />
-                <span>Vorschau</span>
-              </>
-            )}
-          </Button>
+    <div className="flex-1 bg-muted h-full pt-24">
+      {/* Added pt-6 for top padding, and px-6 for horizontal padding */}
+      <div className="px-6">
+        {/* Header with centered viewport selector and right-aligned preview toggle */}
+        <div className="relative flex justify-center items-center mb-6">
+          <ViewportSelector />
+          <div className="absolute right-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewMode(!previewMode)}
+              className="flex items-center gap-2"
+            >
+              {previewMode ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  <span>Vorschau beenden</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  <span>Vorschau</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {previewMode ? (
-        <Preview />
-      ) : (
-        /* Canvas container with proper width */
-        <div
-          className={`mx-auto ${
-            viewport === "desktop" ? "w-[90%]" : "w-auto"
-          } flex justify-center`}
-        >
+      {/* Added px-6 pb-6 for padding */}
+      <div className="px-6 pb-6">
+        {previewMode ? (
+          <Preview />
+        ) : (
+          /* Canvas container with proper width */
           <div
-            className={`bg-card rounded-2xl transition-all duration-300 shadow-md overflow-hidden ${
-              viewport === "desktop" ? "w-full" : ""
-            }`}
-            style={getViewportStyles(viewport)}
+            className={`mx-auto ${
+              viewport === "desktop" ? "w-[90%]" : "w-auto"
+            } flex justify-center`}
           >
-            {/* Attach the drop ref using the callback */}
             <div
-              ref={dropRefCallback}
-              className="w-full"
-              data-drop-container="true"
+              className={`bg-card rounded-2xl transition-all duration-300 shadow-md overflow-hidden ${
+                viewport === "desktop" ? "w-full" : ""
+              }`}
+              style={getViewportStyles(viewport)}
             >
-              {filteredDropAreas.map((dropArea, index) => (
-                <React.Fragment key={`${dropArea.id}-${index}`}>
-                  <InsertionIndicator
-                    isVisible={index === hoveredInsertionIndex}
-                  />
-                  <DropArea
-                    ref={dropAreaRefs.current[index]}
-                    dropArea={dropArea}
-                    showSplitIndicator={viewport !== "mobile"}
-                    viewport={viewport}
-                  />
-                </React.Fragment>
-              ))}
-              <InsertionIndicator
-                isVisible={filteredDropAreas.length === hoveredInsertionIndex}
-              />
+              {/* Attach the drop ref using the callback */}
+              <div
+                ref={dropRefCallback}
+                className="w-full"
+                data-drop-container="true"
+              >
+                {filteredDropAreas.map((dropArea, index) => (
+                  <React.Fragment key={`${dropArea.id}-${index}`}>
+                    <InsertionIndicator
+                      isVisible={index === hoveredInsertionIndex}
+                    />
+                    <DropArea
+                      ref={dropAreaRefs.current[index]}
+                      dropArea={dropArea}
+                      showSplitIndicator={viewport !== "mobile"}
+                      viewport={viewport}
+                    />
+                  </React.Fragment>
+                ))}
+                <InsertionIndicator
+                  isVisible={filteredDropAreas.length === hoveredInsertionIndex}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

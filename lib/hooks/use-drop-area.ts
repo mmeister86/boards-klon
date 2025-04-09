@@ -2,6 +2,7 @@
 
 import { useDrop } from "react-dnd";
 import { useState, useEffect, useRef } from "react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ItemTypes, markDropHandled } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 // Removed duplicate imports

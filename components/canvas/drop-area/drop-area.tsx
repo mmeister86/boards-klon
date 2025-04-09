@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, forwardRef } from "react"; // Import React, forwardRef
+import React, { useState, useEffect, forwardRef } from "react"; // Import React, forwardRef, useState
 import { useDropArea } from "@/lib/hooks/use-drop-area";
 import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
@@ -27,13 +27,14 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
       useBlocksStore();
     const [isSplitting, setIsSplitting] = useState(false);
     const [showDeleteButton, setShowDeleteButton] = useState(false);
+    const [isMouseHovering, setIsMouseHovering] = useState(false); // State for mouse hover
 
     const {
       isOver, // Is an item hovering directly over this area?
-      isHovering, // Is the mouse hovering over the area?
+      // Removed unused isHovering
       drop, // The drop ref connector from react-dnd for this area
       getDropAreaStyles, // Function to get dynamic styles based on state
-    } = useDropArea(dropArea); // Pass only dropArea
+    } = useDropArea(dropArea, viewport); // Pass dropArea and viewport
 
     // Check if this drop area can be split based on viewport and level
     const canSplitThisArea = canSplit(dropArea.id, viewport);
@@ -42,9 +43,17 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
     // --- NEW: Logic for showing the split button ---
     const shouldShowSplitButton =
       showSplitIndicator && // Prop check from parent
-      isHovering && // Is mouse over?
+      isMouseHovering && // Use mouse hover state
       !isOver && // Is an item NOT being dragged over?
       isAreaEmpty && // Is the area empty?
+      canSplitThisArea; // Can this specific area be split?
+
+    // --- NEW: Logic for showing the split button on POPULATED areas ---
+    const shouldShowSplitButtonPopulated =
+      showSplitIndicator && // Prop check from parent
+      isMouseHovering && // Use mouse hover state
+      !isOver && // Is an item NOT being dragged over?
+      !isAreaEmpty && // Area must be POPULATED
       canSplitThisArea; // Can this specific area be split?
 
     // Handle splitting a populated drop area (when split button is clicked)
@@ -130,6 +139,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         onMouseEnter={() => {
           // console.log(`Mouse enter ${dropArea.id}`); // Reduce console noise
           setShowDeleteButton(true);
+          setIsMouseHovering(true); // Set mouse hover state
         }}
         onMouseLeave={(e) => {
           // Only set to false if we're leaving the container itself,
@@ -140,6 +150,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           ) {
             // console.log(`Mouse leave ${dropArea.id}`); // Reduce console noise
             setShowDeleteButton(false);
+            setIsMouseHovering(false); // Clear mouse hover state
           }
         }}
       >
@@ -152,17 +163,34 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           </div>
         )}
 
-        {/* NEW: Split Button (replaces old split indicator logic) */}
+        {/* Split Button for EMPTY areas */}
         {shouldShowSplitButton && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <button
               onClick={(e) => {
                 e.stopPropagation(); // Prevent potential parent handlers
-                handleSplitEmpty(); // Call the existing split function
+                handleSplitEmpty(); // Call the split function for empty areas
               }}
               className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
-              title="Drop-Bereich aufteilen"
-              aria-label="Split drop area"
+              title="Drop-Bereich aufteilen (leer)"
+              aria-label="Split empty drop area"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+        )}
+
+        {/* Split Button for POPULATED areas */}
+        {shouldShowSplitButtonPopulated && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent potential parent handlers
+                handleSplitPopulated(); // Call the split function for populated areas
+              }}
+              className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
+              title="Drop-Bereich aufteilen (enthält Blöcke)"
+              aria-label="Split populated drop area"
             >
               <Plus size={18} />
             </button>
@@ -172,8 +200,7 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         <DropAreaContent
           dropArea={dropArea}
           viewport={viewport}
-          onSplitPopulated={handleSplitPopulated}
-          canSplit={canSplitThisArea}
+          // Removed onSplitPopulated and canSplit props as they are no longer needed here
         />
 
         {/* Delete button - Shows on hover for populated areas:

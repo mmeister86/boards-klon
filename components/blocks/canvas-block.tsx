@@ -5,9 +5,10 @@ import { useEffect, useState } from "react"; // Import useState
 import { useBlocksStore } from "@/store/blocks-store";
 import type { BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
-import { Trash2, Move, Split } from "@/lib/icons";
+import { Trash2, Move } from "@/lib/icons"; // Removed Split import
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
 import { ParagraphBlock } from "./paragraph-block";
+import { ImageBlock } from "./image-block"; // Import the new component
 import { getBlockStyle } from "@/lib/utils/block-utils";
 import React from "react";
 
@@ -15,8 +16,7 @@ interface CanvasBlockProps {
   block: BlockType;
   viewport?: ViewportType;
   index: number; // Add index prop
-  onSplit?: () => void;
-  canSplit?: boolean;
+  // Removed onSplit, canSplit props
   isOnlyBlockInArea?: boolean;
 }
 
@@ -24,8 +24,7 @@ export function CanvasBlock({
   block,
   index, // Destructure index
   viewport = "desktop",
-  onSplit,
-  canSplit = true,
+  // Removed onSplit, canSplit props
   isOnlyBlockInArea = false,
 }: CanvasBlockProps) {
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
@@ -76,8 +75,7 @@ export function CanvasBlock({
         {(isHovering || isSelected) && (
           <BlockControls
             onDelete={handleDelete}
-            onSplit={onSplit}
-            canSplit={canSplit && !!onSplit}
+            // Removed onSplit and canSplit props
             isDragging={isDragging}
             drag={drag as any} // Pass drag ref down
             showDeleteButton={!isOnlyBlockInArea}
@@ -94,15 +92,13 @@ export function CanvasBlock({
 // Extracted component for block controls
 function BlockControls({
   onDelete,
-  onSplit,
-  canSplit,
+  // Removed onSplit, canSplit
   isDragging,
   drag, // Destructure the passed drag ref
   showDeleteButton = true, // New prop with default value
 }: {
   onDelete: (e: React.MouseEvent) => void;
-  onSplit?: () => void;
-  canSplit?: boolean;
+  // Removed onSplit, canSplit types
   isDragging: boolean;
   drag: React.Ref<HTMLButtonElement>;
   showDeleteButton?: boolean; // Add to type definition
@@ -121,21 +117,6 @@ function BlockControls({
           title="Block löschen"
         >
           <Trash2 size={14} />
-        </button>
-      )}
-
-      {/* Split button - show if splitting is allowed */}
-      {canSplit && onSplit && (
-        <button
-          className="absolute top-6 -right-2 bg-blue-500 text-white p-1.5 rounded-full shadow-md
-                    hover:bg-blue-600 transition-colors duration-200 z-10" // Removed opacity/group-hover
-          onClick={(e) => {
-            e.stopPropagation(); // Keep stopPropagation here
-            onSplit();
-          }}
-          title="Bereich teilen"
-        >
-          <Split size={14} />
         </button>
       )}
 
@@ -207,9 +188,12 @@ function BlockContent({ block, viewport }: BlockContentProps) {
 
   if (block.type === "image") {
     return (
-      <div className={blockStyle}>
-        <span className="text-muted-foreground">Bildblock</span>
-      </div>
+      <ImageBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content} // Pass the URL (or null)
+        altText={block.altText} // Pass alt text
+      />
     );
   }
 

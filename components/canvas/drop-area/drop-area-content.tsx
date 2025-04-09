@@ -12,8 +12,6 @@ import { InsertionIndicator } from "./insertion-indicator"; // Import existing i
 interface DropAreaContentProps {
   dropArea: DropAreaType;
   viewport: ViewportType;
-  onSplitPopulated?: () => void;
-  canSplit?: boolean;
 }
 
 // Define the types for dragged items this component can accept
@@ -53,12 +51,7 @@ function isDraggedHeading(
   );
 }
 
-export function DropAreaContent({
-  dropArea,
-  viewport,
-  onSplitPopulated,
-  canSplit = true,
-}: DropAreaContentProps) {
+export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
   const { reorderBlocks } = useBlocksStore();
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the container
   const blockRefs = useRef<(HTMLDivElement | null)[]>([]); // Refs for each block item
@@ -325,12 +318,6 @@ export function DropAreaContent({
             index={index}
             totalBlocks={dropArea.blocks.length}
             viewport={viewport}
-            onSplitPopulated={onSplitPopulated}
-            canSplit={canSplit}
-            // Assign ref to the block item's wrapper div (ensure void return type)
-            ref={(el: HTMLDivElement | null) => {
-              blockRefs.current[index] = el;
-            }}
             isBeingDragged={draggedItemOriginalIndex === index} // Pass down drag status
           />
           {/* Render indicator between items */}
@@ -344,27 +331,14 @@ export function DropAreaContent({
 // Simplified BlockItem component (forwardRef is needed to pass the ref down)
 interface BlockItemProps {
   block: BlockType;
-  index: number; // Keep index for potential future use
+  index: number;
   totalBlocks: number;
   viewport: ViewportType;
-  onSplitPopulated?: () => void;
-  canSplit?: boolean;
-  isBeingDragged: boolean; // Receive drag status
+  isBeingDragged: boolean;
 }
 
 const BlockItem = React.forwardRef<HTMLDivElement, BlockItemProps>(
-  (
-    {
-      block,
-      index,
-      totalBlocks,
-      viewport,
-      onSplitPopulated,
-      canSplit,
-      isBeingDragged, // Use the prop
-    },
-    ref // Receive the forwarded ref
-  ) => {
+  ({ block, index, totalBlocks, viewport, isBeingDragged }, ref) => {
     return (
       <div
         ref={ref} // Attach the forwarded ref here
@@ -377,10 +351,8 @@ const BlockItem = React.forwardRef<HTMLDivElement, BlockItemProps>(
       >
         <CanvasBlock
           block={block}
-          index={index} // Pass index down
+          index={index}
           viewport={viewport}
-          onSplit={onSplitPopulated}
-          canSplit={canSplit}
           isOnlyBlockInArea={totalBlocks === 1}
         />
       </div>

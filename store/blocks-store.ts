@@ -306,7 +306,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         }
 
         const dropAreaToUse = actualDropAreaId || dropAreaId;
-        const updated = updateDropAreaById(
+        let updated = updateDropAreaById(
           state.dropAreas,
           dropAreaToUse,
           (area) => ({
@@ -314,6 +314,26 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
             blocks: area.blocks.filter((block) => block.id !== blockId),
           })
         );
+
+        // Check if we need to add an empty area at the end
+        const lastArea = updated[updated.length - 1];
+        const lastAreaHasContent =
+          lastArea.blocks.length > 0 ||
+          (lastArea.isSplit &&
+            lastArea.splitAreas.some((a) => a.blocks.length > 0));
+
+        if (lastAreaHasContent) {
+          updated = [
+            ...updated,
+            {
+              id: `drop-area-${Date.now()}`,
+              blocks: [],
+              isSplit: false,
+              splitAreas: [],
+              splitLevel: 0,
+            },
+          ];
+        }
 
         return { ...state, dropAreas: updated };
       });

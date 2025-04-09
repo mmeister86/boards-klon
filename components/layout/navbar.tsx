@@ -17,7 +17,6 @@ import {
   ToggleRight,
   Share,
   Download,
-  Library,
   Trash,
 } from "lucide-react";
 import { useBlocksStore } from "@/store/blocks-store";
@@ -34,8 +33,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ProfileSheet } from "@/components/sheets/profile";
-import { SettingsSheet } from "@/components/sheets/settings";
 import { deleteProjectFromDatabase } from "@/lib/supabase/database";
 import { deleteProjectFromStorage } from "@/lib/supabase/storage";
 
@@ -66,8 +63,6 @@ export default function Navbar({
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [showLastSaved, setShowLastSaved] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Update title when projectTitle prop changes
@@ -187,8 +182,8 @@ export default function Navbar({
   };
 
   return (
-    <nav className="bg-background border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
+    <nav className="fixed top-0 left-0 right-0 h-[73px] border-b bg-background z-50">
+      <div className="h-full px-6 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           {/* Logo and title section */}
           <div className="flex items-center gap-3">
@@ -199,21 +194,7 @@ export default function Navbar({
           </div>
 
           {/* Navigation links - different based on view */}
-          {currentView === "dashboard" ? (
-            <div className="hidden md:flex space-x-6 ml-8">
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="flex items-center gap-1"
-              >
-                <Link href="/mediathek">
-                  <Library className="h-4 w-4" />
-                  <span>Mediathek</span>
-                </Link>
-              </Button>
-            </div>
-          ) : currentView === "editor" ? (
+          {currentView === "dashboard" ? null : currentView === "editor" ? ( // Removed Mediathek link for dashboard view
             <div className="flex items-center ml-8 space-x-4">
               <Button
                 variant="ghost"
@@ -224,17 +205,7 @@ export default function Navbar({
                 <ChevronLeft className="h-4 w-4" />
                 Zurück
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="flex items-center gap-1"
-              >
-                <Link href="/mediathek">
-                  <Library className="h-4 w-4" />
-                  <span>Mediathek</span>
-                </Link>
-              </Button>
+              {/* Mediathek link removed for editor view */}
               <div className="h-4 border-r border-border"></div>
               {isEditing ? (
                 <Input
@@ -409,61 +380,71 @@ export default function Navbar({
             </>
           )}
 
-          {/* User menu - show for both dashboard and editor views */}
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+          {/* User menu / Login Button - Conditionally render based on currentView and user status */}
+          {user
+            ? // Show User Menu only if NOT on dashboard AND NOT on editor
+              currentView !== "dashboard" &&
+              currentView !== "editor" && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-9 w-9 rounded-full"
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback>
+                          {user.email?.[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user.email?.split("@")[0]}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => router.push("/dashboard?view=profile")}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profil</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => router.push("/dashboard?view=settings")}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Einstellungen</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Abmelden</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            : // Show Login Button only if NOT on dashboard AND NOT on editor
+              currentView !== "dashboard" &&
+              currentView !== "editor" && (
                 <Button
                   variant="ghost"
-                  className="relative h-9 w-9 rounded-full"
+                  size="sm"
+                  asChild
+                  className="flex items-center gap-1"
                 >
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback>
-                      {user.email?.[0].toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <Link href="/login">
+                    <LogIn className="h-4 w-4" />
+                    <span>Anmelden</span>
+                  </Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {user.email?.split("@")[0]}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setIsProfileOpen(true)}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profil</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIsSettingsOpen(true)}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Einstellungen</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Abmelden</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="flex items-center gap-1"
-            >
-              <Link href="/login">
-                <LogIn className="h-4 w-4" />
-                <span>Anmelden</span>
-              </Link>
-            </Button>
-          )}
+              )}
         </div>
       </div>
 
@@ -473,16 +454,6 @@ export default function Navbar({
           {error}
         </div>
       )}
-
-      {/* Sheet Components */}
-      <ProfileSheet
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-      />
-      <SettingsSheet
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
     </nav>
   );
 }

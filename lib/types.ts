@@ -5,6 +5,7 @@ export interface BlockType {
   dropAreaId: string;
   // Additional properties for specific block types
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+  altText?: string; // Optional: Add alt text specifically for images
   // Add more properties for other block types as needed
 }
 
@@ -34,4 +35,28 @@ export interface Project {
   updatedAt: string;
   blocks: number;
   thumbnail?: string;
+}
+
+// Media Library Types
+export interface MediaItem {
+  id: string;
+  url: string;
+  fileName: string;
+  fileType: string;
+  uploadedAt: Date;
+  size: number;
+  dimensions?: {
+    width: number;
+    height: number;
+  };
+}
+
+export interface MediaLibraryState {
+  items: MediaItem[];
+  isLoading: boolean;
+  error: string | null;
+  // Pagination state
+  page: number;
+  hasMore: boolean;
+  itemsPerPage: number;
 }

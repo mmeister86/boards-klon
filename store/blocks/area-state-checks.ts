@@ -21,11 +21,13 @@ export const createAreaStateChecks = (
     const area = findDropAreaById(dropAreas, dropAreaId);
     if (!area) return false;
 
-    if (viewport === "mobile") return false;
-    if (viewport === "tablet" && area.splitLevel >= 1) return false;
-    if (viewport === "desktop" && area.splitLevel >= 2) return false;
+    const maxSplitLevel: Record<ViewportType, number> = {
+      mobile: 0, // No splitting on mobile
+      tablet: 1, // Max 1 split (2 columns) on tablet
+      desktop: 2, // Max 2 splits (4 columns) on desktop
+    };
 
-    return true;
+    return !area.isSplit && area.splitLevel < maxSplitLevel[viewport];
   },
 
   cleanupEmptyDropAreas: () => {
