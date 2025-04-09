@@ -226,11 +226,48 @@ next-env.d.ts
 
 ```
 
+# .supabase/config.json
+
+```json
+{"project_id":"default","api":{"url":"http://localhost:54321","service_key":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc0MzI1NTMwMCwiZXhwIjo0ODk4OTI4OTAwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.7NeJ_fm9yQfzf70SmKdXb8o7bRDkY1Ge5rboMXXD04Y"},"db":{"host":"localhost","port":54322,"user":"postgres","password":"postgres","db":"postgres"}}
+
+```
+
+# .vscode/extensions.json
+
+```json
+{
+  "recommendations": ["denoland.vscode-deno"]
+}
+
+```
+
 # .vscode/settings.json
 
 ```json
 {
-  "docwriter.language": "English"
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "deno.unstable": [
+    "bare-node-builtins",
+    "byonm",
+    "sloppy-imports",
+    "unsafe-proto",
+    "webgpu",
+    "broadcast-channel",
+    "worker-options",
+    "cron",
+    "kv",
+    "ffi",
+    "fs",
+    "http",
+    "net"
+  ],
+  "docwriter.language": "English",
+  "docwriter.style": "Auto-detect"
 }
 
 ```
@@ -352,231 +389,52 @@ export default function Loading() {
 ```tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { PlusCircle, Search, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import ProjectCard from "@/components/dashboard/project-card";
-import DashboardHeader from "@/components/dashboard/dashboard-header";
-import {
-  listProjectsFromStorage,
-  initializeStorage,
-} from "@/lib/supabase/storage";
-import type { Project } from "@/lib/types";
-import { toast } from "sonner";
+import { useState } from "react";
+// Removed unused imports: useEffect, useCallback, useRouter, PlusCircle, Search, Loader2, Button, Input, ProjectCard, listProjectsFromStorage, initializeStorage, Project, toast
+import DashboardSidebar from "@/components/layout/dashboard-sidebar";
+import MediathekView from "@/components/mediathek/mediathek-view";
+import AnalyticsView from "@/components/analytics/analytics-view";
+import ProjectsView from "@/components/dashboard/projects-view";
+import ProfileView from "@/components/profile/profile-view"; // Added
+import SettingsView from "@/components/settings/settings-view"; // Added
 import Navbar from "@/components/layout/navbar";
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Removed router, project state, loading state, refresh counter, toast functions, effects, and handlers
 
-  // Force refresh of project list
-  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [activeView, setActiveView] = useState<
+    "projects" | "mediathek" | "analytics" | "profile" | "settings" // Added profile and settings
+  >("projects");
 
-  // Memoize the toast notifications to maintain stable references
-  const showErrorToast = useCallback((title: string, description: string) => {
-    toast.error(title, {
-      description: description,
-    });
-  }, []);
-
-  const showInfoToast = useCallback((title: string, description: string) => {
-    toast(title, {
-      description: description,
-    });
-  }, []);
-
-  // Force refresh when returning to dashboard page
-  useEffect(() => {
-    // This will trigger when the dashboard component mounts (including when returning from editor)
-    setRefreshCounter((prev) => prev + 1);
-
-    // Also add event listener for when the page becomes visible again (tab focus)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        setRefreshCounter((prev) => prev + 1);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
-
-  // Load projects from Supabase storage
-  useEffect(() => {
-    async function loadProjects() {
-      setIsLoading(true);
-
-      try {
-        // Initialize storage with better error handling
-        const storageInitialized = await initializeStorage();
-        if (!storageInitialized) {
-          setProjects([]);
-          showErrorToast(
-            "Speicherfehler",
-            "Verbindung zum Cloud-Speicher nicht möglich. Bitte versuchen Sie es später erneut."
-          );
-          setIsLoading(false);
-          return;
-        }
-
-        // Load projects from storage
-        const loadedProjects = await listProjectsFromStorage();
-        if (loadedProjects && loadedProjects.length > 0) {
-          setProjects(loadedProjects);
-        } else {
-          // Show empty dashboard if no projects found
-          setProjects([]);
-        }
-      } catch {
-        // Show empty dashboard with error message
-        setProjects([]);
-        toast.error("Fehler beim Laden", {
-          description:
-            "Die Projekte konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
-          style: {
-            backgroundColor: "hsl(var(--destructive))",
-            color: "white",
-          },
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadProjects();
-  }, [showErrorToast, showInfoToast, refreshCounter]);
-
-  // Filter projects based on search query
-  const filteredProjects = projects.filter((project) =>
-    project.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleCreateProject = () => {
-    router.push("/editor");
-  };
-
-  const handleProjectClick = (projectId: string) => {
-    router.push(`/editor?projectId=${projectId}`);
-  };
-
-  const handleProjectDelete = async () => {
-    // Refresh the projects list
-    setIsLoading(true);
-    try {
-      // Show deletion success toast immediately
-      toast.error("Projekt gelöscht", {
-        description: "Das Projekt wurde erfolgreich gelöscht",
-        style: {
-          backgroundColor: "hsl(var(--destructive))",
-          color: "white",
-        },
-      });
-
-      // Then refresh the project list
-      const loadedProjects = await listProjectsFromStorage();
-      if (loadedProjects) {
-        setProjects(loadedProjects);
-      } else {
-        throw new Error("Fehler beim Laden der Projekte");
-      }
-    } catch {
-      showErrorToast(
-        "Fehler beim Aktualisieren",
-        "Die Projektliste konnte nicht aktualisiert werden."
-      );
-    } finally {
-      setIsLoading(false);
+  // Helper function to render the content based on activeView
+  const renderActiveView = () => {
+    switch (activeView) {
+      case "projects":
+        return <ProjectsView />; // Use the new component
+      case "mediathek":
+        return <MediathekView />;
+      case "analytics":
+        return <AnalyticsView />;
+      case "profile": // Added case
+        return <ProfileView />;
+      case "settings": // Added case
+        return <SettingsView />;
+      default:
+        return null;
     }
   };
-
-  // Force manual refresh
-  const forceRefresh = () => {
-    setRefreshCounter((prev) => prev + 1);
-  };
-
-  // Remove debug logging
-  useEffect(() => {
-    if (projects.length > 0) {
-      console.log("Loaded projects:", projects);
-    }
-  }, [projects]);
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar currentView="dashboard" />
-      <div className="container mx-auto px-4 py-8">
-        <DashboardHeader />
-
-        <div className="flex justify-between items-center mb-8">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Projekte durchsuchen..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={forceRefresh}
-              disabled={isLoading}
-              title="Projektliste aktualisieren"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              onClick={handleCreateProject}
-              className="flex items-center gap-2"
-            >
-              <PlusCircle className="h-4 w-4" />
-              Neues Projekt
-            </Button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-lg">Projekte werden geladen...</span>
-          </div>
-        ) : filteredProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => handleProjectClick(project.id)}
-                onDelete={handleProjectDelete}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium mb-2">
-              Keine Projekte gefunden
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {searchQuery
-                ? "Versuchen Sie einen anderen Suchbegriff"
-                : "Erstellen Sie Ihr erstes Projekt, um zu beginnen"}
-            </p>
-            {!searchQuery && (
-              <Button onClick={handleCreateProject}>Projekt erstellen</Button>
-            )}
-          </div>
-        )}
+      <div className="flex flex-1">
+        <DashboardSidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+        />
+        <main className="flex-1 ml-64 pt-[73px]">
+          <div className="h-full px-12 py-8">{renderActiveView()}</div>
+        </main>
       </div>
     </div>
   );
@@ -615,6 +473,11 @@ export default function Loading() {
 # app/editor/page.tsx
 
 ```tsx
+/**
+ * The `EditorPage` function in this TypeScript React component handles the initialization, loading,
+ * and rendering of a project editor interface, including error handling and navigation.
+ * @returns The `EditorPage` component returns different content based on the state of the application:
+ */
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -622,7 +485,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/layout/navbar";
 import LeftSidebar from "@/components/layout/left-sidebar";
 import Canvas from "@/components/canvas/canvas";
-import RightSidebar from "@/components/layout/right-sidebar";
+// import RightSidebar from "@/components/layout/right-sidebar"; // Remove old import
+// import PropertiesPanel from "@/components/layout/properties-panel"; // Remove old import
+import { EditorRightSidebar } from "@/components/layout/editor-right-sidebar"; // Import using named import
 import { ViewportProvider } from "@/lib/hooks/use-viewport";
 import { useBlocksStore } from "@/store/blocks-store";
 import { initializeStorage } from "@/lib/supabase/storage";
@@ -760,10 +625,12 @@ export default function EditorPage() {
         />
         <div className="flex flex-1 overflow-hidden">
           <LeftSidebar />
-          <div className="flex-1 bg-muted overflow-hidden flex flex-col">
+          <div className="flex-1 bg-muted overflow-auto flex flex-col">
             <Canvas />
           </div>
-          <RightSidebar />
+          {/* <RightSidebar /> */}
+          {/* <PropertiesPanel /> */}
+          <EditorRightSidebar /> {/* Use the combined sidebar */}
         </div>
       </div>
     </ViewportProvider>
@@ -948,7 +815,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="de" suppressHydrationWarning>
       <head>
         <link
           href="https://fonts.googleapis.com/icon?family=Material+Icons"
@@ -2034,6 +1901,63 @@ export default function SignUpPage() {
 }
 ```
 
+# components/analytics/analytics-view.tsx
+
+```tsx
+"use client";
+
+import React from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { BarChart, LineChart, PieChart } from "lucide-react"; // Example icons
+
+export default function AnalyticsView() {
+  // Mock data for demonstration
+  const mockStats = [
+    { title: "Besucher", value: "1,234", change: "+5.2%", icon: BarChart },
+    {
+      title: "Projektaufrufe",
+      value: "8,765",
+      change: "+12.1%",
+      icon: LineChart,
+    },
+    {
+      title: "Medien-Downloads",
+      value: "456",
+      change: "-1.5%",
+      icon: PieChart,
+    },
+  ];
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-8">Analytics</h1>
+      <div className="grid gap-6 md:grid-cols-3">
+        {mockStats.map((stat) => (
+          <Card key={stat.title}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
+              <stat.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground">
+                {stat.change} zum Vormonat
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="mt-8 text-center text-muted-foreground">
+        <p>(Weitere Analytics-Daten und Diagramme werden hier angezeigt)</p>
+      </div>
+    </div>
+  );
+}
+
+```
+
 # components/auth-modal.tsx
 
 ```tsx
@@ -2527,9 +2451,10 @@ import { useEffect, useState } from "react"; // Import useState
 import { useBlocksStore } from "@/store/blocks-store";
 import type { BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
-import { Trash2, Move, Split } from "@/lib/icons";
+import { Trash2, Move } from "@/lib/icons"; // Removed Split import
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
 import { ParagraphBlock } from "./paragraph-block";
+import { ImageBlock } from "./image-block"; // Import the new component
 import { getBlockStyle } from "@/lib/utils/block-utils";
 import React from "react";
 
@@ -2537,8 +2462,7 @@ interface CanvasBlockProps {
   block: BlockType;
   viewport?: ViewportType;
   index: number; // Add index prop
-  onSplit?: () => void;
-  canSplit?: boolean;
+  // Removed onSplit, canSplit props
   isOnlyBlockInArea?: boolean;
 }
 
@@ -2546,8 +2470,7 @@ export function CanvasBlock({
   block,
   index, // Destructure index
   viewport = "desktop",
-  onSplit,
-  canSplit = true,
+  // Removed onSplit, canSplit props
   isOnlyBlockInArea = false,
 }: CanvasBlockProps) {
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
@@ -2598,8 +2521,7 @@ export function CanvasBlock({
         {(isHovering || isSelected) && (
           <BlockControls
             onDelete={handleDelete}
-            onSplit={onSplit}
-            canSplit={canSplit && !!onSplit}
+            // Removed onSplit and canSplit props
             isDragging={isDragging}
             drag={drag as any} // Pass drag ref down
             showDeleteButton={!isOnlyBlockInArea}
@@ -2616,15 +2538,13 @@ export function CanvasBlock({
 // Extracted component for block controls
 function BlockControls({
   onDelete,
-  onSplit,
-  canSplit,
+  // Removed onSplit, canSplit
   isDragging,
   drag, // Destructure the passed drag ref
   showDeleteButton = true, // New prop with default value
 }: {
   onDelete: (e: React.MouseEvent) => void;
-  onSplit?: () => void;
-  canSplit?: boolean;
+  // Removed onSplit, canSplit types
   isDragging: boolean;
   drag: React.Ref<HTMLButtonElement>;
   showDeleteButton?: boolean; // Add to type definition
@@ -2643,21 +2563,6 @@ function BlockControls({
           title="Block löschen"
         >
           <Trash2 size={14} />
-        </button>
-      )}
-
-      {/* Split button - show if splitting is allowed */}
-      {canSplit && onSplit && (
-        <button
-          className="absolute top-6 -right-2 bg-blue-500 text-white p-1.5 rounded-full shadow-md
-                    hover:bg-blue-600 transition-colors duration-200 z-10" // Removed opacity/group-hover
-          onClick={(e) => {
-            e.stopPropagation(); // Keep stopPropagation here
-            onSplit();
-          }}
-          title="Bereich teilen"
-        >
-          <Split size={14} />
         </button>
       )}
 
@@ -2729,9 +2634,12 @@ function BlockContent({ block, viewport }: BlockContentProps) {
 
   if (block.type === "image") {
     return (
-      <div className={blockStyle}>
-        <span className="text-muted-foreground">Bildblock</span>
-      </div>
+      <ImageBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content} // Pass the URL (or null)
+        altText={block.altText} // Pass alt text
+      />
     );
   }
 
@@ -3052,6 +2960,508 @@ export function HeadingBlock({
     </div>
   );
 }
+
+```
+
+# components/blocks/image-block.tsx
+
+```tsx
+/* eslint-disable @next/next/no-img-element */
+"use client";
+
+import React, { useState, useEffect, useCallback, forwardRef } from "react";
+import { useDrop } from "react-dnd";
+import type { DropTargetMonitor } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
+import { Loader2, AlertCircle, UploadCloud, X } from "lucide-react";
+import { useBlocksStore } from "@/store/blocks-store";
+import { cn } from "@/lib/utils";
+import { ItemTypes } from "@/lib/item-types";
+import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { useRouter } from "next/navigation";
+import { SupabaseClient } from "@supabase/supabase-js";
+import Image from "next/image";
+
+// Special value to indicate an empty image block
+const EMPTY_IMAGE_BLOCK = "__EMPTY_IMAGE_BLOCK__";
+
+// Interface for media items from the library
+interface MediaLibraryImageItem {
+  type: typeof ItemTypes.MEDIA_IMAGE;
+  url: string;
+  alt?: string;
+  file_type: string;
+}
+
+// Update uploadImageToStorage to use session
+async function uploadImageToStorage(
+  file: File,
+  supabaseClient: SupabaseClient,
+  userId: string
+): Promise<string> {
+  console.log(`Uploading file: ${file.name}`);
+  if (!supabaseClient) throw new Error("Supabase client not available");
+
+  const filePath = `${userId}/${Date.now()}-${file.name}`; // Include userId in path
+
+  try {
+    // Upload file to storage
+    const { error: uploadError } = await supabaseClient.storage
+      .from("images")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      throw uploadError;
+    }
+
+    // Get the public URL
+    const { data } = supabaseClient.storage
+      .from("images")
+      .getPublicUrl(filePath);
+
+    if (!data?.publicUrl) {
+      throw new Error("Could not get public URL after upload.");
+    }
+
+    console.log(`Upload successful. URL: ${data.publicUrl}`);
+    return data.publicUrl;
+  } catch (error) {
+    console.error("Error during image upload process:", error);
+    // Re-throw the error to be caught by the calling function
+    throw error;
+  }
+}
+
+// Helper function to get file dimensions (for images)
+const getImageDimensions = async (
+  file: File
+): Promise<{ width: number; height: number }> => {
+  if (!file.type.startsWith("image/")) {
+    return { width: 0, height: 0 };
+  }
+
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      resolve({
+        width: img.width,
+        height: img.height,
+      });
+    };
+    img.onerror = () => {
+      resolve({ width: 0, height: 0 });
+    };
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+// Helper function to add item to media library
+const addToMediaLibrary = async (
+  file: File,
+  url: string,
+  dimensions: { width: number; height: number },
+  supabaseClient: SupabaseClient
+) => {
+  if (!supabaseClient) throw new Error("Supabase client not available");
+
+  const { data: userData } = await supabaseClient.auth.getUser();
+  if (!userData?.user) throw new Error("User not authenticated");
+
+  // Add to media_items table
+  const { error: dbError } = await supabaseClient.from("media_items").insert({
+    id: uuidv4(),
+    file_name: file.name,
+    file_type: file.type,
+    url: url,
+    size: file.size,
+    width: dimensions.width,
+    height: dimensions.height,
+    user_id: userData.user.id,
+    uploaded_at: new Date().toISOString(),
+  });
+
+  if (dbError) {
+    console.error("Error adding to media library:", dbError);
+    throw dbError;
+  }
+};
+
+interface ImageBlockProps {
+  blockId: string;
+  dropAreaId: string;
+  content: string | null; // Image URL or null/empty for placeholder
+  altText?: string;
+}
+
+// Define accepted drop item types
+interface FileDropItem {
+  files: File[];
+}
+
+type AcceptedDropItem = FileDropItem | MediaLibraryImageItem;
+
+// Definiere Upload-Status-Typen für besseres State Management
+type UploadStatus = "idle" | "uploading" | "loading" | "error" | "success";
+
+interface ImageBlockState {
+  status: UploadStatus;
+  error: string | null;
+  imageUrl: string | null;
+}
+
+export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
+  ({ blockId, dropAreaId, content, altText }, ref) => {
+    const { updateBlockContent } = useBlocksStore();
+    // Initialize with idle state if content is empty or EMPTY_IMAGE_BLOCK
+    const [state, setState] = useState<ImageBlockState>(() => {
+      const isEmptyOrPlaceholder = !content || content === EMPTY_IMAGE_BLOCK;
+      return {
+        status: isEmptyOrPlaceholder ? "idle" : "loading",
+        error: null,
+        imageUrl: isEmptyOrPlaceholder ? null : content,
+      };
+    });
+    const { supabase: supabaseClient, session, user } = useSupabase();
+    const router = useRouter();
+
+    // Session-Check mit verbesserter Fehlerbehandlung
+    useEffect(() => {
+      let timeoutId: NodeJS.Timeout;
+
+      if (!session && state.status !== "loading") {
+        timeoutId = setTimeout(() => {
+          router.push("/auth/login");
+        }, 1000);
+      }
+
+      return () => {
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+    }, [session, state.status, router]);
+
+    // Update state when content changes
+    useEffect(() => {
+      const isEmptyOrPlaceholder = !content || content === EMPTY_IMAGE_BLOCK;
+      setState((prev) => ({
+        ...prev,
+        status: isEmptyOrPlaceholder ? "idle" : "loading",
+        imageUrl: isEmptyOrPlaceholder ? null : content,
+        error: null,
+      }));
+    }, [content]);
+
+    // Cleanup bei Unmount
+    useEffect(() => {
+      return () => {
+        setState({
+          status: "idle",
+          error: null,
+          imageUrl: null,
+        });
+      };
+    }, []);
+
+    // Verbesserte Bildverarbeitung
+    const processDroppedFiles = useCallback(
+      async (files: File[]) => {
+        const imageFile = files.find((file) => file.type.startsWith("image/"));
+        if (!imageFile) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: "Nur Bilddateien werden akzeptiert",
+          }));
+          toast.error("Nur Bilddateien werden akzeptiert");
+          return;
+        }
+
+        if (!session || !user || !supabaseClient) {
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: "Bitte melden Sie sich an",
+          }));
+          toast.error("Bitte melden Sie sich an");
+          router.push("/auth/login");
+          return;
+        }
+
+        setState((prev) => ({ ...prev, status: "uploading", error: null }));
+
+        try {
+          // Get image dimensions before upload
+          const dimensions = await getImageDimensions(imageFile);
+
+          // Upload the file
+          const uploadedUrl = await uploadImageToStorage(
+            imageFile,
+            supabaseClient,
+            user.id
+          );
+
+          // Add to media library
+          await addToMediaLibrary(
+            imageFile,
+            uploadedUrl,
+            dimensions,
+            supabaseClient
+          );
+
+          // Update block content
+          updateBlockContent(blockId, dropAreaId, uploadedUrl, {
+            altText: altText || imageFile.name,
+          });
+
+          setState((prev) => ({
+            ...prev,
+            status: "success",
+            imageUrl: uploadedUrl,
+            error: null,
+          }));
+
+          toast.success(`${imageFile.name} erfolgreich hochgeladen`);
+        } catch (error) {
+          console.error("Upload fehlgeschlagen:", error);
+          const message =
+            error instanceof Error ? error.message : "Unbekannter Fehler";
+
+          setState((prev) => ({
+            ...prev,
+            status: "error",
+            error: `Upload fehlgeschlagen: ${message}`,
+          }));
+
+          toast.error(message);
+        }
+      },
+      [
+        blockId,
+        dropAreaId,
+        updateBlockContent,
+        altText,
+        session,
+        user,
+        supabaseClient,
+        router,
+      ]
+    );
+
+    const [{ isOver, canDrop }, dropRef] = useDrop<
+      AcceptedDropItem,
+      void,
+      { isOver: boolean; canDrop: boolean }
+    >(
+      () => ({
+        accept: [NativeTypes.FILE, ItemTypes.MEDIA_IMAGE],
+        drop: (
+          item: AcceptedDropItem,
+          monitor: DropTargetMonitor<AcceptedDropItem>
+        ) => {
+          const itemType = monitor.getItemType();
+          if (itemType === NativeTypes.FILE) {
+            const fileItem = item as FileDropItem;
+            if (fileItem.files) {
+              processDroppedFiles(fileItem.files);
+            }
+          } else if (itemType === ItemTypes.MEDIA_IMAGE) {
+            const mediaItem = item as MediaLibraryImageItem;
+            if (mediaItem.url && mediaItem.file_type.startsWith("image/")) {
+              updateBlockContent(blockId, dropAreaId, mediaItem.url, {
+                altText: mediaItem.alt || altText || "",
+              });
+            }
+          }
+        },
+        canDrop: (
+          item: AcceptedDropItem,
+          monitor: DropTargetMonitor<AcceptedDropItem>
+        ) => {
+          const itemType = monitor.getItemType();
+          if (itemType === NativeTypes.FILE) {
+            const fileItem = item as FileDropItem;
+            return (
+              fileItem.files?.some((file) => file.type.startsWith("image/")) ??
+              false
+            );
+          }
+          if (itemType === ItemTypes.MEDIA_IMAGE) {
+            const mediaItem = item as MediaLibraryImageItem;
+            return mediaItem.file_type.startsWith("image/");
+          }
+          return false;
+        },
+        collect: (monitor: DropTargetMonitor<AcceptedDropItem>) => ({
+          isOver: monitor.isOver(),
+          canDrop: monitor.canDrop(),
+        }),
+      }),
+      [blockId, dropAreaId, processDroppedFiles, updateBlockContent, altText]
+    );
+
+    const isActive = isOver && canDrop;
+
+    // Combine the forwarded ref and the drop ref
+    const combinedRef = (node: HTMLDivElement | null) => {
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+      (dropRef as (node: HTMLDivElement | null) => void)(node);
+    };
+
+    return (
+      <div
+        ref={combinedRef}
+        className={cn(
+          "relative w-full border border-dashed border-transparent transition-colors duration-200",
+          (!state.imageUrl || state.imageUrl === EMPTY_IMAGE_BLOCK) &&
+            "aspect-video",
+          isActive
+            ? "border-primary bg-primary/10"
+            : canDrop
+            ? "border-primary/50"
+            : "border-transparent",
+          (!state.imageUrl || state.imageUrl === EMPTY_IMAGE_BLOCK) &&
+            "bg-muted rounded-lg",
+          canDrop && "hover:border-primary hover:border-2"
+        )}
+      >
+        {canDrop && (
+          <div
+            className={cn(
+              "absolute inset-0 z-30 transition-opacity duration-200",
+              isActive ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+          >
+            <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm rounded-lg border-2 border-primary">
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <UploadCloud className="h-10 w-10 mb-2 text-primary" />
+                <p className="text-sm font-medium text-primary">
+                  Neues Bild hier ablegen
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {state.imageUrl &&
+          state.imageUrl !== EMPTY_IMAGE_BLOCK &&
+          state.status !== "uploading" &&
+          state.status !== "loading" && (
+            <button
+              onClick={() => {
+                updateBlockContent(blockId, dropAreaId, EMPTY_IMAGE_BLOCK, {
+                  altText: "",
+                });
+                setState((prev) => ({
+                  ...prev,
+                  status: "idle",
+                  imageUrl: null,
+                  error: null,
+                }));
+              }}
+              className="absolute top-2 right-2 z-40 p-1 bg-background/80 hover:bg-background rounded-full shadow-sm"
+              aria-label="Bild löschen"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+
+        {(!state.imageUrl || state.imageUrl === EMPTY_IMAGE_BLOCK) &&
+          state.status === "idle" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+              <UploadCloud
+                className={cn(
+                  "h-10 w-10 mb-2 transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground/50"
+                )}
+              />
+              <p className="text-sm font-medium">
+                Bild hierher ziehen oder{" "}
+                <span className="text-primary">hochladen</span>
+              </p>
+              <p className="text-xs mt-1">Oder URL im Seitenmenü eingeben</p>
+            </div>
+          )}
+
+        {(state.status === "uploading" || state.status === "loading") && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-background/80 backdrop-blur-sm rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-sm font-medium">
+              {state.status === "uploading"
+                ? "Wird hochgeladen..."
+                : "Wird geladen..."}
+            </p>
+          </div>
+        )}
+
+        <div className="relative w-full aspect-video">
+          {state.status === "loading" && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted rounded-lg">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
+
+          {state.error &&
+            state.status === "error" &&
+            state.imageUrl &&
+            state.imageUrl !== EMPTY_IMAGE_BLOCK && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-destructive/10 rounded-lg p-4 text-destructive">
+                <AlertCircle className="h-6 w-6 mb-1" />
+                <p className="text-xs text-center">{state.error}</p>
+              </div>
+            )}
+
+          {state.imageUrl &&
+            state.imageUrl !== EMPTY_IMAGE_BLOCK &&
+            typeof state.imageUrl === "string" &&
+            state.imageUrl.trim().startsWith("http") && (
+              <div className="relative w-full h-full">
+                <Image
+                  src={state.imageUrl}
+                  alt={altText || "Bild"}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className={cn(
+                    "object-cover rounded-lg",
+                    (state.status === "loading" || state.status === "error") &&
+                      "opacity-0",
+                    isActive && "opacity-50 transition-opacity duration-200"
+                  )}
+                  onLoad={() =>
+                    setState((prev) => ({
+                      ...prev,
+                      status: "success",
+                      error: null,
+                    }))
+                  }
+                  onError={() =>
+                    setState((prev) => ({
+                      ...prev,
+                      status: "error",
+                      error: "Bild konnte nicht geladen werden",
+                    }))
+                  }
+                  priority={false}
+                  quality={85}
+                />
+              </div>
+            )}
+        </div>
+      </div>
+    );
+  }
+);
+
+// Add display name
+ImageBlock.displayName = "ImageBlock";
 
 ```
 
@@ -3636,73 +4046,79 @@ export default function Canvas() {
   };
 
   return (
-    <div className="flex-1 bg-muted overflow-auto p-6">
-      {/* Header with centered viewport selector and right-aligned preview toggle */}
-      <div className="relative flex justify-center items-center mb-6">
-        <ViewportSelector />
-        <div className="absolute right-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPreviewMode(!previewMode)}
-            className="flex items-center gap-2"
-          >
-            {previewMode ? (
-              <>
-                <EyeOff className="h-4 w-4" />
-                <span>Vorschau beenden</span>
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4" />
-                <span>Vorschau</span>
-              </>
-            )}
-          </Button>
+    <div className="flex-1 bg-muted h-full pt-24">
+      {/* Added pt-6 for top padding, and px-6 for horizontal padding */}
+      <div className="px-6">
+        {/* Header with centered viewport selector and right-aligned preview toggle */}
+        <div className="relative flex justify-center items-center mb-6">
+          <ViewportSelector />
+          <div className="absolute right-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewMode(!previewMode)}
+              className="flex items-center gap-2"
+            >
+              {previewMode ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  <span>Vorschau beenden</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  <span>Vorschau</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {previewMode ? (
-        <Preview />
-      ) : (
-        /* Canvas container with proper width */
-        <div
-          className={`mx-auto ${
-            viewport === "desktop" ? "w-[90%]" : "w-auto"
-          } flex justify-center`}
-        >
+      {/* Added px-6 pb-6 for padding */}
+      <div className="px-6 pb-6">
+        {previewMode ? (
+          <Preview />
+        ) : (
+          /* Canvas container with proper width */
           <div
-            className={`bg-card rounded-2xl transition-all duration-300 shadow-md overflow-hidden ${
-              viewport === "desktop" ? "w-full" : ""
-            }`}
-            style={getViewportStyles(viewport)}
+            className={`mx-auto ${
+              viewport === "desktop" ? "w-[90%]" : "w-auto"
+            } flex justify-center`}
           >
-            {/* Attach the drop ref using the callback */}
             <div
-              ref={dropRefCallback}
-              className="w-full"
-              data-drop-container="true"
+              className={`bg-card rounded-2xl transition-all duration-300 shadow-md overflow-hidden ${
+                viewport === "desktop" ? "w-full" : ""
+              }`}
+              style={getViewportStyles(viewport)}
             >
-              {filteredDropAreas.map((dropArea, index) => (
-                <React.Fragment key={`${dropArea.id}-${index}`}>
-                  <InsertionIndicator
-                    isVisible={index === hoveredInsertionIndex}
-                  />
-                  <DropArea
-                    ref={dropAreaRefs.current[index]}
-                    dropArea={dropArea}
-                    showSplitIndicator={viewport !== "mobile"}
-                    viewport={viewport}
-                  />
-                </React.Fragment>
-              ))}
-              <InsertionIndicator
-                isVisible={filteredDropAreas.length === hoveredInsertionIndex}
-              />
+              {/* Attach the drop ref using the callback */}
+              <div
+                ref={dropRefCallback}
+                className="w-full"
+                data-drop-container="true"
+              >
+                {filteredDropAreas.map((dropArea, index) => (
+                  <React.Fragment key={`${dropArea.id}-${index}`}>
+                    <InsertionIndicator
+                      isVisible={index === hoveredInsertionIndex}
+                    />
+                    <DropArea
+                      ref={dropAreaRefs.current[index]}
+                      dropArea={dropArea}
+                      showSplitIndicator={viewport !== "mobile"}
+                      viewport={viewport}
+                    />
+                  </React.Fragment>
+                ))}
+                <InsertionIndicator
+                  isVisible={filteredDropAreas.length === hoveredInsertionIndex}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -4178,7 +4594,7 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
   ({ dropArea, showSplitIndicator }, ref) => {
     const { canMerge, mergeDropAreas, deleteDropArea } = useBlocksStore();
     const [showDeleteButton, setShowDeleteButton] = useState(false);
-    const [isMerging, setIsMerging] = useState(false); // Added merging state
+    const [isMerging, setIsMerging] = useState(false); // State for merge animation
 
     if (!dropArea.isSplit || dropArea.splitAreas.length !== 2) {
       return (
@@ -4190,9 +4606,10 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
       );
     }
 
-    // Check if the two areas can be merged
+    // Get IDs for the split areas
     const leftAreaId = dropArea.splitAreas[0].id;
     const rightAreaId = dropArea.splitAreas[1].id;
+    // Check directly if these two areas can be merged using the store function
     const areasCanMerge = canMerge(leftAreaId, rightAreaId);
 
     // Handler for merge gap click with animation
@@ -4233,13 +4650,13 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
             dropArea={dropArea.splitAreas[0]}
             showSplitIndicator={true}
             viewport="desktop"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
-        {/* Center the indicator wrapper */}
-        <div className="self-center">
-          {/* Use the animation handler */}
+        {/* Center the indicator wrapper and handle merge logic */}
+        <div className="self-center px-2">
+          {" "}
+          {/* Added some padding */}
+          {/* MergeGapIndicator now gets canMerge status and calls merge directly */}
           <MergeGapIndicator
             canMerge={areasCanMerge}
             onClick={handleMergeWithAnimation}
@@ -4250,8 +4667,6 @@ export const DesktopDropArea = forwardRef<HTMLDivElement, DesktopDropAreaProps>(
             dropArea={dropArea.splitAreas[1]}
             showSplitIndicator={true}
             viewport="desktop"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
 
@@ -4286,15 +4701,13 @@ import type { DropAreaType, BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { CanvasBlock } from "@/components/blocks/canvas-block";
 import { useDrop, type DropTargetMonitor } from "react-dnd";
-import { ItemTypes, markDropHandled } from "@/lib/item-types"; // Import markDropHandled
+import { ItemTypes } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 import { InsertionIndicator } from "./insertion-indicator"; // Import existing indicator
 
 interface DropAreaContentProps {
   dropArea: DropAreaType;
   viewport: ViewportType;
-  onSplitPopulated?: () => void;
-  canSplit?: boolean;
 }
 
 // Define the types for dragged items this component can accept
@@ -4305,24 +4718,36 @@ interface DraggedExistingBlockItem {
   originalIndex: number;
   originalType: string; // Add original type
   content: string; // Add content (might be needed by drop handler)
-  headingLevel?: number; // Add heading level
+}
+
+// Interface for new blocks that are specifically Headings
+interface DraggedHeadingBlockItem extends DraggedNewBlockItem {
+  type: "heading"; // Literal type for specific block type check
+  headingLevel: 1 | 2 | 3 | 4 | 5 | 6; // Use specific union type matching BlockType
 }
 
 interface DraggedNewBlockItem {
   id?: string; // New blocks might not have an ID yet
-  type: typeof ItemTypes.BLOCK | typeof ItemTypes.SQUARE; // Use literal types
+  type: string; // Use string, assuming it holds the specific block type like 'heading', 'paragraph'
   content: string;
   sourceDropAreaId?: string; // Might not be relevant for new blocks
 }
 
 type AcceptedDragItem = DraggedExistingBlockItem | DraggedNewBlockItem;
 
-export function DropAreaContent({
-  dropArea,
-  viewport,
-  onSplitPopulated,
-  canSplit = true,
-}: DropAreaContentProps) {
+// Type guard to check if a dragged item is a heading block
+function isDraggedHeading(
+  item: AcceptedDragItem
+): item is DraggedHeadingBlockItem {
+  // Check the specific block type string and ensure headingLevel exists and is a number
+  return (
+    item.type === "heading" &&
+    "headingLevel" in item &&
+    typeof item.headingLevel === "number"
+  );
+}
+
+export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
   const { reorderBlocks } = useBlocksStore();
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the container
   const blockRefs = useRef<(HTMLDivElement | null)[]>([]); // Refs for each block item
@@ -4330,7 +4755,6 @@ export function DropAreaContent({
   const [draggedItemOriginalIndex, setDraggedItemOriginalIndex] = useState<
     number | null
   >(null); // Track original index of dragged item
-  const [error, setError] = useState<string | null>(null); // Track errors
 
   // Ensure blockRefs array has the correct size
   useEffect(() => {
@@ -4341,14 +4765,14 @@ export function DropAreaContent({
 
   // Expose a reset function globally (use with caution - consider context/store later)
   useEffect(() => {
-    // @ts-ignore - Attaching to window for simplicity
+    // Attaching to window for simplicity (consider alternatives for production)
     window.resetDropAreaContentHover = () => {
       console.log("[Window Reset] Resetting DropAreaContent hover state");
       setHoverIndex(null);
       setDraggedItemOriginalIndex(null);
     };
     return () => {
-      // @ts-ignore
+      // Cleanup window property
       delete window.resetDropAreaContentHover;
     };
   }, []); // Empty dependency array ensures it runs once
@@ -4362,62 +4786,18 @@ export function DropAreaContent({
     return () => window.removeEventListener("blur", handleBlur);
   }, []);
 
-  // Handle errors
-  const handleError = (error: Error) => {
-    setError(error.message);
-  };
-
   // --- Container Drop Logic ---
   const [{ isOverContainer, canDropOnContainer }, dropContainer] = useDrop<
     AcceptedDragItem, // Use the union type
     void,
     { isOverContainer: boolean; canDropOnContainer: boolean }
   >({
-    // Accept existing blocks being reordered AND new blocks being added
-    accept: [ItemTypes.EXISTING_BLOCK, ItemTypes.BLOCK, ItemTypes.SQUARE], // Keep accepting all relevant types
-    canDrop: (item) => {
-      // Revised logic:
-      // Allow drop if:
-      // 1. It's NOT an EXISTING_BLOCK (meaning it's a new block type like 'paragraph', 'image', 'button', etc.)
-      // OR
-      // 2. It IS an EXISTING_BLOCK, but it originates from THIS dropArea (meaning it's being reordered within the same area)
-      const isNewBlockType = item.type !== ItemTypes.EXISTING_BLOCK;
-      const isReorderingWithinArea =
-        item.type === ItemTypes.EXISTING_BLOCK &&
-        item.sourceDropAreaId === dropArea.id;
-
-      // EXTRA SAFETY: If it's an existing block from another area, ALWAYS reject it
-      const isFromAnotherArea =
-        item.type === ItemTypes.EXISTING_BLOCK &&
-        item.sourceDropAreaId !== dropArea.id;
-
-      if (isFromAnotherArea) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent] REJECTING drop for item from another area: ${
-        //     (item as DraggedExistingBlockItem).id
-        //   } from ${(item as DraggedExistingBlockItem).sourceDropAreaId} to ${
-        //     dropArea.id
-        //   }`
-        // );
-        return false;
-      }
-
-      const canItDrop = isNewBlockType || isReorderingWithinArea;
-
-      // Add debug info with item details for better troubleshooting
-      // const itemDetails = // Keep logs commented out
-      //   item.type === ItemTypes.EXISTING_BLOCK
-      //     ? `id: ${(item as DraggedExistingBlockItem).id}, sourceArea: ${
-      //         (item as DraggedExistingBlockItem).sourceDropAreaId
-      //       }, origIndex: ${(item as DraggedExistingBlockItem).originalIndex}`
-      //     : `content: ${
-      //         (item as DraggedNewBlockItem).content?.substring(0, 15) || "none"
-      //       }`;
-
-      // console.log( // Keep logs commented out
-      //   `[DropAreaContent] canDrop check for item type ${item.type} (isNew: ${isNewBlockType}, isReorder: ${isReorderingWithinArea}): ${canItDrop}. Item details: ${itemDetails}`
-      // );
-      return canItDrop;
+    accept: [ItemTypes.EXISTING_BLOCK, ItemTypes.BLOCK, ItemTypes.SQUARE],
+    canDrop: () => {
+      // Revised logic: If canDrop is called, react-dnd has already verified
+      // the item type against the 'accept' array. So, we can always return true here.
+      // The actual handling logic is in the drop handlers.
+      return true;
     },
     hover: (item, monitor: DropTargetMonitor<AcceptedDragItem>) => {
       // Check if item is an existing block to access originalIndex safely
@@ -4495,38 +4875,23 @@ export function DropAreaContent({
       }
     },
     drop: (item, monitor) => {
-      // Get the fresh item reference - CRITICAL for proper operation
+      // Get the fresh item reference
       const freshItem = monitor.getItem();
 
       // Create a unique ID for tracking this drop operation
       const dropId = `drop-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 9)}`;
-      // console.log( // Keep logs commented out
-      //   `[DropAreaContent:${dropId}] Drop triggered for item type: ${freshItem.type}`
-      // );
 
-      // IMPORTANT: Check if drop was already handled elsewhere in the hierarchy
+      // Check if drop was already handled elsewhere
       if (monitor.didDrop()) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent:${dropId}] Drop already handled by another target, ignoring.`
-        // );
         setHoverIndex(null);
         setDraggedItemOriginalIndex(null);
         return undefined;
       }
 
-      // Get item ID (for existing blocks use ID, for new blocks use a unique ID)
-      const itemId =
-        freshItem.type === ItemTypes.EXISTING_BLOCK
-          ? (freshItem as DraggedExistingBlockItem).id
-          : `new-${freshItem.type}-${Date.now()}`;
-
-      // CRITICAL: Check with the global drop tracker if this drop is already being handled
-      if (!markDropHandled(`DropAreaContent-${dropArea.id}`, itemId)) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent:${dropId}] Drop for item ${itemId} rejected by global tracker`
-        // );
+      // Ensure we are over the container specifically
+      if (!monitor.isOver({ shallow: true })) {
         setHoverIndex(null);
         setDraggedItemOriginalIndex(null);
         return undefined;
@@ -4535,109 +4900,31 @@ export function DropAreaContent({
       // Get the current target index from hover state
       const targetIndex = hoverIndex;
       if (targetIndex === null) {
-        // console.log( // Keep logs commented out
-        //   `[DropAreaContent:${dropId}] Drop cancelled: No valid hover index`
-        // );
         setHoverIndex(null);
         setDraggedItemOriginalIndex(null);
         return undefined;
       }
 
       try {
+        // Handle internal reordering
         if (freshItem.type === ItemTypes.EXISTING_BLOCK) {
-          // This is a reordering operation
           const existingItem = freshItem as DraggedExistingBlockItem;
-          const blockId = existingItem.id;
-          if (
-            existingItem.originalIndex === undefined ||
-            existingItem.originalIndex === null
-          ) {
-            // Falls kein originalIndex vorhanden ist, behandle es als neues Element
-            const newItem = freshItem as DraggedNewBlockItem;
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] Adding new block of type ${newItem.type} at index ${targetIndex}`
-            // );
 
-            useBlocksStore.getState().addBlockAtIndex(
-              {
-                type: newItem.type,
-                content: newItem.content || "",
-                dropAreaId: dropArea.id,
-              },
-              dropArea.id,
-              targetIndex
-            );
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] New ${newItem.type} block added at index ${targetIndex}`
-            // );
-
-            // Setze den Zustand zurück
-            setHoverIndex(null);
-            setDraggedItemOriginalIndex(null);
-            return undefined;
+          // Only handle if it's an internal reorder (same drop area)
+          if (existingItem.sourceDropAreaId !== dropArea.id) {
+            return undefined; // Let parent useDropArea handle external moves
           }
+
           const sourceIndex = existingItem.originalIndex;
-          const sourceAreaId = existingItem.sourceDropAreaId;
 
-          // We should never reach this check due to the safeguard above, but keep it for robustness
-          if (sourceAreaId !== dropArea.id) {
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] Block ${blockId} is from another area (${sourceAreaId}), not reordering`
-            // );
-            return undefined;
-          }
-
-          // Verify valid data
-          if (!dropArea.blocks || !Array.isArray(dropArea.blocks)) {
-            console.error(
-              `[DropAreaContent:${dropId}] Invalid blocks array`,
-              dropArea
-            );
-            return undefined;
-          }
-
-          if (sourceIndex < 0 || sourceIndex >= dropArea.blocks.length) {
-            console.error(
-              `[DropAreaContent:${dropId}] Invalid source index: ${sourceIndex}, length: ${dropArea.blocks.length}`
-            );
-            return undefined;
-          }
-
-          // Prevent dropping in the same spot or right after itself (which is a no-op)
+          // Prevent dropping in the same spot or right after itself
           if (targetIndex === sourceIndex || targetIndex === sourceIndex + 1) {
-            // console.log( // Keep logs commented out
-            //   `[DropAreaContent:${dropId}] Drop at same position, ignoring`,
-            //   { targetIndex, sourceIndex }
-            // );
             return undefined;
           }
 
-          // Calculate adjusted target index (if dropping after removal point)
+          // Calculate adjusted target index
           const adjustedTargetIndex =
             targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
-
-          // console.log( // Keep logs commented out
-          //   `[DropAreaContent:${dropId}] Reordering block ${blockId}:`,
-          //   {
-          //     from: sourceIndex,
-          //     to: adjustedTargetIndex,
-          //     blocks: dropArea.blocks.length,
-          //   }
-          // );
-
-          // Verify the block ID at source index matches
-          const blockToMove = dropArea.blocks[sourceIndex];
-          if (blockToMove.id !== blockId) {
-            console.error(
-              `[DropAreaContent:${dropId}] Block ID mismatch at source index!`,
-              {
-                expected: blockId,
-                found: blockToMove.id,
-                index: sourceIndex,
-              }
-            );
-            return undefined;
-          }
 
           // Create a new copy of the blocks array
           const newBlocks = [...dropArea.blocks];
@@ -4648,40 +4935,45 @@ export function DropAreaContent({
           // Insert at the new position
           newBlocks.splice(adjustedTargetIndex, 0, movedItem);
 
-          // Apply the reordering
-          console.log(
-            `[DropAreaContent:${dropId}] Calling reorderBlocks for ${blockId}`
-          ); // ADD THIS LOG
-          reorderBlocks(dropArea.id, newBlocks);
-          console.log(
-            `[DropAreaContent:${dropId}] Called reorderBlocks for ${blockId}`
-          ); // ADD THIS LOG
-        } else {
-          // This is a new block being added
-          const newItem = freshItem as DraggedNewBlockItem;
-          // console.log( // Removed log
-          //   `[DropAreaContent:${dropId}] Adding new block of type ${newItem.type} at index ${targetIndex}`
-          // );
-          // Call the new addBlockAtIndex action
-          useBlocksStore.getState().addBlockAtIndex(
-            {
-              type: newItem.type,
-              content: newItem.content || "",
-              dropAreaId: dropArea.id, // Pass dropAreaId for the block data
-            },
-            dropArea.id, // Pass target dropAreaId
-            targetIndex // Pass the calculated insertion index
-          );
+          // Apply the reordering with the updated blocks array
+          setTimeout(() => {
+            reorderBlocks(dropArea.id, newBlocks);
+          }, 0);
         }
-      } catch (error: any) {
-        handleError(error);
+        // Handle new blocks onto populated areas
+        else {
+          const newItem = freshItem as DraggedNewBlockItem;
+
+          // Prepare base block data
+          const newBlockDataBase = {
+            type: newItem.type,
+            content: newItem.content || "",
+            dropAreaId: dropArea.id,
+          };
+
+          // Add heading level if it's a heading block
+          const finalNewBlockData = isDraggedHeading(freshItem)
+            ? {
+                ...newBlockDataBase,
+                type: "heading",
+                headingLevel: freshItem.headingLevel,
+              }
+            : newBlockDataBase;
+
+          // Schedule block addition AFTER drop handler returns
+          setTimeout(() => {
+            useBlocksStore
+              .getState()
+              .addBlockAtIndex(finalNewBlockData, dropArea.id, targetIndex);
+          }, 0);
+        }
+      } catch (error: unknown) {
+        console.error(`[DropAreaContent:${dropId}] Error during drop:`, error);
       }
 
-      // Always reset state
+      // Reset state
       setHoverIndex(null);
       setDraggedItemOriginalIndex(null);
-
-      // Return undefined to satisfy the type requirement
       return undefined;
     },
     collect: (monitor) => ({
@@ -4722,12 +5014,6 @@ export function DropAreaContent({
             index={index}
             totalBlocks={dropArea.blocks.length}
             viewport={viewport}
-            onSplitPopulated={onSplitPopulated}
-            canSplit={canSplit}
-            // Assign ref to the block item's wrapper div (ensure void return type)
-            ref={(el: HTMLDivElement | null) => {
-              blockRefs.current[index] = el;
-            }}
             isBeingDragged={draggedItemOriginalIndex === index} // Pass down drag status
           />
           {/* Render indicator between items */}
@@ -4741,27 +5027,14 @@ export function DropAreaContent({
 // Simplified BlockItem component (forwardRef is needed to pass the ref down)
 interface BlockItemProps {
   block: BlockType;
-  index: number; // Keep index for potential future use
+  index: number;
   totalBlocks: number;
   viewport: ViewportType;
-  onSplitPopulated?: () => void;
-  canSplit?: boolean;
-  isBeingDragged: boolean; // Receive drag status
+  isBeingDragged: boolean;
 }
 
 const BlockItem = React.forwardRef<HTMLDivElement, BlockItemProps>(
-  (
-    {
-      block,
-      index,
-      totalBlocks,
-      viewport,
-      onSplitPopulated,
-      canSplit,
-      isBeingDragged, // Use the prop
-    },
-    ref // Receive the forwarded ref
-  ) => {
+  ({ block, index, totalBlocks, viewport, isBeingDragged }, ref) => {
     return (
       <div
         ref={ref} // Attach the forwarded ref here
@@ -4774,10 +5047,8 @@ const BlockItem = React.forwardRef<HTMLDivElement, BlockItemProps>(
       >
         <CanvasBlock
           block={block}
-          index={index} // Pass index down
+          index={index}
           viewport={viewport}
-          onSplit={onSplitPopulated}
-          canSplit={canSplit}
           isOnlyBlockInArea={totalBlocks === 1}
         />
       </div>
@@ -4795,63 +5066,61 @@ BlockItem.displayName = "BlockItem";
 ```tsx
 "use client";
 
-import React, { useState, useEffect, forwardRef } from "react"; // Import React, forwardRef
+import React, { useState, useEffect, forwardRef } from "react"; // Import React, forwardRef, useState
 import { useDropArea } from "@/lib/hooks/use-drop-area";
 import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { DropAreaContent } from "./drop-area-content";
-import { DropIndicators } from "./drop-indicators";
 import { MobileDropArea } from "./mobile-drop-area";
 import { TabletDropArea } from "./tablet-drop-area";
 import { DesktopDropArea } from "./desktop-drop-area";
 import { useBlocksStore } from "@/store/blocks-store";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 
 interface DropAreaProps {
   dropArea: DropAreaType;
   showSplitIndicator?: boolean;
   viewport: ViewportType;
-  hideInternalMergeIndicator?: boolean;
-  // Removed unused isBelowInsertionPoint prop
-  isParentMerging?: boolean; // Added prop for parent-controlled animation
 }
 
 // Wrap component with forwardRef
 export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
   (
-    {
-      dropArea,
-      showSplitIndicator = false,
-      viewport,
-      hideInternalMergeIndicator = false,
-      // Removed isBelowInsertionPoint destructuring
-      isParentMerging = false, // Destructure new prop
-    },
+    { dropArea, showSplitIndicator = false, viewport },
     ref // Receive the forwarded ref
   ) => {
     const { splitPopulatedDropArea, splitDropArea, canSplit, deleteDropArea } =
       useBlocksStore();
     const [isSplitting, setIsSplitting] = useState(false);
-    // Removed isMerging state
     const [showDeleteButton, setShowDeleteButton] = useState(false);
+    const [isMouseHovering, setIsMouseHovering] = useState(false); // State for mouse hover
+
     const {
       isOver, // Is an item hovering directly over this area?
-      canDrop, // Can this area accept the current dragged item?
-      // isHovering, // No longer needed here
-      setIsHovering, // Function to manually set the hover state (used for mouse enter/leave)
+      // Removed unused isHovering
       drop, // The drop ref connector from react-dnd for this area
       getDropAreaStyles, // Function to get dynamic styles based on state
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      handleSplit, // Function to trigger splitting this area
-      handleMerge, // Function to trigger merging this area
-      shouldShowSplitIndicator, // Function to determine if split indicator should show
-      shouldShowMergeIndicator, // Function to determine if merge indicator should show
-      mergePosition, // Which side the merge indicator should appear on ('left' or 'right')
-      dropError, // Any error message from the last drop attempt
-    } = useDropArea(dropArea, viewport); // The core logic hook
+    } = useDropArea(dropArea, viewport); // Pass dropArea and viewport
 
     // Check if this drop area can be split based on viewport and level
     const canSplitThisArea = canSplit(dropArea.id, viewport);
+    const isAreaEmpty = dropArea.blocks.length === 0;
+
+    // --- NEW: Logic for showing the split button ---
+    const shouldShowSplitButton =
+      showSplitIndicator && // Prop check from parent
+      isMouseHovering && // Use mouse hover state
+      !isOver && // Is an item NOT being dragged over?
+      isAreaEmpty && // Is the area empty?
+      canSplitThisArea; // Can this specific area be split?
+
+    // --- NEW: Logic for showing the split button on POPULATED areas ---
+    const shouldShowSplitButtonPopulated =
+      showSplitIndicator && // Prop check from parent
+      isMouseHovering && // Use mouse hover state
+      !isOver && // Is an item NOT being dragged over?
+      !isAreaEmpty && // Area must be POPULATED
+      canSplitThisArea; // Can this specific area be split?
 
     // Handle splitting a populated drop area (when split button is clicked)
     const handleSplitPopulated = () => {
@@ -4876,12 +5145,10 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         }, 300);
       } // Added missing closing brace for the if statement
     }; // Added missing closing brace for the handleSplitEmpty function
-    // Removed handleMergeWithAnimation function
 
     // Reset animation states if the drop area ID changes
     useEffect(() => {
       setIsSplitting(false);
-      // Removed isMerging reset
     }, [dropArea.id]);
 
     // --- Render different layouts based on viewport and split state ---
@@ -4934,12 +5201,11 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
         ref={combinedRef} // Use the combined ref
         className={`group relative ${getDropAreaStyles()} ${
           isSplitting ? "scale-105 shadow-lg" : ""
-        } ${isParentMerging ? "scale-105 shadow-lg" : ""}
-          mb-6 transition-all duration-300`} // Removed conditional mt-10, kept mb-6
+        } mb-6 transition-all duration-300`} // Removed isParentMerging style
         onMouseEnter={() => {
           // console.log(`Mouse enter ${dropArea.id}`); // Reduce console noise
-          setIsHovering(true);
           setShowDeleteButton(true);
+          setIsMouseHovering(true); // Set mouse hover state
         }}
         onMouseLeave={(e) => {
           // Only set to false if we're leaving the container itself,
@@ -4949,8 +5215,8 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
             !e.currentTarget.contains(e.relatedTarget)
           ) {
             // console.log(`Mouse leave ${dropArea.id}`); // Reduce console noise
-            setIsHovering(false);
             setShowDeleteButton(false);
+            setIsMouseHovering(false); // Clear mouse hover state
           }
         }}
       >
@@ -4963,43 +5229,44 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           </div>
         )}
 
-        {/* Merging Animation Overlay Background - Controlled by parent */}
-        {isParentMerging && (
-          <div className="absolute inset-0 bg-green-500/10 rounded-xl z-30 pointer-events-none">
-            {" "}
-            {/* Use z-30 */}
-            {/* Text box removed from here, only background remains */}
+        {/* Split Button for EMPTY areas */}
+        {shouldShowSplitButton && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent potential parent handlers
+                handleSplitEmpty(); // Call the split function for empty areas
+              }}
+              className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
+              title="Drop-Bereich aufteilen (leer)"
+              aria-label="Split empty drop area"
+            >
+              <Plus size={18} />
+            </button>
           </div>
         )}
 
-        {/* Drop Error Overlay */}
-        {dropError && (
-          <div className="absolute inset-0 bg-red-500/10 rounded-xl z-20 flex items-center justify-center pointer-events-none">
-            <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-              {dropError}
-            </div>
+        {/* Split Button for POPULATED areas */}
+        {shouldShowSplitButtonPopulated && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent potential parent handlers
+                handleSplitPopulated(); // Call the split function for populated areas
+              }}
+              className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
+              title="Drop-Bereich aufteilen (enthält Blöcke)"
+              aria-label="Split populated drop area"
+            >
+              <Plus size={18} />
+            </button>
           </div>
         )}
-
-        <DropIndicators
-          isOver={isOver}
-          canDrop={canDrop}
-          shouldShowSplitIndicator={shouldShowSplitIndicator(
-            showSplitIndicator
-          )}
-          shouldShowMergeIndicator={
-            !hideInternalMergeIndicator && shouldShowMergeIndicator()
-          }
-          onSplit={handleSplitEmpty}
-          onMerge={handleMerge} // Pass the direct merge handler from the hook (no animation here)
-          mergePosition={mergePosition}
-        />
 
         <DropAreaContent
           dropArea={dropArea}
           viewport={viewport}
-          onSplitPopulated={handleSplitPopulated}
-          canSplit={canSplitThisArea}
+          // Removed onSplitPopulated and canSplit props as they are no longer needed here
         />
 
         {/* Delete button - Shows on hover for populated areas:
@@ -5220,7 +5487,7 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
   ({ dropArea, showSplitIndicator }, ref) => {
     const { canMerge, mergeDropAreas, deleteDropArea } = useBlocksStore();
     const [showDeleteButton, setShowDeleteButton] = useState(false);
-    const [isMerging, setIsMerging] = useState(false); // Added merging state
+    const [isMerging, setIsMerging] = useState(false); // State for merge animation
 
     if (!dropArea.isSplit || dropArea.splitAreas.length !== 2) {
       return (
@@ -5232,9 +5499,10 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
       );
     }
 
-    // For mobile, we'll place a horizontal merge indicator between the vertical areas
+    // For mobile, get IDs for vertical split areas
     const topAreaId = dropArea.splitAreas[0].id;
     const bottomAreaId = dropArea.splitAreas[1].id;
+    // Check directly if these can merge
     const areasCanMerge = canMerge(topAreaId, bottomAreaId);
 
     // Handler for merge gap click with animation
@@ -5315,18 +5583,16 @@ export const MobileDropArea = forwardRef<HTMLDivElement, MobileDropAreaProps>(
         {/* Removed Merging Animation Overlay from here */}
         <DropArea
           dropArea={dropArea.splitAreas[0]}
-          showSplitIndicator={false}
+          showSplitIndicator={false} // Don't allow splitting further on mobile for now
           viewport="mobile"
-          hideInternalMergeIndicator={true}
-          isParentMerging={isMerging} // Pass state down
+          // Removed internal merge/parent merging props
         />
         <MobileHorizontalMergeIndicator />
         <DropArea
           dropArea={dropArea.splitAreas[1]}
-          showSplitIndicator={false}
+          showSplitIndicator={false} // Don't allow splitting further on mobile for now
           viewport="mobile"
-          hideInternalMergeIndicator={true}
-          isParentMerging={isMerging} // Pass state down
+          // Removed internal merge/parent merging props
         />
 
         {/* Delete button for the entire split area */}
@@ -5372,7 +5638,7 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
   ({ dropArea, showSplitIndicator }, ref) => {
     const { canMerge, mergeDropAreas, deleteDropArea } = useBlocksStore();
     const [showDeleteButton, setShowDeleteButton] = useState(false);
-    const [isMerging, setIsMerging] = useState(false); // Added merging state
+    const [isMerging, setIsMerging] = useState(false); // State for merge animation
 
     if (!dropArea.isSplit || dropArea.splitAreas.length !== 2) {
       return (
@@ -5395,13 +5661,11 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
                 dropArea={dropArea.splitAreas[0].splitAreas[0]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
               <DropArea
                 dropArea={dropArea.splitAreas[0].splitAreas[1]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
             </>
           ) : (
@@ -5409,7 +5673,6 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
               dropArea={dropArea.splitAreas[0]}
               showSplitIndicator={showSplitIndicator}
               viewport="tablet"
-              hideInternalMergeIndicator={true}
             />
           )}
 
@@ -5420,13 +5683,11 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
                 dropArea={dropArea.splitAreas[1].splitAreas[0]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
               <DropArea
                 dropArea={dropArea.splitAreas[1].splitAreas[1]}
                 showSplitIndicator={false}
                 viewport="tablet"
-                hideInternalMergeIndicator={true}
               />
             </>
           ) : (
@@ -5434,16 +5695,17 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
               dropArea={dropArea.splitAreas[1]}
               showSplitIndicator={showSplitIndicator}
               viewport="tablet"
-              hideInternalMergeIndicator={true}
             />
           )}
         </div>
       );
     }
 
-    // For first-level split, add merge gap indicator between areas
+    // --- First-level split logic (side-by-side) ---
+    // Get IDs for the split areas
     const leftAreaId = dropArea.splitAreas[0].id;
     const rightAreaId = dropArea.splitAreas[1].id;
+    // Check directly if these areas can merge
     const areasCanMerge = canMerge(leftAreaId, rightAreaId);
 
     // Handler for merge gap click with animation
@@ -5488,15 +5750,13 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
             dropArea={dropArea.splitAreas[0]}
             showSplitIndicator={showSplitIndicator}
             viewport="tablet"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
-        {/* Center the indicator wrapper */}
-        <div className="self-center">
+        {/* Center the indicator wrapper and handle merge */}
+        <div className="self-center px-2">
           <MergeGapIndicator
             canMerge={areasCanMerge}
-            onClick={handleMergeWithAnimation} // Use animation handler
+            onClick={handleMergeWithAnimation}
           />
         </div>
         <div className="flex-1">
@@ -5504,8 +5764,6 @@ export const TabletDropArea = forwardRef<HTMLDivElement, TabletDropAreaProps>(
             dropArea={dropArea.splitAreas[1]}
             showSplitIndicator={showSplitIndicator}
             viewport="tablet"
-            hideInternalMergeIndicator={true}
-            isParentMerging={isMerging} // Pass state down
           />
         </div>
 
@@ -5584,32 +5842,20 @@ export function ViewportSelector() {
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function DashboardHeader() {
   const [activeTab, setActiveTab] = useState("all");
 
   return (
-    <div className="mb-8">
-      <h1 className="text-3xl font-bold mb-6">Meine Projekte</h1>
-      <div className="flex justify-between items-center">
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="all">Alle Projekte</TabsTrigger>
-            <TabsTrigger value="recent">Kürzlich</TabsTrigger>
-            <TabsTrigger value="templates">Vorlagen</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            Sortieren
-          </Button>
-          <Button variant="outline" size="sm">
-            Filtern
-          </Button>
-        </div>
-      </div>
+    <div className="flex justify-between items-center">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all">Alle Projekte</TabsTrigger>
+          <TabsTrigger value="recent">Kürzlich</TabsTrigger>
+          <TabsTrigger value="templates">Vorlagen</TabsTrigger>
+        </TabsList>
+      </Tabs>
     </div>
   );
 }
@@ -5787,6 +6033,253 @@ export default function ProjectCard({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+```
+
+# components/dashboard/projects-view.tsx
+
+```tsx
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { PlusCircle, Search, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import ProjectCard from "@/components/dashboard/project-card";
+import {
+  listProjectsFromStorage,
+  initializeStorage,
+  deleteProjectFromStorage, // Need this for delete handler
+} from "@/lib/supabase/storage";
+import { deleteProjectFromDatabase } from "@/lib/supabase/database"; // Need this for delete handler
+import type { Project } from "@/lib/types";
+import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+export default function ProjectsView() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [activeTab, setActiveTab] = useState("all");
+
+  // Memoize the toast notifications
+  const showErrorToast = useCallback((title: string, description: string) => {
+    toast.error(title, {
+      description: description,
+    });
+  }, []);
+
+  // Force refresh when component mounts or visibility changes
+  useEffect(() => {
+    setRefreshCounter((prev) => prev + 1); // Initial load trigger
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setRefreshCounter((prev) => prev + 1);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // Load projects from Supabase storage
+  useEffect(() => {
+    async function loadProjects() {
+      setIsLoading(true);
+      try {
+        const storageInitialized = await initializeStorage();
+        if (!storageInitialized) {
+          setProjects([]);
+          showErrorToast(
+            "Speicherfehler",
+            "Verbindung zum Cloud-Speicher nicht möglich."
+          );
+          setIsLoading(false);
+          return;
+        }
+        const loadedProjects = await listProjectsFromStorage();
+        setProjects(loadedProjects || []);
+      } catch (error) {
+        console.error("Error loading projects:", error);
+        setProjects([]);
+        toast.error("Fehler beim Laden", {
+          description: "Die Projekte konnten nicht geladen werden.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadProjects();
+  }, [refreshCounter, showErrorToast]); // Depend on refreshCounter
+
+  // Filter projects based on search query
+  const filteredProjects = projects.filter((project) =>
+    project.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleCreateProject = () => {
+    router.push("/editor");
+  };
+
+  const handleProjectClick = (projectId: string) => {
+    router.push(`/editor?projectId=${projectId}`);
+  };
+
+  // Combined delete logic (Database + Storage)
+  const handleProjectDelete = async (
+    projectId: string,
+    projectTitle: string
+  ) => {
+    setIsLoading(true); // Indicate loading state during deletion
+    try {
+      // Attempt to delete from storage first (might be less critical if DB fails)
+      await deleteProjectFromStorage(projectId);
+      // Attempt to delete from database
+      await deleteProjectFromDatabase(projectId);
+
+      // Show success toast
+      toast.error(`"${projectTitle}" wurde gelöscht`, {
+        description: `Ihr Projekt wurde erfolgreich gelöscht.`,
+        style: {
+          backgroundColor: "hsl(var(--destructive))",
+          color: "white",
+        },
+      });
+
+      // Trigger refresh after successful deletion
+      setRefreshCounter((prev) => prev + 1);
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      showErrorToast(
+        "Fehler beim Löschen",
+        `Das Projekt "${projectTitle}" konnte nicht vollständig gelöscht werden.`
+      );
+      // Still refresh the list even if deletion failed partially
+      setRefreshCounter((prev) => prev + 1);
+    } finally {
+      // Set loading to false *after* state update from refresh
+      // We might need a small delay or better state management here
+      // For now, let the loadProjects effect handle setting isLoading to false
+    }
+  };
+
+  const forceRefresh = () => {
+    setIsLoading(true);
+    setRefreshCounter((prev) => prev + 1);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center gap-4 md:gap-6">
+        <h1 className="text-3xl font-bold mr-auto">Projekte</h1>
+
+        <Tabs
+          defaultValue="all"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="hidden md:block"
+        >
+          <TabsList>
+            <TabsTrigger value="all">Alle Projekte</TabsTrigger>
+            <TabsTrigger value="recent">Kürzlich</TabsTrigger>
+            <TabsTrigger value="templates">Vorlagen</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="relative w-full md:w-auto md:min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Projekte durchsuchen..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <Button
+          onClick={handleCreateProject}
+          className="flex items-center gap-2"
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span className="hidden sm:inline">Neues Projekt</span>
+          <span className="sm:hidden">Neu</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={forceRefresh}
+          disabled={isLoading}
+          title="Projektliste aktualisieren"
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      {/* Tabs for mobile */}
+      <div className="md:hidden">
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full">
+            <TabsTrigger value="all" className="flex-1">
+              Alle
+            </TabsTrigger>
+            <TabsTrigger value="recent" className="flex-1">
+              Kürzlich
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex-1">
+              Vorlagen
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Project Grid / Loading / Empty State */}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-3 text-lg">Projekte werden geladen...</span>
+        </div>
+      ) : filteredProjects.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredProjects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onClick={() => handleProjectClick(project.id)}
+              onDelete={() => handleProjectDelete(project.id, project.title)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
+          <div className="text-center">
+            <h3 className="text-lg font-medium mb-2">
+              Keine Projekte gefunden
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              {searchQuery
+                ? "Versuchen Sie einen anderen Suchbegriff"
+                : "Erstellen Sie Ihr erstes Projekt, um zu beginnen"}
+            </p>
+            {!searchQuery && (
+              <Button onClick={handleCreateProject}>Projekt erstellen</Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -6492,6 +6985,670 @@ export default function Hero() {
 
 ```
 
+# components/layout/dashboard-sidebar.tsx
+
+```tsx
+"use client";
+
+import React from "react"; // Removed useState import
+import { useRouter } from "next/navigation";
+import { Home, Library, BarChart3, User, Settings, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+// Removed DropdownMenu*, ProfileSheet, SettingsSheet imports
+
+// Define the type for the view state setter function including new views
+type SetActiveView = React.Dispatch<
+  React.SetStateAction<
+    "projects" | "mediathek" | "analytics" | "profile" | "settings"
+  >
+>;
+
+interface DashboardSidebarProps {
+  activeView: "projects" | "mediathek" | "analytics" | "profile" | "settings"; // Updated activeView type
+  setActiveView: SetActiveView;
+}
+
+export default function DashboardSidebar({
+  activeView,
+  setActiveView,
+}: DashboardSidebarProps) {
+  const router = useRouter();
+  const { user, supabase } = useSupabase();
+  // Removed isProfileOpen, isSettingsOpen state
+
+  // Explicitly type the navItems array
+  const navItems: {
+    name: string;
+    view: "projects" | "mediathek" | "analytics";
+    icon: React.ElementType;
+  }[] = [
+    { name: "Projekte", view: "projects", icon: Home },
+    { name: "Mediathek", view: "mediathek", icon: Library },
+    { name: "Analytics", view: "analytics", icon: BarChart3 },
+  ];
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
+
+  return (
+    <aside className="w-64 h-screen flex flex-col border-r bg-background fixed left-0 top-0 pt-[73px] z-40">
+      <nav className="flex-1 px-4 py-8 space-y-2">
+        {navItems.map((item) => (
+          <Button
+            key={item.name}
+            variant={activeView === item.view ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start",
+              activeView === item.view && "font-semibold"
+            )}
+            onClick={() => setActiveView(item.view)}
+          >
+            <item.icon className="mr-2 h-4 w-4" />
+            {item.name}
+          </Button>
+        ))}
+      </nav>
+      <div className="mt-auto p-4 border-t space-y-2">
+        {user ? (
+          <>
+            <Button
+              variant={activeView === "profile" ? "secondary" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setActiveView("profile")}
+            >
+              <User className="mr-2 h-4 w-4" />
+              Profil
+            </Button>
+            <Button
+              variant={activeView === "settings" ? "secondary" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setActiveView("settings")}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Einstellungen
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={handleSignOut}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Abmelden
+            </Button>
+            <div className="flex items-center gap-2 px-2 py-1 mt-2 pt-2 pb-4">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback>{user.email?.[0].toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col items-start text-left">
+                <span className="text-sm font-medium leading-none truncate max-w-[150px]">
+                  {user.email?.split("@")[0]}
+                </span>
+                <span className="text-xs leading-none text-muted-foreground truncate max-w-[150px]">
+                  {user.email}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/sign-in")}
+          >
+            Anmelden
+          </Button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+```
+
+# components/layout/editor-right-sidebar.tsx
+
+```tsx
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable jsx-a11y/alt-text */
+"use client";
+
+import React, { useState, useEffect } from "react";
+import {
+  Image as ImageIcon,
+  Film,
+  Music,
+  FileText,
+  Upload,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+} from "lucide-react";
+import Image from "next/image";
+import { v4 as uuidv4 } from "uuid";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
+// Updated MediaItem interface to match our database schema
+interface MediaItem {
+  id: string;
+  file_name: string;
+  file_type: string;
+  url: string;
+  uploaded_at: string;
+  size: number;
+  width?: number;
+  height?: number;
+}
+
+interface MediaCategoryProps {
+  title: string;
+  icon: React.ReactNode;
+  iconColor: string;
+  items: MediaItem[];
+  type: string;
+  isActive: boolean;
+  onSelect: () => void;
+}
+
+function MediaCategory({
+  title,
+  icon,
+  iconColor,
+  items,
+  type,
+  isActive,
+  onSelect,
+}: MediaCategoryProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const displayItems = isExpanded ? items : items.slice(0, 4);
+
+  const renderItem = (item: MediaItem) => {
+    // Check if the file type starts with image/
+    if (item.file_type.startsWith("image/")) {
+      return (
+        <div
+          key={item.id}
+          className="aspect-square bg-muted rounded-lg p-2 hover:bg-muted/80 cursor-pointer group relative"
+        >
+          <div className="w-full h-full bg-background rounded overflow-hidden">
+            <Image
+              src={item.url}
+              alt={item.file_name}
+              width={item.width || 100}
+              height={item.height || 100}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+            <p className="text-xs text-white truncate">{item.file_name}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // For non-image files, determine the icon based on file type
+    const icon = (() => {
+      if (item.file_type.startsWith("video/")) {
+        return <Film className="w-6 h-6" />;
+      } else if (item.file_type.startsWith("audio/")) {
+        return <Music className="w-6 h-6" />;
+      } else {
+        return <FileText className="w-6 h-6" />;
+      }
+    })();
+
+    return (
+      <div
+        key={item.id}
+        className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg cursor-pointer"
+      >
+        {icon}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm truncate">{item.file_name}</p>
+          <p className="text-xs text-muted-foreground">
+            {(item.size / 1024 / 1024).toFixed(1)} MB
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const handleHeaderClick = () => {
+    if (!isActive) {
+      onSelect();
+      setIsExpanded(false);
+    } else {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <button
+        onClick={handleHeaderClick}
+        className={`w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors ${
+          isActive ? "bg-muted/50" : ""
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <div className={iconColor}>{icon}</div>
+          <h3 className="font-medium">{title}</h3>
+          <span className="text-sm text-muted-foreground ml-2">
+            ({items.length})
+          </span>
+        </div>
+        {isActive && items.length > 4 && (
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            {!isExpanded && <span>{items.length - 4} weitere</span>}
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </div>
+        )}
+      </button>
+      {isActive && (
+        <div className="px-3 pb-3">
+          {type === "image" ? (
+            <div className="grid grid-cols-2 gap-2">
+              {displayItems
+                .filter((item) => item.file_type.startsWith("image/"))
+                .map(renderItem)}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {displayItems
+                .filter((item) => {
+                  switch (type) {
+                    case "video":
+                      return item.file_type.startsWith("video/");
+                    case "audio":
+                      return item.file_type.startsWith("audio/");
+                    case "document":
+                      return (
+                        !item.file_type.startsWith("image/") &&
+                        !item.file_type.startsWith("video/") &&
+                        !item.file_type.startsWith("audio/")
+                      );
+                    default:
+                      return false;
+                  }
+                })
+                .map(renderItem)}
+            </div>
+          )}
+          {items.length > 4 && !isExpanded && (
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="w-full mt-2 p-2 text-sm text-primary hover:bg-primary/5 rounded-lg transition-colors"
+            >
+              Mehr anzeigen
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// MediaLibraryContent component to handle media items and uploads
+export function MediaLibraryContent() {
+  const { user, supabase, session } = useSupabase();
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>("image");
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const router = useRouter();
+
+  // Fetch media items from Supabase and set up real-time subscription
+  useEffect(() => {
+    if (!supabase || !user) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Initial fetch
+    async function fetchMediaItems() {
+      if (!supabase || !user) return;
+
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from("media_items")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("uploaded_at", { ascending: false });
+
+        if (error) throw error;
+        setMediaItems(data || []);
+      } catch (error) {
+        console.error("Error fetching media items:", error);
+        toast.error("Fehler beim Laden der Medien");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchMediaItems();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel("media_items_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to all changes
+          schema: "public",
+          table: "media_items",
+          filter: `user_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          console.log("Real-time update received:", payload);
+
+          // Refresh the entire list to ensure consistency
+          const { data, error } = await supabase
+            .from("media_items")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("uploaded_at", { ascending: false });
+
+          if (!error && data) {
+            setMediaItems(data);
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [supabase, user]);
+
+  // Check for session
+  useEffect(() => {
+    if (!session && !isLoading) {
+      router.push("/auth/login");
+    }
+  }, [session, isLoading, router]);
+
+  // Helper function to determine the appropriate bucket based on file type
+  const getBucketForFile = (file: File): string => {
+    if (file.type.startsWith("image/")) return "images";
+    if (file.type.startsWith("video/")) return "videos";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "documents";
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (files: File[]) => {
+    if (!files || files.length === 0) return;
+    if (!user || !supabase) {
+      toast.error("Sie müssen angemeldet sein, um Medien hochzuladen");
+      router.push("/auth/login");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    for (const file of files) {
+      try {
+        // Check file size (50MB limit)
+        if (file.size > 50 * 1024 * 1024) {
+          toast.error(`${file.name} ist zu groß (Max: 50MB)`);
+          continue;
+        }
+
+        const bucket = getBucketForFile(file);
+        const filePath = `${user.id}/${Date.now()}-${file.name}`;
+
+        // Upload file to storage
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get the public URL
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        if (!data?.publicUrl) throw new Error("Could not get public URL");
+
+        // Get dimensions if it's an image
+        const dimensions = await new Promise<{ width: number; height: number }>(
+          (resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+              resolve({
+                width: img.width,
+                height: img.height,
+              });
+            };
+            img.onerror = () => {
+              resolve({ width: 0, height: 0 });
+            };
+            img.src = data.publicUrl;
+          }
+        );
+
+        // Add to media_items table
+        const { error: dbError } = await supabase.from("media_items").insert({
+          id: uuidv4(),
+          file_name: file.name,
+          file_type: file.type,
+          url: data.publicUrl,
+          size: file.size,
+          width: dimensions.width,
+          height: dimensions.height,
+          user_id: user.id,
+          uploaded_at: new Date().toISOString(),
+        });
+
+        if (dbError) throw dbError;
+
+        toast.success(`${file.name} erfolgreich hochgeladen`);
+        setUploadProgress((prev) => prev + 100 / files.length);
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast.error(`Fehler beim Hochladen von ${file.name}`);
+      }
+    }
+
+    setIsUploading(false);
+    setUploadProgress(0);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            <MediaCategory
+              title="Bilder"
+              icon={<ImageIcon />}
+              iconColor="text-blue-500"
+              items={mediaItems.filter((item) =>
+                item.file_type.startsWith("image/")
+              )}
+              type="image"
+              isActive={activeCategory === "image"}
+              onSelect={() => setActiveCategory("image")}
+            />
+            <MediaCategory
+              title="Videos"
+              icon={<Film />}
+              iconColor="text-red-500"
+              items={mediaItems.filter((item) =>
+                item.file_type.startsWith("video/")
+              )}
+              type="video"
+              isActive={activeCategory === "video"}
+              onSelect={() => setActiveCategory("video")}
+            />
+            <MediaCategory
+              title="Audio"
+              icon={<Music />}
+              iconColor="text-purple-500"
+              items={mediaItems.filter((item) =>
+                item.file_type.startsWith("audio/")
+              )}
+              type="audio"
+              isActive={activeCategory === "audio"}
+              onSelect={() => setActiveCategory("audio")}
+            />
+            <MediaCategory
+              title="Dokumente"
+              icon={<FileText />}
+              iconColor="text-green-500"
+              items={mediaItems.filter(
+                (item) =>
+                  !item.file_type.startsWith("image/") &&
+                  !item.file_type.startsWith("video/") &&
+                  !item.file_type.startsWith("audio/")
+              )}
+              type="document"
+              isActive={activeCategory === "document"}
+              onSelect={() => setActiveCategory("document")}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 border-t border-border mt-auto">
+        <div className="flex flex-col gap-4">
+          <div
+            className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const files = Array.from(e.dataTransfer.files);
+              if (files.length > 0) {
+                handleFileUpload(files);
+              }
+            }}
+          >
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <p className="font-medium">
+                  {isDragging
+                    ? "Dateien hier ablegen"
+                    : "Klicken zum Hochladen"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  oder Dateien hier reinziehen
+                </p>
+              </div>
+            </div>
+          </div>
+          {isUploading && (
+            <div className="space-y-2">
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                Upload läuft... {uploadProgress}%
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// EditorRightSidebar component to handle the right sidebar in the editor
+export function EditorRightSidebar() {
+  const [activeTab, setActiveTab] = useState<"media" | "properties">("media");
+
+  return (
+    <div className="w-[300px] bg-background border-l border-border flex flex-col h-full">
+      <div className="pt-16 border-b border-border">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab("media")}
+            className={`flex-1 p-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "media"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Mediathek
+          </button>
+          <button
+            onClick={() => setActiveTab("properties")}
+            className={`flex-1 p-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "properties"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Eigenschaften
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        {activeTab === "media" ? (
+          <MediaLibraryContent />
+        ) : (
+          <div className="text-center text-muted-foreground p-4">
+            Wählen Sie ein Element aus, um dessen Eigenschaften zu bearbeiten.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ... rest of the file (PropertiesPanelContent and EditorRightSidebar) stays the same ...
+
+```
+
 # components/layout/left-sidebar.tsx
 
 ```tsx
@@ -6549,7 +7706,7 @@ const blockTypes = [
 
 export default function LeftSidebar() {
   return (
-    <div className="w-64 bg-card border-r border-border overflow-y-auto p-5">
+    <div className="w-64 bg-card border-r border-border overflow-y-auto p-5 pt-24">
       <h2 className="text-lg font-semibold mb-5">Blöcke</h2>
       <div className="grid grid-cols-2 gap-3">
         {blockTypes.map((block) => (
@@ -6590,7 +7747,6 @@ import {
   ToggleRight,
   Share,
   Download,
-  Library,
   Trash,
 } from "lucide-react";
 import { useBlocksStore } from "@/store/blocks-store";
@@ -6607,8 +7763,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ProfileSheet } from "@/components/sheets/profile";
-import { SettingsSheet } from "@/components/sheets/settings";
 import { deleteProjectFromDatabase } from "@/lib/supabase/database";
 import { deleteProjectFromStorage } from "@/lib/supabase/storage";
 
@@ -6639,8 +7793,6 @@ export default function Navbar({
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [showLastSaved, setShowLastSaved] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Update title when projectTitle prop changes
@@ -6760,8 +7912,8 @@ export default function Navbar({
   };
 
   return (
-    <nav className="bg-background border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
+    <nav className="fixed top-0 left-0 right-0 h-[73px] border-b bg-background z-50">
+      <div className="h-full px-6 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           {/* Logo and title section */}
           <div className="flex items-center gap-3">
@@ -6772,21 +7924,7 @@ export default function Navbar({
           </div>
 
           {/* Navigation links - different based on view */}
-          {currentView === "dashboard" ? (
-            <div className="hidden md:flex space-x-6 ml-8">
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="flex items-center gap-1"
-              >
-                <Link href="/mediathek">
-                  <Library className="h-4 w-4" />
-                  <span>Mediathek</span>
-                </Link>
-              </Button>
-            </div>
-          ) : currentView === "editor" ? (
+          {currentView === "dashboard" ? null : currentView === "editor" ? ( // Removed Mediathek link for dashboard view
             <div className="flex items-center ml-8 space-x-4">
               <Button
                 variant="ghost"
@@ -6797,17 +7935,7 @@ export default function Navbar({
                 <ChevronLeft className="h-4 w-4" />
                 Zurück
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="flex items-center gap-1"
-              >
-                <Link href="/mediathek">
-                  <Library className="h-4 w-4" />
-                  <span>Mediathek</span>
-                </Link>
-              </Button>
+              {/* Mediathek link removed for editor view */}
               <div className="h-4 border-r border-border"></div>
               {isEditing ? (
                 <Input
@@ -6982,61 +8110,71 @@ export default function Navbar({
             </>
           )}
 
-          {/* User menu - show for both dashboard and editor views */}
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+          {/* User menu / Login Button - Conditionally render based on currentView and user status */}
+          {user
+            ? // Show User Menu only if NOT on dashboard AND NOT on editor
+              currentView !== "dashboard" &&
+              currentView !== "editor" && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-9 w-9 rounded-full"
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback>
+                          {user.email?.[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user.email?.split("@")[0]}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => router.push("/dashboard?view=profile")}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profil</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => router.push("/dashboard?view=settings")}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Einstellungen</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Abmelden</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            : // Show Login Button only if NOT on dashboard AND NOT on editor
+              currentView !== "dashboard" &&
+              currentView !== "editor" && (
                 <Button
                   variant="ghost"
-                  className="relative h-9 w-9 rounded-full"
+                  size="sm"
+                  asChild
+                  className="flex items-center gap-1"
                 >
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback>
-                      {user.email?.[0].toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <Link href="/login">
+                    <LogIn className="h-4 w-4" />
+                    <span>Anmelden</span>
+                  </Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {user.email?.split("@")[0]}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setIsProfileOpen(true)}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profil</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIsSettingsOpen(true)}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Einstellungen</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Abmelden</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="flex items-center gap-1"
-            >
-              <Link href="/login">
-                <LogIn className="h-4 w-4" />
-                <span>Anmelden</span>
-              </Link>
-            </Button>
-          )}
+              )}
         </div>
       </div>
 
@@ -7046,285 +8184,402 @@ export default function Navbar({
           {error}
         </div>
       )}
-
-      {/* Sheet Components */}
-      <ProfileSheet
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-      />
-      <SettingsSheet
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
     </nav>
   );
 }
 
 ```
 
-# components/layout/right-sidebar.tsx
+# components/mediathek/mediathek-view.tsx
 
 ```tsx
-/* eslint-disable jsx-a11y/alt-text */
 "use client";
 
+import { useState, useEffect } from "react";
 import {
-  Image,
-  Film,
+  Image as LucideImage,
+  Video,
   Music,
   FileText,
+  Search,
+  Loader2,
   Upload,
-  ChevronDown,
-  ChevronUp,
+  Trash2,
+  Film,
 } from "lucide-react";
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Image from "next/image";
+import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { useRouter } from "next/navigation";
 
-// Mock data for media items
+// Updated MediaItem type to match our database schema exactly
 interface MediaItem {
-  id: string;
-  name: string;
-  type: "photo" | "video" | "audio" | "document";
-  thumbnail?: string;
-  fileSize: string;
-  dateAdded: string;
+  id: string; // UUID stored as string in TypeScript
+  file_name: string;
+  file_type: string;
+  url: string;
+  uploaded_at: string | null; // timestamp with time zone can be null
+  size: number;
+  width: number | null;
+  height: number | null;
+  user_id: string | null; // UUID stored as string in TypeScript
 }
 
-const mockMediaItems: MediaItem[] = [
-  {
-    id: "1",
-    name: "Beach Sunset",
-    type: "photo",
-    fileSize: "2.4 MB",
-    dateAdded: "2024-03-20",
-  },
-  {
-    id: "2",
-    name: "Mountain View",
-    type: "photo",
-    fileSize: "1.8 MB",
-    dateAdded: "2024-03-19",
-  },
-  {
-    id: "3",
-    name: "Forest Path",
-    type: "photo",
-    fileSize: "2.1 MB",
-    dateAdded: "2024-03-18",
-  },
-  {
-    id: "4",
-    name: "City Lights",
-    type: "photo",
-    fileSize: "3.2 MB",
-    dateAdded: "2024-03-17",
-  },
-  {
-    id: "5",
-    name: "Desert Landscape",
-    type: "photo",
-    fileSize: "2.7 MB",
-    dateAdded: "2024-03-16",
-  },
-  {
-    id: "6",
-    name: "Product Demo",
-    type: "video",
-    fileSize: "15.6 MB",
-    dateAdded: "2024-03-18",
-  },
-  {
-    id: "7",
-    name: "Tutorial Video",
-    type: "video",
-    fileSize: "24.2 MB",
-    dateAdded: "2024-03-17",
-  },
-  {
-    id: "8",
-    name: "Presentation",
-    type: "video",
-    fileSize: "18.4 MB",
-    dateAdded: "2024-03-16",
-  },
-  {
-    id: "9",
-    name: "Event Recording",
-    type: "video",
-    fileSize: "45.7 MB",
-    dateAdded: "2024-03-15",
-  },
-  {
-    id: "10",
-    name: "Background Music",
-    type: "audio",
-    fileSize: "4.2 MB",
-    dateAdded: "2024-03-16",
-  },
-  {
-    id: "11",
-    name: "Interview Recording",
-    type: "audio",
-    fileSize: "8.7 MB",
-    dateAdded: "2024-03-15",
-  },
-  {
-    id: "12",
-    name: "Podcast Episode",
-    type: "audio",
-    fileSize: "12.4 MB",
-    dateAdded: "2024-03-14",
-  },
-  {
-    id: "13",
-    name: "Sound Effect",
-    type: "audio",
-    fileSize: "1.2 MB",
-    dateAdded: "2024-03-13",
-  },
-  {
-    id: "14",
-    name: "Project Brief.pdf",
-    type: "document",
-    fileSize: "567 KB",
-    dateAdded: "2024-03-14",
-  },
-  {
-    id: "15",
-    name: "Report.docx",
-    type: "document",
-    fileSize: "892 KB",
-    dateAdded: "2024-03-13",
-  },
-  {
-    id: "16",
-    name: "Contract.pdf",
-    type: "document",
-    fileSize: "1.2 MB",
-    dateAdded: "2024-03-12",
-  },
-  {
-    id: "17",
-    name: "Proposal.docx",
-    type: "document",
-    fileSize: "756 KB",
-    dateAdded: "2024-03-11",
-  },
-];
+export default function MediathekView() {
+  const { user, supabase, session } = useSupabase();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const router = useRouter();
 
-interface MediaCategoryProps {
-  title: string;
-  icon: React.ReactNode;
-  iconColor: string;
-  items: MediaItem[];
-  type: MediaItem["type"];
-  isActive: boolean;
-  onSelect: () => void;
-}
+  console.log("MediathekView rendered:", {
+    hasUser: !!user,
+    userId: user?.id,
+    hasSession: !!session,
+    hasSupabase: !!supabase,
+    timestamp: new Date().toISOString(),
+  });
 
-function MediaCategory({
-  title,
-  icon,
-  iconColor,
-  items,
-  type,
-  isActive,
-  onSelect,
-}: MediaCategoryProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const displayItems = isExpanded ? items : items.slice(0, 4);
+  // Fetch media items from Supabase
+  useEffect(() => {
+    async function fetchMediaItems() {
+      if (!supabase || !user) {
+        setIsLoading(false);
+        return;
+      }
 
-  const renderItem = (item: MediaItem) => {
-    if (type === "photo") {
-      return (
-        <div
-          key={item.id}
-          className="aspect-square bg-muted rounded-lg p-2 hover:bg-muted/80 cursor-pointer group relative"
-        >
-          <div className="w-full h-full bg-background rounded flex items-center justify-center">
-            <Image size={24} className="text-muted-foreground" />
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
-            <p className="text-xs text-white truncate">{item.name}</p>
-          </div>
-        </div>
-      );
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from("media_items")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("uploaded_at", { ascending: false });
+
+        if (error) throw error;
+        setMediaItems(data || []);
+      } catch (error) {
+        console.error("Error fetching media items:", error);
+        toast.error("Fehler beim Laden der Medien");
+      } finally {
+        setIsLoading(false);
+      }
     }
+
+    fetchMediaItems();
+  }, [user, supabase]);
+
+  // Redirect if no session
+  useEffect(() => {
+    if (!session && !isLoading) {
+      router.push("/auth/login");
+    }
+  }, [session, isLoading, router]);
+
+  // Filter media based on search query
+  const filteredMedia = mediaItems.filter((item) =>
+    item.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Group media items by type
+  const groupedMedia = mediaItems.reduce((acc, item) => {
+    const type = item.file_type.startsWith("image/")
+      ? "image"
+      : item.file_type.startsWith("video/")
+      ? "video"
+      : item.file_type.startsWith("audio/")
+      ? "audio"
+      : "document";
+
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(item);
+    return acc;
+  }, {} as Record<string, MediaItem[]>);
+
+  const categories = [
+    {
+      title: "Fotos",
+      icon: <LucideImage size={18} />,
+      iconColor: "text-blue-500",
+      type: "image",
+      items: groupedMedia["image"] || [],
+    },
+    {
+      title: "Videos",
+      icon: <Film size={18} />,
+      iconColor: "text-red-500",
+      type: "video",
+      items: groupedMedia["video"] || [],
+    },
+    {
+      title: "Audio",
+      icon: <Music size={18} />,
+      iconColor: "text-green-500",
+      type: "audio",
+      items: groupedMedia["audio"] || [],
+    },
+    {
+      title: "Dokumente",
+      icon: <FileText size={18} />,
+      iconColor: "text-purple-500",
+      type: "document",
+      items: groupedMedia["document"] || [],
+    },
+  ];
+
+  // Render media preview with actual image URLs
+  const renderMediaPreview = (item: MediaItem) => {
+    const type = item.file_type.startsWith("image/")
+      ? "image"
+      : item.file_type.startsWith("video/")
+      ? "video"
+      : item.file_type.startsWith("audio/")
+      ? "audio"
+      : "document";
+
+    const isDeleting = deletingItemId === item.id;
+
+    const DeleteButton = () => (
+      <Button
+        variant="destructive"
+        size="icon"
+        className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={() => handleDelete(item)}
+        disabled={isDeleting}
+      >
+        {isDeleting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Trash2 className="h-4 w-4" />
+        )}
+      </Button>
+    );
+
+    switch (type) {
+      case "image":
+        return (
+          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+            <Image
+              src={item.url}
+              alt={item.file_name}
+              className="object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+            <DeleteButton />
+          </div>
+        );
+      case "video":
+        return (
+          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center">
+              <Video className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <DeleteButton />
+          </div>
+        );
+      case "audio":
+        return (
+          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center">
+              <Music className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <DeleteButton />
+          </div>
+        );
+      case "document":
+        return (
+          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center">
+              <FileText className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <DeleteButton />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Render-Funktion für eine Medienkategorie
+  const renderMediaCategory = (
+    type: string,
+    title: string,
+    icon: React.ReactNode
+  ) => {
+    const items = groupedMedia[type] || [];
+    if (items.length === 0) return null;
+
+    const displayItems = items.slice(0, 4);
+    const hasMore = items.length > 4;
 
     return (
-      <div
-        key={item.id}
-        className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg cursor-pointer"
-      >
-        {icon}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm truncate">{item.name}</p>
-          <p className="text-xs text-muted-foreground">{item.fileSize}</p>
-        </div>
-      </div>
-    );
-  };
-
-  const handleHeaderClick = () => {
-    if (!isActive) {
-      onSelect();
-      setIsExpanded(false); // Reset expansion state when switching categories
-    } else {
-      setIsExpanded(!isExpanded); // Toggle expansion when already active
-    }
-  };
-
-  return (
-    <div className="border-b border-border last:border-b-0">
-      <button
-        onClick={handleHeaderClick}
-        className={`w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors ${
-          isActive ? "bg-muted/50" : ""
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <div className={iconColor}>{icon}</div>
-          <h3 className="font-medium">{title}</h3>
-          <span className="text-sm text-muted-foreground ml-2">
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          {icon}
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <span className="text-sm text-muted-foreground">
             ({items.length})
           </span>
         </div>
-        {isActive && items.length > 4 && (
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            {!isExpanded && <span>{items.length - 4} weitere</span>}
-            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </div>
-        )}
-      </button>
-
-      {isActive && (
-        <div className="px-3 pb-3">
-          {type === "photo" ? (
-            <div className="grid grid-cols-2 gap-2">
-              {displayItems.map(renderItem)}
+        <div className="grid grid-cols-4 gap-4">
+          {displayItems.map((item) => (
+            <div key={item.id} className="relative group">
+              {renderMediaPreview(item)}
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-sm truncate">{item.file_name}</p>
+                <p className="text-xs opacity-75">
+                  {(item.size / 1024 / 1024).toFixed(1)} MB
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-2">{displayItems.map(renderItem)}</div>
-          )}
-
-          {items.length > 4 && !isExpanded && (
-            <button
-              onClick={() => setIsExpanded(true)}
-              className="w-full mt-2 p-2 text-sm text-primary hover:bg-primary/5 rounded-lg transition-colors"
+          ))}
+          {hasMore && (
+            <Button
+              variant="outline"
+              className="aspect-square flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
             >
-              Mehr anzeigen
-            </button>
+              mehr
+            </Button>
           )}
         </div>
-      )}
-    </div>
-  );
-}
+      </section>
+    );
+  };
 
-export default function RightSidebar() {
-  const [isDragging, setIsDragging] = useState(false);
-  const [activeCategory, setActiveCategory] =
-    useState<MediaItem["type"]>("photo");
+  // Helper function to determine the appropriate bucket based on file type
+  const getBucketForFile = (file: File): string => {
+    if (file.type.startsWith("image/")) return "images";
+    if (file.type.startsWith("video/")) return "videos";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "documents";
+  };
 
+  // Helper function to get file dimensions (for images)
+  const getImageDimensions = async (
+    file: File
+  ): Promise<{ width: number; height: number }> => {
+    if (!file.type.startsWith("image/")) {
+      return { width: 0, height: 0 };
+    }
+
+    return new Promise((resolve) => {
+      const img = new (window.Image as { new (): HTMLImageElement })();
+      img.onload = () => {
+        resolve({
+          width: img.width,
+          height: img.height,
+        });
+      };
+      img.onerror = () => {
+        resolve({ width: 0, height: 0 });
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    try {
+      if (!user || !session || !supabase) {
+        toast.error("Sie müssen angemeldet sein, um Dateien hochzuladen");
+        router.push("/auth/login");
+        return;
+      }
+
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      for (const file of Array.from(files)) {
+        try {
+          // Check file size (50MB limit)
+          if (file.size > 50 * 1024 * 1024) {
+            toast.error(`${file.name} ist zu groß (Max: 50MB)`);
+            continue;
+          }
+
+          const bucket = getBucketForFile(file);
+          const filePath = `${user.id}/${Date.now()}-${file.name}`;
+
+          // Upload file to storage with proper caching and content type
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file, {
+              cacheControl: "3600",
+              contentType: file.type,
+              upsert: true,
+            });
+
+          if (uploadError) {
+            console.error("Upload error:", uploadError);
+            throw uploadError;
+          }
+
+          // Get the public URL
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+          // Get dimensions if it's an image
+          const dimensions = await getImageDimensions(file);
+
+          // Prepare the media item data
+          const mediaItem: MediaItem = {
+            id: uuidv4(),
+            file_name: file.name,
+            file_type: file.type,
+            url: publicUrl,
+            size: file.size,
+            width: dimensions.width || null,
+            height: dimensions.height || null,
+            user_id: user.id,
+            uploaded_at: new Date().toISOString(),
+          };
+
+          // Insert into media_items table
+          const { error: dbError } = await supabase
+            .from("media_items")
+            .insert(mediaItem)
+            .select()
+            .single();
+
+          if (dbError) {
+            console.error("Database error:", dbError);
+            // Clean up the uploaded file if database insert fails
+            await supabase.storage.from(bucket).remove([filePath]);
+            throw dbError;
+          }
+
+          // Update local state
+          setMediaItems((prev) => [mediaItem, ...prev]);
+          toast.success(`${file.name} erfolgreich hochgeladen`);
+          setUploadProgress((prev) => prev + 100 / files.length);
+        } catch (error) {
+          console.error("File processing error:", error);
+          toast.error(`Fehler beim Hochladen von ${file.name}`);
+        }
+      }
+    } catch (error) {
+      console.error("Upload process error:", error);
+      toast.error("Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Handle drag and drop events
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -7338,116 +8593,211 @@ export default function RightSidebar() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    handleFileUpload(e.dataTransfer.files);
+  };
 
-    // Handle file drop
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      console.log("Dropped files:", files);
-      // Here you would typically handle the file upload
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileUpload(e.target.files);
+  };
+
+  // Hilfsfunktion zum Formatieren der Dateigröße
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  // Helper function to get file path from URL
+  const getFilePathFromUrl = (url: string): string => {
+    try {
+      // Extract everything after /public/[bucket]/
+      const matches = url.match(/\/public\/[^/]+\/(.+)$/);
+      if (!matches || !matches[1]) {
+        throw new Error("Invalid URL format");
+      }
+      return decodeURIComponent(matches[1]);
+    } catch (error) {
+      console.error("Error parsing URL:", error);
+      throw new Error("Could not extract file path from URL");
     }
   };
 
-  const categories = [
-    {
-      title: "Fotos",
-      icon: <Image size={18} />,
-      iconColor: "text-blue-500",
-      type: "photo" as const,
-      items: mockMediaItems.filter((item) => item.type === "photo"),
-    },
-    {
-      title: "Videos",
-      icon: <Film size={18} />,
-      iconColor: "text-red-500",
-      type: "video" as const,
-      items: mockMediaItems.filter((item) => item.type === "video"),
-    },
-    {
-      title: "Audio",
-      icon: <Music size={18} />,
-      iconColor: "text-green-500",
-      type: "audio" as const,
-      items: mockMediaItems.filter((item) => item.type === "audio"),
-    },
-    {
-      title: "Dokumente",
-      icon: <FileText size={18} />,
-      iconColor: "text-purple-500",
-      type: "document" as const,
-      items: mockMediaItems.filter((item) => item.type === "document"),
-    },
-  ];
+  // Update the handleDelete function
+  const handleDelete = async (item: MediaItem) => {
+    try {
+      if (!user || !supabase) {
+        toast.error("Sie müssen angemeldet sein, um Medien zu löschen");
+        return;
+      }
+
+      setDeletingItemId(item.id);
+
+      // Determine bucket based on file type
+      const bucket = getBucketForFile({ type: item.file_type } as File);
+      const filePath = getFilePathFromUrl(item.url);
+
+      console.log("Starting deletion process for:", {
+        id: item.id,
+        bucket,
+        filePath,
+        url: item.url,
+        userId: user.id,
+      });
+
+      // Delete from storage first
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .remove([filePath]);
+
+      if (storageError) {
+        console.error("Storage delete error:", storageError);
+        throw storageError;
+      }
+
+      console.log(
+        "Successfully deleted from storage, now deleting from database..."
+      );
+
+      // Delete from database with user_id check for security
+      const { error: dbError } = await supabase
+        .from("media_items")
+        .delete()
+        .match({
+          id: item.id,
+          user_id: user.id,
+        });
+
+      if (dbError) {
+        console.error("Database delete error:", dbError);
+        throw dbError;
+      }
+
+      // Update local state
+      setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
+      toast.error(`${item.file_name} wurde gelöscht`, {
+        description: "Die Datei wurde erfolgreich gelöscht.",
+        style: {
+          backgroundColor: "hsl(var(--destructive))",
+          color: "white",
+        },
+      });
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error(`Fehler beim Löschen von ${item.file_name}`);
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
 
   return (
-    <div className="w-64 bg-card border-l border-border flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-5">
-          <h2 className="text-lg font-semibold mb-5">Media Library</h2>
+    <>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Mediathek</h1>
+        <div className="relative w-full max-w-md ml-8">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Medien durchsuchen..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
 
-          {/* Categories */}
-          <div className="divide-y divide-border">
-            {categories.map((category) => (
-              <MediaCategory
-                key={category.type}
-                title={category.title}
-                icon={category.icon}
-                iconColor={category.iconColor}
-                items={category.items}
-                type={category.type}
-                isActive={activeCategory === category.type}
-                onSelect={() => setActiveCategory(category.type)}
-              />
-            ))}
+      <div className="flex gap-8">
+        {/* Linke Spalte: Medienkategorien */}
+        <div className="flex-1">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {renderMediaCategory(
+                "image",
+                "Bilder",
+                <LucideImage className="h-5 w-5" />
+              )}
+              {renderMediaCategory(
+                "video",
+                "Videos",
+                <Video className="h-5 w-5" />
+              )}
+              {renderMediaCategory(
+                "audio",
+                "Audio",
+                <Music className="h-5 w-5" />
+              )}
+              {renderMediaCategory(
+                "document",
+                "Dokumente",
+                <FileText className="h-5 w-5" />
+              )}
+              {/* Display message if no media matches search */}
+              {filteredMedia.length === 0 && !isLoading && (
+                <p className="text-muted-foreground text-center py-4">
+                  Keine Medien gefunden.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Rechte Spalte: Upload-Bereich */}
+        <div className="w-80">
+          <div className="sticky top-8">
+            <h2 className="text-xl font-semibold mb-4">Medien hochladen</h2>
+            <div
+              className={`
+                relative border-2 border-dashed rounded-lg p-8
+                flex flex-col items-center justify-center gap-4
+                transition-colors duration-200
+                ${isDragging ? "border-primary bg-primary/5" : "border-border"}
+              `}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Upload className="h-6 w-6 text-primary" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  Dateien hierher ziehen oder
+                </p>
+                <label htmlFor="file-upload">
+                  <Button variant="link" className="mt-1" asChild>
+                    <span>Dateien auswählen</span>
+                  </Button>
+                </label>
+                <input
+                  id="file-upload"
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Maximale Dateigröße: 50MB
+              </p>
+              {isUploading && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Upload: {Math.round(uploadProgress)}%
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Upload Area */}
-      <div className="border-t border-border p-4">
-        <div
-          className={`
-            border-2 border-dashed rounded-lg p-4 text-center transition-colors
-            ${
-              isDragging
-                ? "border-primary bg-primary/5"
-                : "border-muted-foreground/25 hover:border-muted-foreground/50"
-            }
-          `}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            multiple
-            className="hidden"
-            id="fileUpload"
-            onChange={(e) => {
-              const files = Array.from(e.target.files || []);
-              if (files.length > 0) {
-                console.log("Selected files:", files);
-                // Here you would typically handle the file upload
-              }
-            }}
-          />
-          <label
-            htmlFor="fileUpload"
-            className="flex flex-col items-center gap-2 cursor-pointer"
-          >
-            <Upload size={20} className="text-muted-foreground" />
-            <div className="text-sm">
-              <span className="text-primary font-medium">
-                Klicken zum Hochladen
-              </span>{" "}
-              oder Dateien hier reinziehen
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Unterstützt Bilder, Videos, Audio und Dokumente
-            </p>
-          </label>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -7684,6 +9034,7 @@ export function PhoneMockup({ children }: PhoneMockupProps) {
 # components/preview/preview-block.tsx
 
 ```tsx
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import type { BlockType } from "@/lib/types";
@@ -7734,20 +9085,33 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
     );
   };
 
+  // Conditionally render wrapper for non-image blocks
+  if (block.type === "image") {
+    // Render only the image for image blocks, without the wrapper div
+    return (
+      <img
+        src={block.content} // Use block content as image URL
+        alt={block.altText || ""} // Use altText or empty string
+        className="block w-full h-auto rounded-lg object-cover" // Basic styling, ensure it fills container if needed
+        loading="lazy" // Add lazy loading
+      />
+    );
+  }
+
+  // For other block types, render with the wrapper div
   return (
     <div
       className={`${blockStyle} p-4 bg-background border rounded-lg shadow-sm ${
         viewport === "mobile" ? "text-sm" : ""
       }`}
     >
-      {block.type === "image" ? (
-        <span className="text-muted-foreground">Bildblock</span>
-      ) : block.type === "heading" ? (
+      {block.type === "heading" ? (
         renderHeadingContent()
       ) : block.type === "paragraph" ? (
         renderParagraphContent()
       ) : (
-        block.content
+        // Default rendering for other types (if any)
+        <div className="preview-content">{block.content}</div>
       )}
     </div>
   );
@@ -8218,6 +9582,74 @@ export default function Pricing() {
 
 ```
 
+# components/profile/profile-view.tsx
+
+```tsx
+"use client";
+
+import React from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+
+// Placeholder component for Profile View
+export default function ProfileView() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-8">Profil</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle>Profilinformationen</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              placeholder="Ihr Name"
+              defaultValue="Meister Matthias"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Ihre Email"
+              defaultValue="meister.matthias86@gmail.com"
+              readOnly
+            />
+          </div>
+          <Button>Änderungen speichern</Button>
+        </CardContent>
+      </Card>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Passwort ändern</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Aktuelles Passwort</Label>
+            <Input id="current-password" type="password" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">Neues Passwort</Label>
+            <Input id="new-password" type="password" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Neues Passwort bestätigen</Label>
+            <Input id="confirm-password" type="password" />
+          </div>
+          <Button>Passwort ändern</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+```
+
 # components/providers/supabase-provider.tsx
 
 ```tsx
@@ -8331,110 +9763,22 @@ export function useSupabase() {
 
 ```
 
-# components/sheets/profile.tsx
+# components/settings/settings-view.tsx
 
 ```tsx
-import { Button } from "@/components/ui/button";
+"use client";
+
+import React from "react";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useSupabase } from "@/components/providers/supabase-provider";
-
-interface ProfileSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
-  const { user } = useSupabase();
-
-  // Mock Benutzerdaten
-  const mockUserData = {
-    joinDate: "Januar 2024",
-    projectsCount: 12,
-    lastActive: "Heute, 14:30",
-  };
-
-  return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[400px] sm:w-[540px]">
-        <SheetHeader>
-          <SheetTitle>Profil</SheetTitle>
-          <SheetDescription>
-            Verwalte deine persönlichen Informationen
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          {/* Profilbild und Basis-Info */}
-          <div className="flex items-start space-x-4">
-            <Avatar className="h-20 w-20">
-              <AvatarFallback className="text-2xl">
-                {user?.email?.[0].toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="text-lg font-medium">
-                {user?.email?.split("@")[0]}
-              </h3>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
-              <Button variant="outline" size="sm" className="mt-2">
-                Bild ändern
-              </Button>
-            </div>
-          </div>
-
-          {/* Statistiken */}
-          <div className="grid grid-cols-3 gap-4 rounded-lg border p-4">
-            <div>
-              <p className="text-sm font-medium">Mitglied seit</p>
-              <p className="text-2xl font-bold">{mockUserData.joinDate}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Projekte</p>
-              <p className="text-2xl font-bold">{mockUserData.projectsCount}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Zuletzt aktiv</p>
-              <p className="text-2xl font-bold">{mockUserData.lastActive}</p>
-            </div>
-          </div>
-
-          {/* Weitere Informationen */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium">Aktivitäten</h4>
-            <div className="rounded-lg border p-4">
-              <p className="text-sm text-muted-foreground">
-                Keine aktuellen Aktivitäten
-              </p>
-            </div>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-```
-
-# components/sheets/settings.tsx
-
-```tsx
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -8443,86 +9787,98 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface SettingsSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
+// Placeholder component for Settings View
+export default function SettingsView() {
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[400px] sm:w-[540px]">
-        <SheetHeader>
-          <SheetTitle>Einstellungen</SheetTitle>
-          <SheetDescription>
-            Passe deine Benutzereinstellungen an
-          </SheetDescription>
-        </SheetHeader>
+    <div>
+      <h1 className="text-3xl font-bold mb-8">Einstellungen</h1>
 
-        <div className="mt-6 space-y-6">
-          {/* Benachrichtigungen */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium">Benachrichtigungen</h4>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="email-notif">E-Mail Benachrichtigungen</Label>
-                <Switch id="email-notif" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="collab-notif">Zusammenarbeits-Updates</Label>
-                <Switch id="collab-notif" />
-              </div>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Allgemein</CardTitle>
+          <CardDescription>Allgemeine Anwendungseinstellungen.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between space-x-2">
+            <Label
+              htmlFor="language-select"
+              className="flex flex-col space-y-1"
+            >
+              <span>Sprache</span>
+              <span className="font-normal leading-snug text-muted-foreground">
+                Wählen Sie Ihre bevorzugte Sprache.
+              </span>
+            </Label>
+            <Select defaultValue="de">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sprache wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="de">Deutsch</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor="theme-mode" className="flex flex-col space-y-1">
+              <span>Theme</span>
+              <span className="font-normal leading-snug text-muted-foreground">
+                Wählen Sie zwischen hellem und dunklem Modus.
+              </span>
+            </Label>
+            <Select defaultValue="system">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Theme wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">Hell</SelectItem>
+                <SelectItem value="dark">Dunkel</SelectItem>
+                <SelectItem value="system">System</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Erscheinungsbild */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium">Erscheinungsbild</h4>
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="theme">Theme</Label>
-                <Select defaultValue="system">
-                  <SelectTrigger id="theme">
-                    <SelectValue placeholder="Wähle ein Theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Hell</SelectItem>
-                    <SelectItem value="dark">Dunkel</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="animations">Animationen reduzieren</Label>
-                <Switch id="animations" />
-              </div>
-            </div>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Benachrichtigungen</CardTitle>
+          <CardDescription>
+            Verwalten Sie Ihre Benachrichtigungseinstellungen.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between space-x-2">
+            <Label
+              htmlFor="email-notifications"
+              className="flex flex-col space-y-1"
+            >
+              <span>Email Benachrichtigungen</span>
+              <span className="font-normal leading-snug text-muted-foreground">
+                Erhalten Sie Emails über wichtige Aktivitäten.
+              </span>
+            </Label>
+            <Switch id="email-notifications" defaultChecked />
           </div>
+          <div className="flex items-center justify-between space-x-2">
+            <Label
+              htmlFor="push-notifications"
+              className="flex flex-col space-y-1"
+            >
+              <span>Push Benachrichtigungen</span>
+              <span className="font-normal leading-snug text-muted-foreground">
+                Erhalten Sie Push-Benachrichtigungen auf Ihren Geräten.
+              </span>
+            </Label>
+            <Switch id="push-notifications" />
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Privatsphäre */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium">Privatsphäre</h4>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="profile-visible">Öffentliches Profil</Label>
-                <Switch id="profile-visible" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="activity-visible">Aktivitäten sichtbar</Label>
-                <Switch id="activity-visible" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={onClose}>
-              Abbrechen
-            </Button>
-            <Button>Speichern</Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+      <div className="mt-8 flex justify-end">
+        <Button>Einstellungen speichern</Button>
+      </div>
+    </div>
   );
 }
 
@@ -8841,11 +10197,11 @@ export { Badge, badgeVariants }
 # components/ui/button.tsx
 
 ```tsx
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
@@ -8875,29 +10231,29 @@ const buttonVariants = cva(
       size: "default",
     },
   }
-)
+);
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  asChild?: boolean
+  asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+    const Comp = asChild ? Slot : "button";
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
       />
-    )
+    );
   }
-)
-Button.displayName = "Button"
+);
+Button.displayName = "Button";
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };
 
 ```
 
@@ -9554,12 +10910,12 @@ export { GlowingEffect };
 # components/ui/input.tsx
 
 ```tsx
-import * as React from "react"
+import * as React from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type = "text", ...props }, ref) => {
     return (
       <input
         type={type}
@@ -9570,12 +10926,12 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
         ref={ref}
         {...props}
       />
-    )
+    );
   }
-)
-Input.displayName = "Input"
+);
+Input.displayName = "Input";
 
-export { Input }
+export { Input };
 
 ```
 
@@ -10569,915 +11925,6 @@ export function UserAuthButton() {
 
 ```
 
-# console.md
-
-```md
-[useBlockDrag] Begin drag for block: block-1743854372125
-use-block-drag.ts:23 [DragTracker] Started tracking drag for block block-1743854372125 from drop-area-2-left-1743854322642
-4drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-4drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-4drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 14.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -30.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -28.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -28.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -28.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -28.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -27.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -27.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -27.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -27.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -26.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -26.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -26.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -25.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -25.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -25.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -25.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -25.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -25.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -24.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -23.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -23.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -23.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -23.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -22.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -21.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -20.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -17.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -13.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -8.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -2.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: -2.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 7.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 7.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 18.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 29.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 40.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 40.00, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 0] Condition Met (< middle). Setting index to 0. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 0, Original index: null
-drop-area-content.tsx:172 Setting hover index to 0
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 51.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: -35.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 107.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: -23.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 107.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: -23.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 107.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: -23.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 116.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: -14.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 125.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: -5.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 131.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 1.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 131.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 1.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 134.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 4.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 134.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 4.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 140.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 10.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 150.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 20.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 154.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 24.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 154.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 24.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 157.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 27.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 159.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 29.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 161.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 31.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 162.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 32.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 163.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 33.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 164.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 34.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 165.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 35.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 165.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 35.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 166.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 36.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 166.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 36.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 167.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 37.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 168.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 38.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 169.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 39.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 171.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 41.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 173.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 43.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 177.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 47.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 181.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 51.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 187.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 57.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 194.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 64.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 200.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 70.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 200.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 70.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 221.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 91.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 228.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 98.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 236.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 106.00, MiddleY: 108.27
-drop-area-content.tsx:153 [Hover Loop Index 1] Condition Met (< middle). Setting index to 1. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 1, Original index: null
-drop-area-content.tsx:172 Setting hover index to 1
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 250.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 120.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -100.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 255.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 169.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -95.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 255.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 169.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -95.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 269.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 183.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -81.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 275.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 189.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -75.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 281.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 195.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -69.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 281.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 195.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -69.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 287.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 201.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -63.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 293.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 207.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -57.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 298.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 212.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -52.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 301.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 215.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -49.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 301.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 215.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -49.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 304.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 218.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -46.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 304.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 218.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -46.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 307.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 221.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -43.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 307.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 221.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -43.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 309.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 223.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -41.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 310.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 224.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -40.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 310.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 224.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -40.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 311.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 225.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -39.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 311.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 225.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -39.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 311.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 225.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -39.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:147 [Hover Loop Index 0] RelativeY: 312.00, MiddleY: 41.00
-drop-area-content.tsx:157 [Hover Loop Index 0] Condition NOT Met (>= threshold). Setting index to 1. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 1] RelativeY: 226.00, MiddleY: 108.27
-drop-area-content.tsx:157 [Hover Loop Index 1] Condition NOT Met (>= threshold). Setting index to 2. Continuing loop.
-drop-area-content.tsx:147 [Hover Loop Index 2] RelativeY: -38.54, MiddleY: 41.00
-drop-area-content.tsx:153 [Hover Loop Index 2] Condition Met (< middle). Setting index to 2. BREAKING LOOP.
-drop-area-content.tsx:161 Final calculated hover index: 2, Original index: null
-drop-area-content.tsx:172 Setting hover index to 2
-drop-area-content.tsx:107 [DropAreaContent] canDrop check for item type button (isNew: true, isReorder: false): true. Item details: content: Schaltfläche
-drop-area-content.tsx:182 [DropAreaContent:drop-1743854491220-9hm4v3d] Drop triggered for item type: button
-item-types.ts:49 [DropTracker] Drop for item new-button-1743854491221 claimed by DropAreaContent-drop-area-2-left-1743854322642
-drop-area-content.tsx:298 [DropAreaContent:drop-1743854491220-9hm4v3d] Adding new block of type button at index 2
-drop-area-content.tsx:311 [DropAreaContent:drop-1743854491220-9hm4v3d] New button block added at index 2
-drop-area-content.tsx:333 [DropAreaContent:drop-1743854491220-9hm4v3d] Drop successful, returning result {handled: true, dropAreaId: 'drop-area-2-left-1743854322642', dropId: 'drop-1743854491220-9hm4v3d', timestamp: 1743854491221}
-use-drop-area.ts:83 [drop_1743854491221_687] DropArea drop-area-2-left-1743854322642: Drop already handled by parent, ignoring.
-use-block-drag.ts:97 [useBlockDrag:drag-1743854491221-8qrfv0i] End drag for block: block-1743854372125
-use-block-drag.ts:28 [DragTracker] Stopped tracking drag for block block-1743854372125
-4drop-area-content.tsx:60 [DropAreaContent] Drag End event received for block: block-1743854372125, dragId: drag-1743854491221-8qrfv0i
-use-block-drag.ts:112 [useBlockDrag:drag-1743854491221-8qrfv0i] Drag ended for block: block-1743854372125
-Dropped: true
-Drop result: {"dropEffect":"move","handled":true,"dropAreaId":"drop-area-2-left-1743854322642","dropId":"drop-1743854491220-9hm4v3d","timestamp":1743854491221}
-Source area: drop-area-2-left-1743854322642
-Original index: 0
-item-types.ts:30 [DropTracker] Reset - ready for next drop operation
-storage.ts:35 Created fresh Supabase client instance: true
-storage.ts:227 Loading project project-1743853586036, user authenticated: true
-storage.ts:35 Created fresh Supabase client instance: true
-storage.ts:61 Checking access to "projects" bucket...
-storage.ts:77 Successfully accessed "projects" bucket. Found 1 files.
-storage.ts:236 Downloading project-1743853586036.json from "projects" bucket
-storage.ts:277 Downloaded data for project-1743853586036 (2317 chars)
-storage.ts:281 Data preview: {
-"id": "project-1743853586036",
-"title": "Unbenanntes Projekt",
-"dropAreas": [
-{
-"i...
-storage.ts:285 Successfully loaded project project-1743853586036 titled: Unbenanntes Projekt
-storage.ts:286 Project has 2 drop areas: drop-area-2: 0 blocks, isSplit: true, drop-area-2: 0 blocks, isSplit: true
-storage.ts:35 Created fresh Supabase client instance: true
-storage.ts:35 Created fresh Supabase client instance: true
-storage.ts:61 Checking access to "projects" bucket...
-storage.ts:77 Successfully accessed "projects" bucket. Found 1 files.
-storage.ts:145 Preparing to save project project-1743853586036 (2523 chars)
-storage.ts:149 Uploading project data for project-1743853586036.json
-storage.ts:187 Successfully saved project: project-1743853586036
-
-```
-
-# dragover.md
-
-```md
-# Drag Preview Investigation Summary (Heading/Paragraph Blocks)
-
-## Problem
-
-When dragging existing Heading or Paragraph blocks (which use Tiptap for rich text editing) from one drop area to another, the drag preview (`CustomDragLayer`) shows the raw HTML tags (e.g., `<h1><span style="color: #eb1212">Überschrift</span></h1>`) instead of the rendered, styled text.
-
-## Steps Taken
-
-1.  **Initial Investigation:** Identified `components/canvas/custom-drag-layer.tsx` as the component responsible for rendering the drag preview.
-2.  **Code Review (custom-drag-layer.tsx):** Found that the `BlockPreview` component uses `dangerouslySetInnerHTML` to render `item.content`. Noticed the paragraph preview used Tailwind `prose` classes, but the heading preview did not.
-3.  **Hypothesis 1:** The heading preview lacks necessary styling (like `prose`) for its inner HTML elements.
-4.  **Action 1:** Added `prose prose-sm max-w-none` classes to the heading preview's container div in `custom-drag-layer.tsx`.
-5.  **Result 1:** Issue persisted.
-6.  **Hypothesis 2:** The HTML generated by Tiptap (`item.content`) might be incorrect (e.g., using non-standard attributes like `<span color="...">`).
-7.  **Action 2:** Added temporary `console.log` statements:
-    *   In `components/blocks/heading-block.tsx` to log `editor.getHTML()` on update.
-    *   In `components/canvas/custom-drag-layer.tsx` to log the `item` object during drag.
-8.  **Result 2 (User Provided Logs):** The logs confirmed that Tiptap generates correct, standard HTML (`<h1><span style="color: #eb1212">...</span></h1>`) and the drag layer receives this correct HTML.
-9.  **Hypothesis 3:** Even with correct HTML and `prose` classes, the CSS styles are not being applied correctly within the isolated `react-dnd` drag layer environment.
-
-## Current Proposed Plan
-
-To diagnose Hypothesis 3, we need to inspect the computed styles of the drag preview element using browser developer tools. Since inspecting during an active drag is difficult:
-
-1.  **Temporarily Modify `CustomDragLayer`:** Comment out the condition `!isDragging || itemType !== ItemTypes.EXISTING_BLOCK` that hides the preview when not dragging. This will make the preview element persist after a drag, allowing for inspection.
-2.  **User Inspects:** The user will drag a heading block, release it, and then use browser dev tools to inspect the persistent preview element. They will check:
-    *   If the container `div` has the `prose prose-sm max-w-none` classes.
-    *   What CSS styles are actually computed for the inner `h1` and `span` elements.
-3.  **Analyze Findings:** Based on the inspection results, determine why the styles aren't applying (e.g., missing base styles, specificity issues, Tailwind purging).
-4.  **Implement Fix:** Apply the necessary fix (e.g., ensure global styles apply, adjust Tailwind config, add specific styles).
-5.  **Revert Temporary Changes:** Remove the modification from `CustomDragLayer` and the diagnostic logs.
-
-```
-
 # globals.d.ts
 
 ```ts
@@ -11698,102 +12145,474 @@ export { useToast, toast }
 
 ```
 
-# insert.md
+# image.md
 
 ```md
-# Drag-and-Drop Insertion Summary (Abstract)
+Okay, let's design and implement the `ImageBlock` component based on your requirements.
 
-This document provides a high-level overview of the changes made to implement and debug the functionality for dragging and dropping blocks (both new and existing) _between_ other blocks within the same populated drop area.
+**1. Update Block Type Definition**
 
-## Core Goal
+First, let's potentially add `altText` to our block type definition if it's not implicitly handled by `content`. We'll assume `content` stores the image URL or is empty/null for the placeholder state.
 
-Enable users to insert blocks precisely between existing blocks in a list-like drop area by dragging and dropping, with a visual indicator showing the target insertion point.
+\`\`\`ts
+// lib/types.ts (or wherever BlockType is defined)
+export interface BlockType {
+  id: string;
+  type: string;
+  content: string; // Will store the image URL or be empty/null
+  dropAreaId: string;
+  // ... other properties
+  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+  altText?: string; // Optional: Add alt text specifically for images
+}
+\`\`\`
 
-## Key Components & Logic Flow
+**2. Create the `ImageBlock` Component**
 
-1.  **`DropAreaContent` Component (`components/.../drop-area-content.tsx`):**
+This component will handle rendering the placeholder, the image, loading/error states, and the drop zone logic.
 
-    - **Role:** Renders the list of blocks within a drop area and manages intra-area drag-and-drop.
-    - **Logic:**
-      - Uses `react-dnd`'s `useDrop` hook on its main container to act as the drop target for items dropped _within_ its bounds.
-      - The `canDrop` function was refined to accept both new block types dragged from elsewhere and existing blocks being reordered _from the same area_.
-      - The `hover` function calculates the target insertion index by comparing the cursor's vertical position to the bounding boxes of the rendered block items. It determines which "gap" (before index 0, between items, or after the last item) the cursor is over. Logic was iterated upon to handle edge cases like dropping above the first item.
-      - The `drop` function uses the calculated index from the hover state. It calls a specific store action (`addBlockAtIndex`) for new blocks or another action (`reorderBlocks`) for existing blocks being moved within the area. It also includes a check (`monitor.didDrop()`) to prevent handling drops already processed by parent drop targets.
-      - Renders an `InsertionIndicator` component conditionally based on the calculated hover index.
-      - The `BlockItem` sub-component (wrapping each `CanvasBlock`) had vertical padding added (`py-1`) to create small, detectable drop zones above/below each block, improving hover detection near edges, especially for complex blocks like paragraphs.
+\`\`\`tsx
+// components/blocks/image-block.tsx
+"use client";
 
-2.  **Zustand Store (`store/blocks-store.ts`):**
+import React, { useState, useEffect, useCallback } from "react";
+import { useDrop, DragObjectWithType } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
+import { ImageIcon, Loader2, AlertCircle, UploadCloud } from "lucide-react";
+import { useBlocksStore } from "@/store/blocks-store";
+import { cn } from "@/lib/utils";
+import { ItemTypes } from "@/lib/item-types"; // Assuming you have ItemTypes defined
 
-    - **Role:** Manages application state, including block data.
-    - **Logic:**
-      - A new action, `addBlockAtIndex`, was implemented. It takes block data, a target `dropAreaId`, and an `index`, then uses `Array.prototype.splice()` to insert the new block into the correct position in the `blocks` array of the specified drop area.
-      - Ensured that `addBlockAtIndex` (and other relevant actions like `reorderBlocks`) trigger the existing debounced `triggerAutoSave` function to persist changes. State update logic within `addBlockAtIndex` was simplified to directly modify the target array.
+// --- Mock Upload Function (Replace with actual Supabase logic) ---
+// Utility function to handle image uploads (e.g., to Supabase Storage)
+// This should be moved to a utility file (e.g., lib/supabase/storage.ts)
+async function uploadImageToStorage(file: File): Promise<string> {
+  console.log(`Simulating upload for: ${file.name}`);
+  // ** Placeholder: Replace with your actual Supabase upload logic **
+  // 1. Get Supabase client
+  // 2. Upload file to a designated bucket/path (e.g., `images/${Date.now()}-${file.name}`)
+  // 3. Get the public URL of the uploaded file
+  // Example structure:
+  /*
+  const supabase = getSupabase(); // Assuming you have a getSupabase() helper
+  if (!supabase) throw new Error("Supabase client not available");
+  const filePath = `public/${Date.now()}-${file.name}`;
+  const { error } = await supabase.storage
+    .from('images') // Your image bucket name
+    .upload(filePath, file);
+  if (error) throw error;
+  const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+  if (!data?.publicUrl) throw new Error("Could not get public URL");
+  return data.publicUrl;
+  */
 
-3.  **Drag Source Logic (`lib/hooks/use-block-drag.ts` & `components/blocks/canvas-block.tsx`):**
+  // --- Mock Implementation ---
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Simulate a public URL - replace with actual URL from Supabase
+      const mockUrl = URL.createObjectURL(file); // Use ObjectURL for quick local preview simulation
+      console.log(`Simulated upload complete. URL: ${mockUrl}`);
+      resolve(mockUrl);
+      // Important: In a real scenario, you might want to revoke this ObjectURL later
+      // URL.revokeObjectURL(mockUrl);
+    }, 1500); // Simulate 1.5 second upload
+  });
+  // --- End Mock Implementation ---
+}
+// --- End Mock Upload Function ---
 
-    - **Role:** Makes existing blocks draggable.
-    - **Logic:**
-      - The `useBlockDrag` hook was updated to include the block's `originalIndex` in the data payload (`item`) associated with the drag operation.
-      - The `CanvasBlock` component was updated to receive its `index` as a prop and pass it to `useBlockDrag`. This allows the drop target (`DropAreaContent`) to know the starting position of a block being reordered.
+interface ImageBlockProps {
+  blockId: string;
+  dropAreaId: string;
+  content: string | null; // Image URL or null/empty for placeholder
+  altText?: string;
+}
 
-4.  **Outer Drop Area Logic (`lib/hooks/use-drop-area.ts`):**
+// Define accepted drop item types
+interface FileDropItem {
+  files: File[];
+}
+// Define your Media Library item type if it's different
+interface MediaLibraryImageItem {
+  type: typeof ItemTypes.MEDIA_IMAGE; // Example type
+  url: string;
+  alt?: string;
+}
 
-    - **Role:** Handles drops directly onto a `DropArea` (e.g., when it's empty).
-    - **Logic:**
-      - The `drop` handler was modified to check if the `dropArea` it manages already contains blocks (`dropArea.blocks.length > 0`). If so, it returns `undefined`, effectively ignoring the drop and allowing the nested `useDrop` hook in `DropAreaContent` to handle it. This prevents conflicts between the outer and inner drop targets.
+type AcceptedDropItem = FileDropItem | MediaLibraryImageItem;
 
-5.  **Paragraph Block (`components/blocks/paragraph-block.tsx`):**
-    - **Role:** Renders paragraph blocks using Tiptap.
-    - **Logic:**
-      - An earlier attempt to modify Tiptap's internal DOM event handlers (`dragover`, `drop`) to allow event bubbling caused block duplication issues and was reverted. The padding added to `BlockItem` in `DropAreaContent` serves as the primary mechanism to allow dropping near paragraphs.
+export function ImageBlock({
+  blockId,
+  dropAreaId,
+  content,
+  altText,
+}: ImageBlockProps) {
+  const { updateBlockContent } = useBlocksStore();
+  const [imageUrl, setImageUrl] = useState<string | null>(content);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-## Debugging Summary
+  // Update local state if block content changes from store
+  useEffect(() => {
+    setImageUrl(content);
+    setIsLoading(!!content); // Assume loading if content exists initially
+    setError(null); // Reset error on content change
+  }, [content]);
 
-- Initial issues involved blocks being swapped instead of inserted.
-- Subsequent issues included the insertion indicator not showing for new block types (fixed by refining `canDrop` logic).
-- Conflicts between nested drop targets (`useDropArea` vs. `DropAreaContent`) were resolved by making `useDropArea` ignore drops on populated areas.
-- Problems dropping near specific block types (paragraphs) were addressed by adding padding to `BlockItem` wrappers and reverting conflicting event handler changes in `ParagraphBlock`.
-- Issues with dropping above the first item were traced to the hover index calculation logic (specifically the loop's early exit condition) and addressed by refining the calculation and restoring the early exit.
-- Temporary issues with autosave and block duplication were identified and resolved during the debugging process.
-- Extensive `console.log` statements were added and subsequently removed to diagnose event flow and state changes.
+  const handleImageLoad = () => {
+    setIsLoading(false);
+    setError(null);
+  };
 
----
+  const handleImageError = () => {
+    setIsLoading(false);
+    setError("Bild konnte nicht geladen werden.");
+    // Optionally clear the invalid URL from the store
+    // updateBlockContent(blockId, dropAreaId, "", { altText: "" });
+  };
 
-# Detailed Logic Explanation
+  const processDroppedFiles = useCallback(
+    async (files: File[]) => {
+      const imageFile = files.find((file) => file.type.startsWith("image/"));
+      if (!imageFile) {
+        setError("Nur Bilddateien werden akzeptiert.");
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
 
-Here's a more code-focused breakdown of the logic changes:
+      setIsUploading(true);
+      setError(null);
+      try {
+        const uploadedUrl = await uploadImageToStorage(imageFile);
+        updateBlockContent(blockId, dropAreaId, uploadedUrl, {
+          altText: altText || imageFile.name, // Use existing alt or filename
+        });
+        // ImageUrl state will update via useEffect when content prop changes
+      } catch (uploadError: any) {
+        console.error("Upload failed:", uploadError);
+        setError(
+          `Upload fehlgeschlagen: ${
+            uploadError.message || "Unbekannter Fehler"
+          }`
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [blockId, dropAreaId, updateBlockContent, altText]
+  );
 
-1.  **`DropAreaContent` (`components/.../drop-area-content.tsx`):**
+  const [{ isOver, canDrop }, drop] = useDrop<
+    AcceptedDropItem, // Item type
+    void, // Drop result (not needed here)
+    { isOver: boolean; canDrop: boolean } // Collected props
+  >({
+    // Accept OS files and potentially items from your media library
+    accept: [
+      NativeTypes.FILE,
+      ItemTypes.MEDIA_IMAGE /* Add your media library type */,
+    ],
+    drop: (item, monitor) => {
+      if (monitor.getItemType() === NativeTypes.FILE) {
+        const fileItem = item as FileDropItem;
+        if (fileItem.files) {
+          processDroppedFiles(fileItem.files);
+        }
+      } else if (monitor.getItemType() === ItemTypes.MEDIA_IMAGE) {
+        // Handle drop from media library (assuming item has a 'url')
+        const mediaItem = item as MediaLibraryImageItem;
+        if (mediaItem.url) {
+          updateBlockContent(blockId, dropAreaId, mediaItem.url, {
+            altText: mediaItem.alt || altText || "", // Use alt from media item or existing
+          });
+        }
+      }
+    },
+    canDrop: (item, monitor) => {
+      // Allow drop only if it's a file or a specific media type
+      const itemType = monitor.getItemType();
+      if (itemType === NativeTypes.FILE) {
+        // Optionally check file types here if possible, though full check happens on drop
+        return true;
+      }
+      if (itemType === ItemTypes.MEDIA_IMAGE) {
+        return true;
+      }
+      return false;
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
 
-    - The main container `div` now uses `useDrop`.
-    - `useDrop`'s `accept` includes `ItemTypes.EXISTING_BLOCK`, `ItemTypes.BLOCK`, `ItemTypes.SQUARE`.
-    - `canDrop` function allows new block types (`!== EXISTING_BLOCK`) or existing blocks from the same area (`sourceDropAreaId === dropArea.id`).
-    - `hover` function iterates through `blockRefs` (refs to `BlockItem` wrappers), calculates `hoverBoundingRect`, compares `cursorY` relative to the top (`hoverClientYRelative`) against the block's vertical midpoint (`hoverMiddleY`). If less, sets `calculatedHoverIndex = index` and returns (early exit); otherwise sets `calculatedHoverIndex = index + 1`. Finally calls `setHoverIndex`. (Note: This logic was iterated upon, including trying different thresholds and removing/restoring the early exit).
-    - `drop` function checks `monitor.didDrop()`, gets `targetIndex` from `hoverIndex` state. If `item.type === EXISTING_BLOCK`, calculates `adjustedTargetIndex` and calls `reorderBlocks`. Otherwise, calls `addBlockAtIndex(..., targetIndex)`.
-    - `BlockItem` component wrapper `div` has `py-1` class added for padding.
+  const isActive = isOver && canDrop;
 
-2.  **Store (`store/blocks-store.ts`):**
+  return (
+    <div
+      ref={drop}
+      className={cn(
+        "relative w-full border border-dashed border-transparent transition-colors duration-200",
+        // Apply aspect ratio only for placeholder, not when image is loaded
+        !imageUrl && "aspect-video",
+        // Apply dropzone styling when active
+        isActive
+          ? "border-primary bg-primary/10"
+          : canDrop
+          ? "border-primary/50" // Indicate potential drop
+          : "border-transparent",
+        // Basic placeholder background
+        !imageUrl && "bg-muted rounded-lg"
+      )}
+    >
+      {/* Placeholder View */}
+      {!imageUrl && !isUploading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+          <UploadCloud
+            className={cn(
+              "h-10 w-10 mb-2 transition-colors",
+              isActive ? "text-primary" : "text-muted-foreground/50"
+            )}
+          />
+          <p className="text-sm font-medium">
+            Bild hierher ziehen oder{" "}
+            <span className="text-primary">hochladen</span>
+          </p>
+          <p className="text-xs mt-1">Oder URL im Seitenmenü eingeben</p>
+        </div>
+      )}
 
-    - Added `addBlockAtIndex(block, dropAreaId, index)` function.
-    - Inside `addBlockAtIndex`, it finds the `targetArea` using `findDropAreaById`, then uses `targetArea.blocks.splice(index, 0, newBlock)` to insert. It updates state and calls `triggerAutoSave`.
+      {/* Uploading State */}
+      {isUploading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-background/80 rounded-lg">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+          <p className="text-sm font-medium">Wird hochgeladen...</p>
+        </div>
+      )}
 
-3.  **Drag Hook (`lib/hooks/use-block-drag.ts`):**
+      {/* Image View */}
+      {imageUrl && !isUploading && (
+        <div className="relative w-full">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted rounded-lg">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
+          {error && !isLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-destructive/10 rounded-lg p-4 text-destructive">
+              <AlertCircle className="h-6 w-6 mb-1" />
+              <p className="text-xs text-center">{error}</p>
+            </div>
+          )}
+          <img
+            src={imageUrl}
+            alt={altText || ""}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            // Fill width, height adjusts automatically, hide if loading/error
+            className={cn(
+              "block w-full h-auto rounded-lg object-cover", // object-cover ensures the image covers the area nicely
+              (isLoading || error) && "opacity-0" // Hide broken/loading image
+            )}
+            // Add loading="lazy" for performance
+            loading="lazy"
+          />
+        </div>
+      )}
 
-    - `useBlockDrag` function now takes `index` as an argument.
-    - The `item` object within `useDrag` now includes `originalIndex: index`.
-    - `BlockDragItem` interface includes `originalIndex: number`.
+      {/* Drop Overlay (Visual feedback during drag) */}
+      {isActive && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-primary/10 rounded-lg border-2 border-primary pointer-events-none">
+          <UploadCloud className="h-10 w-10 mb-2 text-primary" />
+          <p className="text-sm font-medium text-primary">Bild hier ablegen</p>
+        </div>
+      )}
+    </div>
+  );
+}
+\`\`\`
 
-4.  **Canvas Block (`components/blocks/canvas-block.tsx`):**
+**3. Integrate with `CanvasBlock`**
 
-    - `CanvasBlock` component now accepts an `index` prop.
-    - It passes this `index` when calling `useBlockDrag(block, index)`.
+Modify `components/blocks/canvas-block.tsx` to render the new `ImageBlock`.
 
-5.  **Drop Area Hook (`lib/hooks/use-drop-area.ts`):**
+\`\`\`tsx
+// components/blocks/canvas-block.tsx
+// ... other imports
+import { ImageBlock } from "./image-block"; // Import the new component
 
-    - The `drop` function now checks `if (dropArea.blocks.length > 0)` near the start and returns `undefined` if true, letting nested targets handle the drop.
+// ... inside BlockContent component ...
+function BlockContent({ block, viewport }: BlockContentProps) {
+  // ... existing code for heading, paragraph ...
 
-6.  **Paragraph Block (`components/blocks/paragraph-block.tsx`):**
-    - Custom `dragover` and `drop` handlers within `editorProps.handleDOMEvents` were removed after causing issues. Drop detection relies on `BlockItem` padding.
+  if (block.type === "image") {
+    return (
+      <ImageBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content} // Pass the URL (or null)
+        altText={block.altText} // Pass alt text
+      />
+    );
+  }
+
+  // Default for other block types
+  return <div className={blockStyle}>{block.content}</div>;
+}
+
+// ... rest of the file
+\`\`\`
+
+**4. Integrate with `RightSidebar` (Configuration)**
+
+This part requires modifying your existing `RightSidebar` component. The exact implementation depends on how your sidebar currently handles configuration, but here's the conceptual approach:
+
+\`\`\`tsx
+// components/layout/right-sidebar.tsx (Conceptual)
+"use client";
+
+import { useBlocksStore } from "@/store/blocks-store";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+// ... other imports
+
+export default function RightSidebar() {
+  const { selectedBlockId, dropAreas, updateBlockContent } = useBlocksStore();
+
+  // Find the selected block based on selectedBlockId and dropAreas state
+  let selectedBlock = null;
+  if (selectedBlockId) {
+    for (const area of dropAreas) {
+      // Need a recursive find function if you have nested drop areas
+      const found = area.blocks.find((b) => b.id === selectedBlockId);
+      if (found) {
+        selectedBlock = found;
+        break;
+      }
+      // Add recursive search in area.splitAreas if necessary
+    }
+  }
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedBlock) {
+      updateBlockContent(
+        selectedBlock.id,
+        selectedBlock.dropAreaId,
+        e.target.value
+      );
+    }
+  };
+
+  const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedBlock) {
+      updateBlockContent(
+        selectedBlock.id,
+        selectedBlock.dropAreaId,
+        selectedBlock.content,
+        {
+          altText: e.target.value, // Update the altText property
+        }
+      );
+    }
+  };
+
+  const handleClearImage = () => {
+    if (selectedBlock) {
+      updateBlockContent(selectedBlock.id, selectedBlock.dropAreaId, "", {
+        altText: "",
+      }); // Clear content and altText
+    }
+  };
+
+  return (
+    <div className="w-64 bg-card border-l border-border p-5 overflow-y-auto">
+      <h2 className="text-lg font-semibold mb-5">Properties</h2>
+
+      {/* Conditionally render config based on selected block type */}
+      {selectedBlock && selectedBlock.type === "image" && (
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="imageUrl">Image URL</Label>
+            <Input
+              id="imageUrl"
+              type="url"
+              placeholder="https://example.com/image.jpg"
+              value={selectedBlock.content || ""}
+              onChange={handleUrlChange}
+            />
+          </div>
+          <div>
+            <Label htmlFor="altText">Alt Text</Label>
+            <Input
+              id="altText"
+              type="text"
+              placeholder="Descriptive text for the image"
+              value={selectedBlock.altText || ""}
+              onChange={handleAltTextChange}
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={handleClearImage}>
+            Bild entfernen
+          </Button>
+        </div>
+      )}
+
+      {/* Add config panels for other block types here */}
+      {selectedBlock && selectedBlock.type === "heading" && (
+        <div>{/* Heading config... */}</div>
+      )}
+      {selectedBlock && selectedBlock.type === "paragraph" && (
+        <div>{/* Paragraph config... */}</div>
+      )}
+
+      {!selectedBlock && (
+        <p className="text-sm text-muted-foreground">
+          Select a block to edit its properties.
+        </p>
+      )}
+    </div>
+  );
+}
+\`\`\`
+
+**5. Add `ItemTypes.MEDIA_IMAGE` (if needed)**
+
+If your media library drag source uses a specific type, define it:
+
+\`\`\`ts
+// lib/item-types.ts
+export const ItemTypes = {
+  SQUARE: "square",
+  BLOCK: "block",
+  EXISTING_BLOCK: "existing_block",
+  MEDIA_IMAGE: "media_image", // Add type for media library images
+} as const; // Use 'as const' for literal types
+
+// ... rest of the file
+\`\`\`
+
+**Explanation:**
+
+1.  **`ImageBlock.tsx`:**
+    - Manages internal state for `imageUrl`, `isLoading`, `isUploading`, and `error`.
+    - Uses `useEffect` to sync `imageUrl` with the `content` prop from the store.
+    - Implements `useDrop` to accept `NativeTypes.FILE` (OS drops) and `ItemTypes.MEDIA_IMAGE` (media library drops).
+    - The `drop` handler determines the item type and either calls `processDroppedFiles` (for OS files) or directly updates the store with the URL (for media library items).
+    - `processDroppedFiles` filters for image files, calls the (mock) `uploadImageToStorage`, handles loading/error states during upload, and updates the store via `updateBlockContent` on success.
+    - Renders conditionally:
+      - Placeholder with icon/text when `!imageUrl && !isUploading`.
+      - Uploading indicator when `isUploading`.
+      - The `<img>` tag when `imageUrl` is set. It includes `onLoad`/`onError` handlers and shows loading/error states overlayed if necessary.
+    - Applies dynamic classes for dropzone feedback (`isActive`, `canDrop`).
+    - The main `div` and `img` use `w-full` to fill horizontal space. `h-auto` on the `img` maintains aspect ratio. The placeholder uses `aspect-video` by default.
+2.  **Upload Function:** The `uploadImageToStorage` function is crucial. The provided mock uses `URL.createObjectURL` for quick simulation, but **you must replace this with your actual Supabase Storage upload logic.**
+3.  **`CanvasBlock` Integration:** Simple wiring to render `ImageBlock` when `block.type === 'image'`.
+4.  **`RightSidebar` Integration:** Shows how to conditionally render input fields for "Image URL" (`block.content`) and "Alt Text" (`block.altText`) when an image block is selected. Changes trigger `updateBlockContent`. A "Clear Image" button is added.
+5.  **Layout:** The `w-full` classes ensure the block tries to take up the available horizontal space defined by its parent container (`CanvasBlock` wrapper within the `DropArea`). The final width is determined by the `DropArea`'s layout context (full width, split column, etc.).
+
+Remember to replace the mock upload function with your real Supabase implementation!
 
 ```
 
@@ -12113,6 +12932,7 @@ export const useBlockDrag = (
 
 import { useDrop } from "react-dnd";
 import { useState, useEffect, useRef } from "react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ItemTypes, markDropHandled } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 // Removed duplicate imports
@@ -12181,188 +13001,96 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     },
     drop: (
       item: DragItem,
-      monitor: DropTargetMonitor<DragItem, { name: string; handled: boolean; dropAreaId: string } | undefined>
+      monitor: DropTargetMonitor<
+        DragItem,
+        { name: string; handled: boolean; dropAreaId: string } | undefined
+      >
     ) => {
-      // Generate a unique ID for this drop operation for tracking in logs
       const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      
-      // Get item ID - for existing blocks use actual ID, for new blocks generate a unique ID
-      const itemId = item.id || `new-${item.type}-${Date.now()}`;
 
-      // *** IMPORTANT: Check if the drop was already handled by a parent container (the Canvas gap drop) ***
+      // Check if handled by parent
       if (monitor.didDrop()) {
         console.log(
-          `[${dropOpId}] DropArea ${dropArea.id}: Drop already handled by parent, ignoring.`
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Drop already handled by parent, ignoring.`
         );
-        return undefined; // Let the parent handler deal with it
+        return undefined;
       }
-      
-      // CRITICAL NEW CHECK: Check with the global drop tracker if this drop is already being handled
-      if (!markDropHandled(`DropArea-${dropArea.id}`, itemId)) {
+
+      // Ensure drop target is still valid and we are directly over it
+      if (!dropTargetRef.current || !monitor.isOver({ shallow: true })) {
+        console.warn(
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Drop target ref is null or not directly over.`
+        );
+        return undefined;
+      }
+
+      // --- Core Logic: Determine if this hook should handle the drop ---
+      const isAreaEmpty = dropArea.blocks.length === 0;
+      const isExistingBlock = item.type === ItemTypes.EXISTING_BLOCK;
+      const isExternalBlock =
+        isExistingBlock && item.sourceDropAreaId !== dropArea.id && item.id;
+
+      // Handle drops only if:
+      // 1. Area is empty (for both new and external blocks)
+      // 2. OR it's an external block (even to populated areas)
+      const shouldHandleDrop = isAreaEmpty || isExternalBlock;
+
+      if (!shouldHandleDrop) {
         console.log(
-          `[${dropOpId}] DropArea ${dropArea.id}: Drop for item ${itemId} rejected by global tracker.`
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Delegating drop to nested handlers.`
         );
-        return undefined; // Another handler has claimed this drop
+        return undefined;
       }
 
-      // If drop wasn't handled by parent, proceed
-      console.log(
-        `[${dropOpId}] DropArea ${dropArea.id}: Potential drop target.`
-      );
       try {
-        // EXTRA CHECK: If this is an EXISTING_BLOCK and sourceDropAreaId matches this area
-        // Let the internal DropAreaContent handler handle it for reordering
-        if (item.type === ItemTypes.EXISTING_BLOCK && item.sourceDropAreaId === dropArea.id) {
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: This is a reordering operation within this area. Letting DropAreaContent handle it.`
-          );
-          return undefined;
-        }
-        
-        // *** NEW CHECK: If this area is populated, let nested targets handle it ***
-        // We only handle drops directly here if the area is EMPTY.
-        // Drops onto populated areas are handled by DropAreaContent's internal useDrop.
-        if (dropArea.blocks.length > 0) {
-          console.log(
-            `[${dropOpId}] DropArea ${dropArea.id}: Area is populated. Allowing nested drop targets (like DropAreaContent) to handle.`
-          );
-          
-          // CRITICAL FIX: If this is an EXISTING_BLOCK from a different area, we need
-          // to handle it at this level regardless of whether the area is populated
-          if (item.type === ItemTypes.EXISTING_BLOCK && item.sourceDropAreaId !== dropArea.id && item.id) {
-            console.log(
-              `[${dropOpId}] DropArea ${dropArea.id}: IMPORTANT - Block is from a different area (${item.sourceDropAreaId}). Handling at this level to prevent duplication.`
-            );
-            
-            // Create a result before modifying state
-            const result = {
-              name: `Moved to Area ${dropArea.id}`,
-              handled: true,
-              dropAreaId: dropArea.id,
-              dropOpId,
-            };
-            
-            // Move the block in the next event loop tick
-            setTimeout(() => {
-              console.log(`[${dropOpId}] DropArea ${dropArea.id}: Moving block ${item.id} from ${item.sourceDropAreaId} to ${dropArea.id}`);
-              moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
-            }, 0);
-            
-            return result;
-          }
-          
-          // For other cases, let the nested handlers handle it
-          return undefined;
-        }
-
-        // --- Area is EMPTY, proceed with handling the drop directly ---
-        // console.log( // Removed log
-        //   `[${dropOpId}] DropArea ${dropArea.id}: Area is EMPTY. Handling drop directly.`
-        // );
-
-        // Ensure we are actually over this specific target (still relevant for empty areas)
-        if (!monitor.isOver({ shallow: true })) {
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Drop occurred but not directly over the empty area, ignoring.`
-          // );
-          return undefined;
-        }
-
-        // Handle moving an existing block (rare case: moving into an empty top-level area?)
-        if (item.sourceDropAreaId && item.id) {
-          // Don't allow dropping back into the same area it came from
-          if (item.sourceDropAreaId === dropArea.id) {
-            // console.log( // Removed log
-            //   `[${dropOpId}] DropArea ${dropArea.id}: Block dropped back into original area, ignoring.`
-            // );
-            return undefined;
-          }
-
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED drop for block ${item.id} from ${item.sourceDropAreaId} to here. Preparing result...`
-          // );
-
-          // First, create and return a result BEFORE modifying state
-          // This is critical - it tells react-dnd that this handler has claimed this drop
-          const result = {
-            name: `Dropped in Area ${dropArea.id}`,
-            handled: true,
-            dropAreaId: dropArea.id,
-            dropOpId,
-          };
-
-          // Schedule the moveBlock call to run AFTER this drop handler returns
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Scheduling moveBlock operation to run AFTER drop completes`
-          // );
-
-          // Use setTimeout to move this to the next event loop tick
-          setTimeout(() => {
-            // console.log( // Removed log
-            //   `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING moveBlock(${item.id}, ${item.sourceDropAreaId}, ${dropArea.id})`
-            // );
-            // Add non-null assertions as item.id and item.sourceDropAreaId are checked above
-            moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
-            // console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`); // Removed log
-          }, 0);
-
-          // Return the result immediately
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
-          //   result
-          // );
-          return result;
-        }
-        // Handle adding a new block (dragged from sidebar) into this EMPTY area
-        else {
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: ACCEPTED new block of type ${item.type} into EMPTY area. Preparing result...`
-          // );
-
-          // Return a result BEFORE calling addBlock
+        // Handle new block into empty area
+        if (!isExistingBlock && isAreaEmpty) {
           const result = {
             name: `Added Block to ${dropArea.id}`,
             handled: true,
             dropAreaId: dropArea.id,
-            dropOpId,
           };
 
-          // Schedule the addBlock call to run AFTER this drop handler returns
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Scheduling addBlock operation to run AFTER drop completes`
-          // );
-
-          // Add the block AFTER setting the result
           setTimeout(() => {
-            // console.log( // Removed log
-            //   `[${dropOpId}] DropArea ${dropArea.id}: EXECUTING addBlock for new ${item.type} block`
-            // );
             addBlock(
               {
-                // Create the block data
-                type: item.type || "square", // Default to square if type missing
-                content: item.content || "Dropped Content", // Default content
-                dropAreaId: dropArea.id, // Assign to this drop area
+                type: item.type,
+                content: item.content || "",
+                dropAreaId: dropArea.id,
               },
-              dropArea.id // Target drop area ID
+              dropArea.id
             );
-            // console.log(`[${dropOpId}] DROP OPERATION COMPLETED.`); // Removed log
           }, 0);
 
-          // Return the result immediately
-          // console.log( // Removed log
-          //   `[${dropOpId}] DropArea ${dropArea.id}: Returning result and ENDING drop handler`,
-          //   result
-          // );
           return result;
         }
+
+        // Handle external block move (to either empty or populated area)
+        if (isExternalBlock) {
+          const result = {
+            name: `Moved Block to ${dropArea.id}`,
+            handled: true,
+            dropAreaId: dropArea.id,
+          };
+
+          setTimeout(() => {
+            moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
+          }, 0);
+
+          return result;
+        }
+
+        return undefined;
       } catch (error) {
         console.error(
-          `[${dropOpId}] DropArea ${dropArea.id}: ERROR during drop operation:`,
+          `[${dropOpId}] DropAreaHook ${dropArea.id}: Error during drop:`,
           error
         );
-        setDropError("Failed to drop item"); // Set error state for UI feedback
-        return undefined; // Indicate drop failed
+        setDropError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
+        setIsHovering(false);
+        return undefined;
       }
     },
     collect: (
@@ -12702,7 +13430,8 @@ export const ItemTypes = {
   SQUARE: "square",
   BLOCK: "block",
   EXISTING_BLOCK: "existing_block",
-}
+  MEDIA_IMAGE: "media_image", // Add type for media library images
+} as const; // Use 'as const' for literal types
 
 // Global object to track drop operations across different handlers
 // This helps prevent double-handling of the same drop event
@@ -12720,44 +13449,45 @@ export const DropTracker: DropState = {
   handledBy: null,
   itemId: null,
   timestamp: 0,
-  
+
   // Method to reset the tracker after each drop operation
-  reset: function() {
+  reset: function () {
     this.isBeingHandled = false;
     this.handledBy = null;
     this.itemId = null;
     this.timestamp = 0;
     console.log(`[DropTracker] Reset - ready for next drop operation`);
-  }
+  },
 };
 
 // Mark a drop as being handled
 export function markDropHandled(handlerId: string, itemId: string): boolean {
   // If drop is already being handled and it's recent (last 500ms), reject
   const now = Date.now();
-  if (DropTracker.isBeingHandled && (now - DropTracker.timestamp < 500)) {
-    console.log(`[DropTracker] Drop for item ${itemId} REJECTED - already being handled by ${DropTracker.handledBy}`);
+  if (DropTracker.isBeingHandled && now - DropTracker.timestamp < 500) {
+    console.log(
+      `[DropTracker] Drop for item ${itemId} REJECTED - already being handled by ${DropTracker.handledBy}`
+    );
     return false;
   }
-  
+
   // Otherwise, claim this drop
   DropTracker.isBeingHandled = true;
   DropTracker.handledBy = handlerId;
   DropTracker.itemId = itemId;
   DropTracker.timestamp = now;
-  
+
   console.log(`[DropTracker] Drop for item ${itemId} claimed by ${handlerId}`);
-  
+
   // Schedule an automatic reset after 500ms
   setTimeout(() => {
     if (DropTracker.itemId === itemId && DropTracker.handledBy === handlerId) {
       DropTracker.reset();
     }
   }, 500);
-  
+
   return true;
 }
-
 
 ```
 
@@ -14081,6 +14811,7 @@ export interface BlockType {
   dropAreaId: string;
   // Additional properties for specific block types
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+  altText?: string; // Optional: Add alt text specifically for images
   // Add more properties for other block types as needed
 }
 
@@ -14110,6 +14841,30 @@ export interface Project {
   updatedAt: string;
   blocks: number;
   thumbnail?: string;
+}
+
+// Media Library Types
+export interface MediaItem {
+  id: string;
+  url: string;
+  fileName: string;
+  fileType: string;
+  uploadedAt: Date;
+  size: number;
+  dimensions?: {
+    width: number;
+    height: number;
+  };
+}
+
+export interface MediaLibraryState {
+  items: MediaItem[];
+  isLoading: boolean;
+  error: string | null;
+  // Pagination state
+  page: number;
+  hasMore: boolean;
+  itemsPerPage: number;
 }
 
 ```
@@ -15139,7 +15894,18 @@ export const config = {
 
 ```mjs
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "supabase.matthias.lol",
+        port: "",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
+};
 
 export default nextConfig;
 
@@ -15156,7 +15922,11 @@ export default nextConfig;
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -15183,6 +15953,7 @@ export default nextConfig;
     "@tiptap/pm": "^2.11.7",
     "@tiptap/react": "^2.11.7",
     "@tiptap/starter-kit": "^2.11.7",
+    "@types/uuid": "^10.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "emoji-picker-react": "^4.12.2",
@@ -15192,27 +15963,185 @@ export default nextConfig;
     "next-themes": "^0.4.6",
     "react": "^18",
     "react-colorful": "^5.6.1",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18",
     "react-icons": "^5.5.0",
     "sonner": "^2.0.3",
-    "tailwind-merge": "^3.0.2",
+    "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
+    "uuid": "^11.1.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/ui": "^3.1.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.25",
+    "jsdom": "^26.0.0",
+    "msw": "^2.7.3",
+    "playwright": "^1.51.1",
     "postcss": "^8",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.1.1"
   }
 }
+
+```
+
+# planning_for_tests.md
+
+```md
+Okay, here's a plan for implementing testing in your "Block Builder" project, covering different levels of testing:
+
+**1. Tooling Setup**
+
+- **Test Runner & Framework:** Use **Vitest**. It's fast, compatible with Vite (which Next.js can use under the hood), and has a Jest-compatible API.
+- **Component Testing:** Use **React Testing Library (RTL)** (`@testing-library/react`) for rendering components and interacting with them in a user-centric way.
+- **User Interactions:** Use `@testing-library/user-event` for more realistic simulation of user interactions (typing, clicking, etc.).
+- **Mocking API Calls (Supabase):** Use **Mock Service Worker (MSW)** to intercept HTTP requests made by the Supabase client and return mock responses. This is crucial for integration tests involving data fetching/saving.
+- **End-to-End (E2E) Testing:** Use **Playwright** for testing complete user flows in real browsers.
+
+**Installation:**
+
+\`\`\`bash
+npm install --save-dev vitest @vitest/ui @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom msw playwright @playwright/test
+\`\`\`
+
+**Configuration:**
+
+- **Vitest:** Create a `vitest.config.ts` file. Configure it to use `jsdom` for the environment and set up global imports/setup files (e.g., for RTL cleanup and Jest-DOM matchers).
+- **MSW:** Set up handlers for your Supabase interactions (auth, storage list/upload/download). Create setup files to start the mock server for your tests.
+- **Playwright:** Initialize Playwright (`npx playwright install`) and configure `playwright.config.ts`.
+- **`package.json`:** Add scripts for running tests (`"test": "vitest"`, `"test:ui": "vitest --ui"`, `"test:e2e": "playwright test"`).
+- **`tsconfig.json`:** Ensure `vitest/globals` and `@testing-library/jest-dom` types are included.
+
+**2. Unit Testing (`*.test.ts` / `*.test.tsx`)**
+
+- **Focus:** Testing small, isolated units (functions, simple components) in isolation.
+- **Targets:**
+  - **Utility Functions (`lib/utils/`):** Test functions like `formatDate`, `getBlockStyle`, `findDropAreaById`, `isDropAreaEmpty`, `canMergeAreas` with various inputs and assert the expected outputs.
+  - **Simple UI Components (`components/ui/`, simple blocks):** Render components like `Button`, `Badge`, `Input` with different props and verify they render correctly. Test simple event handlers (e.g., `onClick`). Use RTL's `render`, `screen`, `getByRole`, etc.
+  - **Custom Hooks (Logic):** Test the pure logic parts of hooks like `useViewport` (if applicable) or potentially parts of `useBlockDrag`/`useDropArea` if they can be isolated from `react-dnd`.
+- **Example (`lib/utils.test.ts`):**
+
+  \`\`\`typescript
+  import { formatDate } from "./utils";
+  import { describe, it, expect } from "vitest";
+
+  describe("formatDate", () => {
+    it("should format recent dates relatively", () => {
+      const now = new Date();
+      const fiveMinutesAgo = new Date(
+        now.getTime() - 5 * 60 * 1000
+      ).toISOString();
+      expect(formatDate(fiveMinutesAgo)).toBe("vor 5 Minuten");
+    });
+    // ... more test cases
+  });
+  \`\`\`
+
+**3. Integration Testing (`*.test.tsx`)**
+
+- **Focus:** Testing how multiple units (components, hooks, store, mocks) work together.
+- **Targets:**
+  - **Forms & Authentication:** Render `SignInPage`/`SignUpPage`. Use `user-event` to simulate typing email. Mock Supabase auth calls (`signInWithOtp`) using MSW. Verify loading states, button clicks, and success/error messages/toasts (`sonner` might need specific testing setup or assertions on DOM changes).
+  - **Dashboard (`DashboardPage`):** Render the page. Mock `listProjectsFromStorage` (using MSW if it involves direct Supabase calls, or by mocking the store action if it abstracts Supabase). Verify project cards are rendered based on mock data. Simulate search input (`user-event.type`) and verify filtering. Simulate delete click and verify the delete confirmation dialog appears and the mock delete function is called.
+  - **Editor Components & Store:**
+    - Render `Navbar` (in editor view). Mock `useBlocksStore` state (e.g., `isSaving`, `lastSaved`). Simulate clicking "Save", verify the correct store action (`saveProject`) is called (using Vitest spies/mocks `vi.spyOn`). Simulate title editing and verify `setProjectTitle` is called.
+    - Render components using `useEditorStore` (like Tiptap toolbars). Mock the store state (`activeFormats`), verify button appearances. Simulate clicks and verify store actions (`updateActiveFormats`) are called.
+  - **Supabase Storage Interaction:** Test `blocks-store` actions (`loadProject`, `saveProject`, `createNewProject`) by mocking the underlying `loadProjectFromStorage`, `saveProjectToStorage` functions using `vi.mock` or by using MSW to mock the Supabase client's storage methods directly. Assert that the store state updates correctly after successful/failed operations.
+  - **Tiptap Blocks:** Render `ParagraphBlock` / `HeadingBlock`. Assert initial rendering based on props. Testing deep Tiptap interactions can be complex; focus on verifying that `onUpdate` correctly calls the `updateBlockContent` store action.
+- **Tools:** RTL, `user-event`, MSW, Vitest `vi.mock`/`vi.spyOn`.
+
+**4. Drag and Drop Testing (Special Focus)**
+
+- **Challenge:** Simulating realistic drag-and-drop browser events with RTL is difficult and often unreliable.
+- **Recommended Approach:**
+  - **Unit Test Store Actions:** Create specific unit tests for the Zustand actions related to D&D: `addBlockAtIndex`, `moveBlock`, `reorderBlocks`, `splitDropArea`, `mergeDropAreas`, `insertBlockInNewArea`. Set up an initial `dropAreas` state, call the action with specific arguments, and assert that the final `dropAreas` state in the store is exactly as expected. This verifies the core state manipulation logic.
+  - **Integration Test Component _Results_:** Render components like `DropAreaContent` or `Canvas`. _Instead of simulating the drag_, manually trigger the store actions that _should_ occur _after_ a drop (e.g., call `store.getState().addBlockAtIndex(...)`). Then, use RTL to assert that the UI correctly reflects the state change (e.g., the new block is rendered in the correct position, the insertion indicator is gone). This tests the component's reaction to the state changes caused by D&D.
+  - **E2E Tests (Crucial):** Rely heavily on Playwright for testing the _actual user interaction_ of dragging elements, seeing indicators, dropping, and verifying the visual and state outcomes.
+
+**5. End-to-End Testing (`*.spec.ts` in a `tests-e2e` directory)**
+
+- **Focus:** Testing complete user flows through the application in a real browser environment.
+- **Targets (Critical User Journeys):**
+  - **Authentication:** Navigate to `/`, click sign-in, enter credentials (use environment variables for test accounts), verify successful login and redirection to `/dashboard`. Test sign-out.
+  - **Project Lifecycle:** Create a new project, verify editor loads. Add a block (e.g., Heading). Change its content. Save the project (manually or verify auto-save). Return to dashboard, verify project exists. Reload the project, verify content persistence. Delete the project.
+  - **Core D&D:**
+    - Drag a block from the sidebar (`LeftSidebar`) onto an empty `DropArea` on the `Canvas`. Verify it appears.
+    - Drag an existing `CanvasBlock` and drop it between two other blocks within the same `DropAreaContent`. Verify the insertion indicator appears correctly during hover and the block is placed correctly after drop.
+    - Drag a block from one `DropArea` to another (empty or populated). Verify it moves correctly.
+  - **Splitting/Merging (Visual):** Drag onto an empty area's split indicator, verify it splits. Drag onto a merge indicator, verify areas merge.
+  - **Preview Mode:** Toggle preview mode and switch viewports, verify the basic layout rendering changes as expected (Playwright can take screenshots for visual regression).
+- **Tools:** Playwright. Use page object models for better organization. Interact with elements using locators.
+
+**6. Mocking Supabase with MSW**
+
+- Create handler files (e.g., `src/mocks/handlers.ts`).
+- Define request handlers for Supabase endpoints (e.g., `/auth/v1/otp`, `/storage/v1/object/...`).
+
+  \`\`\`typescript
+  // src/mocks/handlers.ts
+  import { http, HttpResponse } from "msw";
+
+  const handlers = [
+    // Mock Supabase Auth OTP
+    http.post("*/auth/v1/otp", () => {
+      return HttpResponse.json({}); // Simulate success
+    }),
+    // Mock Supabase Storage List
+    http.get("*/storage/v1/object/projects", ({ request }) => {
+      // Return mock file list based on tests
+      return HttpResponse.json([
+        {
+          name: "project-1.json",
+          id: "uuid1",
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          last_accessed_at: new Date().toISOString(),
+          metadata: { size: 1000, mimetype: "application/json" },
+        },
+      ]);
+    }),
+    // Mock Storage Download
+    http.get("*/storage/v1/object/projects/:projectId", ({ params }) => {
+      const { projectId } = params;
+      if (projectId === "project-1.json") {
+        // Return mock project data
+        return HttpResponse.json({
+          id: "project-1",
+          title: "Mock Project",
+          dropAreas: [] /*...*/,
+        });
+      }
+      return new HttpResponse(null, { status: 404 });
+    }),
+    // Add handlers for upload, delete, etc.
+  ];
+  export { handlers };
+  \`\`\`
+
+- Set up the mock server in your test setup file.
+
+**Implementation Strategy:**
+
+1.  Start with unit tests for utilities – they are the easiest wins.
+2.  Add integration tests for authentication forms and dashboard data display, setting up MSW early.
+3.  Write unit tests for Zustand store actions, especially the D&D related ones.
+4.  Implement E2E tests for the most critical user flows (auth, project creation, basic block addition, save/load).
+5.  Add integration tests for editor components and their interaction with the store.
+6.  Incrementally add more E2E tests covering specific D&D scenarios (reordering, splitting, merging).
+7.  Integrate tests into your CI/CD pipeline.
 
 ```
 
@@ -15286,83 +16215,211 @@ Boards Klon is a web application that allows users to visually build web pages o
 
 ```
 
-# refactor.md
+# refactor_useDropArea.md
 
 ```md
-# Refactoring Plan for Drag and Drop Integration
+Goal: Make useDropArea solely responsible for handling drops directly onto the area itself (especially when empty or receiving blocks from other areas) and providing basic drag state feedback for that area. Delegate complex indicator logic and internal reordering to components.
 
-This document outlines a comprehensive plan to simplify and streamline the integration of Zustand, insert indicators, and the drag & drop components in the codebase.
+Refactoring Steps:
 
-## 1. Audit and Map Current Interactions
+    Focus drop Handler:
 
-- **Objective**: Understand the current implementation.
-- **Actions**:
-  - Document which components and hooks initiate drags (e.g., using `useBlockDrag` in `lib/hooks/use-block-drag.ts`).
-  - Identify components managing drop targets and hover states (e.g., `use-drop-area` hook and `drop-target.tsx`).
-  - List the Zustand store actions (e.g., `insertBlockInNewArea` in `store/blocks-store.ts`) that update the persistent state.
-- **Kommentar**: This step creates a map of how drag events and state updates interact across the application.
+        Modify the drop handler to only execute addBlock or moveBlock logic if:
 
-## 2. Separation of Visual Feedback from Persistent State
+            The dropArea is currently empty (dropArea.blocks.length === 0).
 
-- **Objective**: Isolate transient UI changes from global state updates.
-- **Actions**:
-  - Use local component state (or a dedicated React context) to manage the insert indicator's position and visibility during hover events.
-  - Limit global state updates via Zustand to occur only on the final, validated drop event.
-- **Kommentar**: Separating these concerns prevents unintended duplicate updates triggered by transient hover events.
+            OR the dragged item is an EXISTING_BLOCK coming from a different sourceDropAreaId.
 
-## 3. Debounce and Guard Event Handlers
+        In all other cases (e.g., populated area, internal reordering), the drop handler should immediately return undefined to allow nested drop targets (like in DropAreaContent) to handle the event.
 
-- **Objective**: Prevent multiple rapid events from causing duplicate updates.
-- **Actions**:
-  - Implement debouncing or throttling on `onDragOver` events to reduce frequency of updates to the insert indicator.
-  - In the `onDrop` handler, ensure that the insertion action is idempotent — only one update per drop event should be executed.
-  - Use `preventDefault()` and `stopPropagation()` as needed to control event flow.
-- **Kommentar**: This reduces race conditions and ensures that only a single, intentional insertion happens.
+        Ensure the monitor.didDrop() check and markDropHandled logic remain to prevent duplicate processing.
 
-## 4. Refactor and Compose Custom Hooks
+    Simplify hover Handler:
 
-- **Objective**: Clarify and streamline the logic for drag and drop.
-- **Actions**:
-  - Evaluate combining common logic from `useBlockDrag` and `use-drop-area` into a more unified, composite hook if applicable.
-  - Define clear APIs for these hooks so that components decide whether to use transient visual state or commit to a global state update.
-- **Kommentar**: This modular approach makes the code easier to maintain and re-use.
+        Remove mouse position tracking (mousePosition state) and edge proximity detection logic (isNearEdge, mergeTarget state).
 
-## 5. Strengthen Zustand Store Updates
+        The hover handler should primarily focus on monitor.isOver({ shallow: true }) to set the isHovering state used for direct visual feedback on the area itself (e.g., background highlight).
 
-- **Objective**: Enhance the robustness of state updates.
-- **Actions**:
-  - Enhance store actions (such as `insertBlockInNewArea`) with idempotency checks to avoid inserting the same item multiple times.
-  - Ensure that state updates are atomic to avoid conflicts caused by rapid event sequences.
-- **Kommentar**: These safeguards help in maintaining a consistent global state.
+    Delegate Indicator Logic:
 
-## 6. Documentation and Code Comments
+        Remove shouldShowSplitIndicator and shouldShowMergeIndicator logic and related state (mergePosition) from the hook.
 
-- **Objective**: Improve clarity for current and future developers.
-- **Actions**:
-  - Add descriptive comments in key areas of the hooks and store functions that describe their responsibilities.
-  - Document the refactored architecture in this file, summarizing the separation between transient UI feedback and persistent state updates.
-- **Kommentar**: Detailed documentation reduces onboarding time and aids debugging.
+        Merge Indicators: Responsibility shifts entirely to parent layout components (DesktopDropArea, TabletDropArea, MobileDropArea) which manage the gaps between areas.
 
-## 7. Testing and Debugging Strategies
+        Split Indicator (Center Button): The DropArea component can decide to show this button based on props (showSplitIndicator) and state derived from the hook (isHovering, !isOver) combined with store checks (canSplit, area.blocks.length === 0).
 
-- **Objective**: Validate the refactored implementation and prevent regressions.
-- **Actions**:
-  - Write unit and integration tests to simulate drag and drop events, ensuring that only a single insertion occurs per drop.
-  - Add temporary logging within the drag and drop events to trace the event flow during development.
-- **Kommentar**: Thorough testing ensures that the refactoring achieves the desired robustness.
+    Streamline State & Return Value:
 
-## 8. Incremental Refactoring and Code Reviews
+        Remove internal state related to mouse position and merging (mousePosition, mergeTarget, mergePosition).
 
-- **Objective**: Refactor safely in manageable steps.
-- **Actions**:
-  - Decouple the insert indicator's visual state from the store update, then add debouncing on hover events.
-  - Refactor custom hooks into cohesive units with clear responsibilities.
-  - Review each incremental change with automated tests to verify that behavior remains correct.
-- **Kommentar**: An incremental approach minimizes risk and facilitates continuous integration of improvements.
+        Simplify getDropAreaStyles to only depend on isOver, canDrop, dropError, and potentially an isEmpty flag (derived from dropArea.blocks.length). Merge/split highlighting should be handled by components.
 
-## Conclusion
+        The hook should primarily return isOver, canDrop, the drop ref connector, and potentially isHovering (if needed by the component for the split button).
 
-This plan streamlines the interaction between React DnD and Zustand by clearly segregating transient UI states (insert indicators) from persistent state updates. By implementing debounced event handlers, robust idempotency checks, modular hooks, and comprehensive testing, the code becomes more maintainable and resistant to issues like duplicate insertions.
+    Update Consuming Components:
+
+        Refactor DropArea, DesktopDropArea, TabletDropArea, and MobileDropArea to handle the display logic for split/merge indicators based on their layout context and the simplified state from the refactored hook.
+
+        Ensure DropAreaContent correctly handles all drops within populated areas.
+
+Outcome: A leaner useDropArea hook focused on its core drop target responsibilities, with clearer separation of concerns, making the overall D&D system easier to understand and maintain. Complex layout-dependent interactions (like merging) are managed at the appropriate component level.
+
+```
+
+# sql/rls_policies.sql
+
+```sql
+-- Enable RLS on the media_items table
+ALTER TABLE media_items ENABLE ROW LEVEL SECURITY;
+
+-- Create a user_id column to track ownership
+ALTER TABLE media_items ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
+
+-- Policy for viewing media items (all authenticated users can view)
+CREATE POLICY "Users can view all media items"
+ON media_items
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- Policy for inserting media items (authenticated users can insert their own)
+CREATE POLICY "Users can insert their own media items"
+ON media_items
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+-- Policy for updating media items (users can only update their own)
+CREATE POLICY "Users can update their own media items"
+ON media_items
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+-- Policy for deleting media items (users can only delete their own)
+CREATE POLICY "Users can delete their own media items"
+ON media_items
+FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- Storage bucket policies
+-- Images bucket
+CREATE POLICY "Users can view all images"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (bucket_id = 'images');
+
+CREATE POLICY "Users can upload images"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'images'
+  AND (storage.foldername(name))[1] != 'private'
+);
+
+CREATE POLICY "Users can update their own images"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = owner)
+WITH CHECK (bucket_id = 'images');
+
+CREATE POLICY "Users can delete their own images"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (auth.uid() = owner AND bucket_id = 'images');
+
+-- Videos bucket
+CREATE POLICY "Users can view all videos"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (bucket_id = 'videos');
+
+CREATE POLICY "Users can upload videos"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'videos'
+  AND (storage.foldername(name))[1] != 'private'
+);
+
+CREATE POLICY "Users can update their own videos"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = owner)
+WITH CHECK (bucket_id = 'videos');
+
+CREATE POLICY "Users can delete their own videos"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (auth.uid() = owner AND bucket_id = 'videos');
+
+-- Audio bucket
+CREATE POLICY "Users can view all audio"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (bucket_id = 'audio');
+
+CREATE POLICY "Users can upload audio"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'audio'
+  AND (storage.foldername(name))[1] != 'private'
+);
+
+CREATE POLICY "Users can update their own audio"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = owner)
+WITH CHECK (bucket_id = 'audio');
+
+CREATE POLICY "Users can delete their own audio"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (auth.uid() = owner AND bucket_id = 'audio');
+
+-- Documents bucket
+CREATE POLICY "Users can view all documents"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Users can upload documents"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'documents'
+  AND (storage.foldername(name))[1] != 'private'
+);
+
+CREATE POLICY "Users can update their own documents"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = owner)
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "Users can delete their own documents"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (auth.uid() = owner AND bucket_id = 'documents');
 
 ```
 
@@ -15677,7 +16734,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         }
 
         const dropAreaToUse = actualDropAreaId || dropAreaId;
-        const updated = updateDropAreaById(
+        let updated = updateDropAreaById(
           state.dropAreas,
           dropAreaToUse,
           (area) => ({
@@ -15685,6 +16742,26 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
             blocks: area.blocks.filter((block) => block.id !== blockId),
           })
         );
+
+        // Check if we need to add an empty area at the end
+        const lastArea = updated[updated.length - 1];
+        const lastAreaHasContent =
+          lastArea.blocks.length > 0 ||
+          (lastArea.isSplit &&
+            lastArea.splitAreas.some((a) => a.blocks.length > 0));
+
+        if (lastAreaHasContent) {
+          updated = [
+            ...updated,
+            {
+              id: `drop-area-${Date.now()}`,
+              blocks: [],
+              isSplit: false,
+              splitAreas: [],
+              splitLevel: 0,
+            },
+          ];
+        }
 
         return { ...state, dropAreas: updated };
       });
@@ -16280,11 +17357,13 @@ export const createAreaStateChecks = (
     const area = findDropAreaById(dropAreas, dropAreaId);
     if (!area) return false;
 
-    if (viewport === "mobile") return false;
-    if (viewport === "tablet" && area.splitLevel >= 1) return false;
-    if (viewport === "desktop" && area.splitLevel >= 2) return false;
+    const maxSplitLevel: Record<ViewportType, number> = {
+      mobile: 0, // No splitting on mobile
+      tablet: 1, // Max 1 split (2 columns) on tablet
+      desktop: 2, // Max 2 splits (4 columns) on desktop
+    };
 
-    return true;
+    return !area.isSplit && area.splitLevel < maxSplitLevel[viewport];
   },
 
   cleanupEmptyDropAreas: () => {
@@ -17369,6 +18448,147 @@ export const useEditorStore = create<EditorState>((set) => ({
 
 ```
 
+# store/media-library-store.ts
+
+```ts
+import { create } from "zustand";
+import type { MediaItem, MediaLibraryState } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
+
+interface MediaLibraryStore extends MediaLibraryState {
+  // Media Item Actions
+  addItem: (item: MediaItem) => void;
+  removeItem: (id: string) => void;
+
+  // Fetch Actions
+  fetchItems: (page?: number) => Promise<void>;
+  searchItems: (query: string) => Promise<MediaItem[]>;
+
+  // State Actions
+  setLoading: (isLoading: boolean) => void;
+  setError: (error: string | null) => void;
+  resetState: () => void;
+}
+
+const ITEMS_PER_PAGE = 20;
+
+export const useMediaLibraryStore = create<MediaLibraryStore>((set, get) => ({
+  // Initial state
+  items: [],
+  isLoading: false,
+  error: null,
+  page: 1,
+  hasMore: true,
+  itemsPerPage: ITEMS_PER_PAGE,
+
+  // Media Item Actions
+  addItem: (item) => {
+    set((state) => ({
+      items: [item, ...state.items],
+    }));
+  },
+
+  removeItem: async (id) => {
+    try {
+      // First remove from Supabase storage
+      const item = get().items.find((i) => i.id === id);
+      if (item) {
+        // Extract file path from URL
+        const filePath = new URL(item.url).pathname.split("/").pop();
+        if (filePath) {
+          const { error } = await supabase.storage
+            .from("images")
+            .remove([filePath]);
+
+          if (error) throw error;
+        }
+      }
+
+      // Then remove from store
+      set((state) => ({
+        items: state.items.filter((item) => item.id !== id),
+      }));
+    } catch (error) {
+      console.error("Error removing item:", error);
+      set({ error: "Failed to remove item from media library" });
+    }
+  },
+
+  // Fetch Actions
+  fetchItems: async (page = 1) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      // Calculate offset based on page
+      const offset = (page - 1) * ITEMS_PER_PAGE;
+
+      // Fetch items from Supabase
+      const { data, error } = await supabase
+        .from("media_items")
+        .select("*")
+        .order("uploadedAt", { ascending: false })
+        .range(offset, offset + ITEMS_PER_PAGE - 1);
+
+      if (error) throw error;
+
+      // Update state
+      set((state) => ({
+        items: page === 1 ? data : [...state.items, ...data],
+        page,
+        hasMore: data.length === ITEMS_PER_PAGE,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error fetching media items:", error);
+      set({
+        error: "Failed to fetch media items",
+        isLoading: false,
+      });
+    }
+  },
+
+  searchItems: async (query) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      // Search in Supabase
+      const { data, error } = await supabase
+        .from("media_items")
+        .select("*")
+        .ilike("fileName", `%${query}%`)
+        .order("uploadedAt", { ascending: false })
+        .limit(ITEMS_PER_PAGE);
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error) {
+      console.error("Error searching media items:", error);
+      set({
+        error: "Failed to search media items",
+        isLoading: false,
+      });
+      return [];
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  // State Actions
+  setLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
+  resetState: () =>
+    set({
+      items: [],
+      isLoading: false,
+      error: null,
+      page: 1,
+      hasMore: true,
+    }),
+}));
+
+```
+
 # store/store.ts
 
 ```ts
@@ -17673,6 +18893,340 @@ export const useAppStore = create<AppState>((set) => ({
 
 ```
 
+# supabase/.gitignore
+
+```
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+```
+
+# supabase/.temp/cli-latest
+
+```
+v2.20.12
+```
+
+# supabase/config.toml
+
+```toml
+# For detailed configuration reference documentation, visit:
+# https://supabase.com/docs/guides/local-development/cli/config
+# A string used to distinguish different Supabase projects on the same host. Defaults to the
+# working directory name when running `supabase init`.
+project_id = "boards-klon"
+
+[api]
+enabled = true
+# Port to use for the API URL.
+port = 54321
+# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+# endpoints. `public` and `graphql_public` schemas are included by default.
+schemas = ["public", "graphql_public"]
+# Extra schemas to add to the search_path of every request.
+extra_search_path = ["public", "extensions"]
+# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
+# for accidental or malicious requests.
+max_rows = 1000
+
+[api.tls]
+# Enable HTTPS endpoints locally using a self-signed certificate.
+enabled = false
+
+[db]
+# Port to use for the local database URL.
+port = 54322
+# Port used by db diff command to initialize the shadow database.
+shadow_port = 54320
+# The database major version to use. This has to be the same as your remote database's. Run `SHOW
+# server_version;` on the remote database to check.
+major_version = 15
+
+[db.pooler]
+enabled = false
+# Port to use for the local connection pooler.
+port = 54329
+# Specifies when a server connection can be reused by other clients.
+# Configure one of the supported pooler modes: `transaction`, `session`.
+pool_mode = "transaction"
+# How many server connections to allow per user/database pair.
+default_pool_size = 20
+# Maximum number of client connections allowed.
+max_client_conn = 100
+
+# [db.vault]
+# secret_key = "env(SECRET_VALUE)"
+
+[db.migrations]
+# Specifies an ordered list of schema files that describe your database.
+# Supports glob patterns relative to supabase directory: "./schemas/*.sql"
+schema_paths = []
+
+[db.seed]
+# If enabled, seeds the database after migrations during a db reset.
+enabled = true
+# Specifies an ordered list of seed files to load during db reset.
+# Supports glob patterns relative to supabase directory: "./seeds/*.sql"
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+# Bind realtime via either IPv4 or IPv6. (default: IPv4)
+# ip_version = "IPv6"
+# The maximum length in bytes of HTTP request headers. (default: 4096)
+# max_header_length = 4096
+
+[studio]
+enabled = true
+# Port to use for Supabase Studio.
+port = 54323
+# External URL of the API server that frontend connects to.
+api_url = "http://127.0.0.1"
+# OpenAI API Key to use for Supabase AI in the Supabase Studio.
+openai_api_key = "env(OPENAI_API_KEY)"
+
+# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# are monitored, and you can view the emails that would have been sent from the web interface.
+[inbucket]
+enabled = true
+# Port to use for the email testing server web interface.
+port = 54324
+# Uncomment to expose additional ports for testing user applications that send emails.
+# smtp_port = 54325
+# pop3_port = 54326
+# admin_email = "admin@email.com"
+# sender_name = "Admin"
+
+[storage]
+enabled = true
+# The maximum file size allowed (e.g. "5MB", "500KB").
+file_size_limit = "50MiB"
+
+# Image transformation API is available to Supabase Pro plan.
+# [storage.image_transformation]
+# enabled = true
+
+# Uncomment to configure local storage buckets
+# [storage.buckets.images]
+# public = false
+# file_size_limit = "50MiB"
+# allowed_mime_types = ["image/png", "image/jpeg"]
+# objects_path = "./images"
+
+[auth]
+enabled = true
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
+# in emails.
+site_url = "http://127.0.0.1:3000"
+# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+additional_redirect_urls = ["https://127.0.0.1:3000"]
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
+jwt_expiry = 3600
+# If disabled, the refresh token will never expire.
+enable_refresh_token_rotation = true
+# Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
+# Requires enable_refresh_token_rotation = true.
+refresh_token_reuse_interval = 10
+# Allow/disallow new user signups to your project.
+enable_signup = true
+# Allow/disallow anonymous sign-ins to your project.
+enable_anonymous_sign_ins = false
+# Allow/disallow testing manual linking of accounts
+enable_manual_linking = false
+# Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
+minimum_password_length = 6
+# Passwords that do not meet the following requirements will be rejected as weak. Supported values
+# are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
+password_requirements = ""
+
+[auth.rate_limit]
+# Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
+email_sent = 2
+# Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
+sms_sent = 30
+# Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
+anonymous_users = 30
+# Number of sessions that can be refreshed in a 5 minute interval per IP address.
+token_refresh = 150
+# Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
+sign_in_sign_ups = 30
+# Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
+token_verifications = 30
+
+# Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+# [auth.captcha]
+# enabled = true
+# provider = "hcaptcha"
+# secret = ""
+
+[auth.email]
+# Allow/disallow new user signups via email to your project.
+enable_signup = true
+# If enabled, a user will be required to confirm any email change on both the old, and new email
+# addresses. If disabled, only the new email is required to confirm.
+double_confirm_changes = true
+# If enabled, users need to confirm their email address before signing in.
+enable_confirmations = false
+# If enabled, users will need to reauthenticate or have logged in recently to change their password.
+secure_password_change = false
+# Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
+max_frequency = "1s"
+# Number of characters used in the email OTP.
+otp_length = 6
+# Number of seconds before the email OTP expires (defaults to 1 hour).
+otp_expiry = 3600
+
+# Use a production-ready SMTP server
+# [auth.email.smtp]
+# enabled = true
+# host = "smtp.sendgrid.net"
+# port = 587
+# user = "apikey"
+# pass = "env(SENDGRID_API_KEY)"
+# admin_email = "admin@email.com"
+# sender_name = "Admin"
+
+# Uncomment to customize email template
+# [auth.email.template.invite]
+# subject = "You have been invited"
+# content_path = "./supabase/templates/invite.html"
+
+[auth.sms]
+# Allow/disallow new user signups via SMS to your project.
+enable_signup = false
+# If enabled, users need to confirm their phone number before signing in.
+enable_confirmations = false
+# Template for sending OTP to users
+template = "Your code is {{ .Code }}"
+# Controls the minimum amount of time that must pass before sending another sms otp.
+max_frequency = "5s"
+
+# Use pre-defined map of phone number to OTP for testing.
+# [auth.sms.test_otp]
+# 4152127777 = "123456"
+
+# Configure logged in session timeouts.
+# [auth.sessions]
+# Force log out after the specified duration.
+# timebox = "24h"
+# Force log out if the user has been inactive longer than the specified duration.
+# inactivity_timeout = "8h"
+
+# This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
+# [auth.hook.custom_access_token]
+# enabled = true
+# uri = "pg-functions://<database>/<schema>/<hook_name>"
+
+# Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+[auth.sms.twilio]
+enabled = false
+account_sid = ""
+message_service_sid = ""
+# DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
+auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+
+# Multi-factor-authentication is available to Supabase Pro plan.
+[auth.mfa]
+# Control how many MFA factors can be enrolled at once per user.
+max_enrolled_factors = 10
+
+# Control MFA via App Authenticator (TOTP)
+[auth.mfa.totp]
+enroll_enabled = false
+verify_enabled = false
+
+# Configure MFA via Phone Messaging
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
+otp_length = 6
+template = "Your code is {{ .Code }}"
+max_frequency = "5s"
+
+# Configure MFA via WebAuthn
+# [auth.mfa.web_authn]
+# enroll_enabled = true
+# verify_enabled = true
+
+# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
+# `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
+# `twitter`, `slack`, `spotify`, `workos`, `zoom`.
+[auth.external.apple]
+enabled = false
+client_id = ""
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+# Overrides the default auth redirectUrl.
+redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+url = ""
+# If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
+skip_nonce_check = false
+
+# Use Firebase Auth as a third-party provider alongside Supabase Auth.
+[auth.third_party.firebase]
+enabled = false
+# project_id = "my-firebase-project"
+
+# Use Auth0 as a third-party provider alongside Supabase Auth.
+[auth.third_party.auth0]
+enabled = false
+# tenant = "my-auth0-tenant"
+# tenant_region = "us"
+
+# Use AWS Cognito (Amplify) as a third-party provider alongside Supabase Auth.
+[auth.third_party.aws_cognito]
+enabled = false
+# user_pool_id = "my-user-pool-id"
+# user_pool_region = "us-east-1"
+
+# Use Clerk as a third-party provider alongside Supabase Auth.
+[auth.third_party.clerk]
+enabled = false
+# Obtain from https://clerk.com/setup/supabase
+# domain = "example.clerk.accounts.dev"
+
+[edge_runtime]
+enabled = true
+# Configure one of the supported request policies: `oneshot`, `per_worker`.
+# Use `oneshot` for hot reload, or `per_worker` for load testing.
+policy = "oneshot"
+# Port to attach the Chrome inspector for debugging edge functions.
+inspector_port = 8083
+# The Deno major version to use.
+deno_version = 1
+
+# [edge_runtime.secrets]
+# secret_key = "env(SECRET_VALUE)"
+
+[analytics]
+enabled = true
+port = 54327
+# Configure one of the supported backends: `postgres`, `bigquery`.
+backend = "postgres"
+
+# Experimental features may be deprecated any time
+[experimental]
+# Configures Postgres storage engine to use OrioleDB (S3)
+orioledb_version = ""
+# Configures S3 bucket URL, eg. <bucket_name>.s3-<region>.amazonaws.com
+s3_host = "env(S3_HOST)"
+# Configures S3 bucket region, eg. us-east-1
+s3_region = "env(S3_REGION)"
+# Configures AWS_ACCESS_KEY_ID for S3 bucket
+s3_access_key = "env(S3_ACCESS_KEY)"
+# Configures AWS_SECRET_ACCESS_KEY for S3 bucket
+s3_secret_key = "env(S3_SECRET_KEY)"
+
+```
+
 # tailwind.config.ts
 
 ```ts
@@ -17796,7 +19350,8 @@ export default config;
     ],
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "baseUrl": "."
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
@@ -17919,6 +19474,32 @@ export const createClient = (cookieStore: ReturnType<typeof cookies>) => {
   })
 }
 
+
+```
+
+# vitest.config.ts
+
+```ts
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+import { resolve } from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["**/*.{test,spec}.{ts,tsx}"],
+    coverage: {
+      reporter: ["text", "json", "html"],
+      exclude: ["node_modules/", "src/test/setup.ts"],
+    },
+    alias: {
+      "@": resolve(__dirname, "./src"),
+    },
+  },
+});
 
 ```
 
