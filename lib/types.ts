@@ -7,6 +7,7 @@ export interface BlockType {
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
   altText?: string; // For images
   fileName?: string; // For documents
+  thumbnailUrl?: string; // NEU: For document previews
   // Add more properties for other block types as needed
 }
 

@@ -184,11 +184,6 @@ export default function ProjectsView() {
     }
   };
 
-  const forceRefresh = () => {
-    setIsLoading(true);
-    setRefreshCounter((prev) => prev + 1);
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-4 md:gap-6">
@@ -224,20 +219,6 @@ export default function ProjectsView() {
           <PlusCircle className="h-4 w-4" />
           <span className="hidden sm:inline">Neues Projekt</span>
           <span className="sm:hidden">Neu</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={forceRefresh}
-          disabled={isLoading}
-          title="Projektliste aktualisieren"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Search className="h-4 w-4" />
-          )}
         </Button>
       </div>
 

@@ -6,11 +6,16 @@ import { ItemTypes } from "@/lib/item-types";
 import { FileText, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/* --- Hilfsfunktion zum Bereinigen von Dateinamen (für zukünftige Upload-Logik) ---
 const sanitizeFilename = (filename: string): string => {
   // Umlaute und ß ersetzen
   const umlautMap: { [key: string]: string } = {
-    ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss",
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
   };
   let sanitized = filename;
   for (const key in umlautMap) {
@@ -19,10 +24,9 @@ const sanitizeFilename = (filename: string): string => {
 
   // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
   return sanitized
-    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/\\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
     .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
 };
-*/
 
 interface DocumentBlockProps {
   blockId: string;
@@ -59,8 +63,9 @@ export function DocumentBlock({
   // Connect the drag ref
   drag(dragRef);
 
-  // Extract filename from URL if not provided
-  const displayName = fileName || content.split("/").pop() || "Document";
+  // Extract filename from URL if not provided, then sanitize it
+  const rawDisplayName = fileName || content.split("/").pop() || "Document";
+  const displayName = sanitizeFilename(rawDisplayName);
 
   return (
     <div

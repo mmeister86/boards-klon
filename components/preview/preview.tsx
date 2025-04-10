@@ -99,7 +99,7 @@ export default function Preview() {
         {/* Status Bar (Conditional) - Now direct child */}
         {(viewport === "mobile" || viewport === "tablet") && (
           <div
-            className={`flex justify-between items-center text-xs font-medium ${
+            className={`flex justify-between items-center text-xs font-medium pb-2 bg-gray-700 text-white mb-2 ${
               viewport === "mobile" ? "px-4 py-2" : "px-6 py-2"
             }`}
           >
@@ -115,6 +115,8 @@ export default function Preview() {
               />
               <Battery
                 className={viewport === "mobile" ? "w-4 h-4" : "w-5 h-5"}
+                stroke="white" // Weißer Umriss für das Batterie-Icon
+                fill="green" // Grüne Füllung für das Batterie-Icon
               />
             </div>
           </div>

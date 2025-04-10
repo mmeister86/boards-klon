@@ -1,0 +1,163 @@
+**Product Requirements Document: Block Builder**
+
+**1. Introduction**
+
+The NextJS WebApp (i have no name yet) is a visual drag and drop development tool designed to empower users to create "board" page layouts through an intuitive drag-and-drop interface. It utilizes a component-based system where users can assemble predefined "blocks" (like headings, paragraphs, images) onto a canvas, configure their properties, and preview the result across different device sizes. The application leverages Next.js for the frontend framework and Supabase for backend services including authentication, database storage (for media items), and file storage (for project data and media files).
+
+**2. Goals**
+
+- **Intuitive Visual Building:** Provide a seamless drag-and-drop experience for constructing web layouts without requiring direct coding knowledge.
+- **Component-Based Design:** Enable users to build pages using reusable, configurable blocks.
+- **Responsive Previews:** Allow users to easily visualize how their creations will look on desktop, tablet, and mobile devices.
+- **User Project Management:** Offer secure user accounts for creating, saving, loading, and managing multiple web layout projects.
+- **Media Management:** Provide a central library for users to upload, view, and manage media assets (images, videos, audio, documents) for use within their projects.
+
+**3. Target Audience**
+
+- Users seeking a visual way to create board page layouts without extensive coding.
+- These users typically are sales persons who want to give their customers condensed information about a product or service they offer
+
+**4. Features & User Stories**
+
+**4.1. Authentication & User Management**
+
+- **As a new user, I can:**
+  - Sign up for an account using my email via a Magic Link (`signUp` action).
+  - Sign up using Google OAuth.
+  - Sign up using Apple OAuth.
+- **As a returning user, I can:**
+  - Sign in to my account using my email via a Magic Link (`signIn` action).
+  - Sign in using Google OAuth.
+  - Sign in using Apple OAuth.
+- **As an authenticated user, I can:**
+  - Be redirected to the appropriate page (e.g., dashboard) after successful authentication (`auth/callback/route.ts`).
+  - Sign out of my account (`signOut` action).
+  - Access protected routes like `/dashboard` and `/editor` (`middleware.ts`).
+  - Be redirected away from authentication pages (`/sign-in`, `/sign-up`) if already logged in.
+- **As any user, I can:**
+  - See clear feedback (success/error messages, loading states) during the authentication process (`sign-in/page.tsx`, `sign-up/page.tsx`).
+
+**4.2. Dashboard**
+
+- **As an authenticated user, I can:**
+  - Access a dashboard page (`/dashboard`).
+  - View a list of my saved projects, displayed as cards (`ProjectsView`, `ProjectCard`, `listProjectsFromStorage`).
+  - See basic project information on each card (title, last updated/created date) (`ProjectCard`, `formatDate`).
+  - Search for projects by title (`ProjectsView`, `Input`).
+  - Filter projects using tabs (All, Recent, Templates - functionality might be placeholder) (`ProjectsView`, `Tabs`).
+  - Click a "New Project" button to navigate to the editor (`ProjectsView`, `Button`).
+  - Click on a project card to open it in the editor (`ProjectsView`, `ProjectCard`, navigation to `/editor?projectId=...`).
+  - Delete a project, which includes a confirmation dialog (`ProjectCard`, `AlertDialog`, `deleteProjectFromStorage`, `deleteProjectFromDatabase`).
+  - Manually refresh the project list (`ProjectsView`, `Button`).
+  - Navigate between different dashboard sections (Projects, Mediathek, Analytics, Profile, Settings) using a persistent sidebar (`DashboardSidebar`, `dashboard/page.tsx`).
+  - View placeholder sections for Analytics, Profile, and Settings (`AnalyticsView`, `ProfileView`, `SettingsView`).
+  - See my user avatar and email in the sidebar (`DashboardSidebar`).
+
+**4.3. Editor - Core Interface**
+
+- **As a user, I can:**
+  - Access the main editor interface (`/editor`).
+  - View a layout consisting of a Left Sidebar (Blocks/Templates), a central Canvas, and a Right Sidebar (Properties/Media) (`editor/page.tsx`).
+  - Load a specific project by providing its `projectId` in the URL (`editor/page.tsx`, `useBlocksStore.loadProject`).
+  - Automatically have a new, unsaved project created if no `projectId` is provided (`editor/page.tsx`, `useBlocksStore.createNewProject`).
+  - See the current project's title in the Navbar (`Navbar`, `useBlocksStore.currentProjectTitle`).
+  - Click the project title in the Navbar to edit it inline (`Navbar`, `Input`, `useBlocksStore.setProjectTitle`).
+  - Switch the canvas preview between Desktop, Tablet, and Mobile viewports using selectors (`ViewportSelector`, `useViewport`).
+  - Toggle a Preview Mode to see a clean representation of the layout (`Canvas`, `Preview`, `useBlocksStore.setPreviewMode`).
+  - Navigate back to the Dashboard from the editor (`Navbar`).
+
+**4.4. Editor - Canvas & Blocks**
+
+- **As a user, I can:**
+  - See a library of available blocks (Heading, Paragraph, Image, Video, Audio, Document, Button, Form, Divider) in the Left Sidebar (`LeftSidebar`, `DraggableBlock`).
+  - Drag a block from the Left Sidebar onto the Canvas Drop Areas (`useDropArea`, `ItemTypes.BLOCK`).
+  - See blocks rendered visually on the canvas after dropping (`Canvas`, `DropArea`, `CanvasBlock`).
+  - Drag an existing block on the canvas to reorder it within its current Drop Area (`useBlockDrag`, `DropAreaContent` internal `useDrop`, `useBlocksStore.reorderBlocks`).
+  - Drag an existing block from one Drop Area and drop it into another Drop Area (`useBlockDrag`, `useDropArea`, `useBlocksStore.moveBlock`).
+  - See insertion indicators when dragging blocks between other blocks or into gaps between Drop Areas (`InsertionIndicator`, `Canvas` gap drop logic).
+  - See visual feedback (highlighting, opacity changes) when dragging blocks or hovering over drop zones (`useDropArea`, `useBlockDrag`, `DropAreaContent`).
+  - Click on a block on the canvas to select it (`CanvasBlock`, `useBlocksStore.selectBlock`), indicated by a border/ring.
+  - Hover over a block to see controls (Move handle, Delete button) (`CanvasBlock`).
+  - Delete a block using its delete button (only appears if it's not the only block in its area) (`CanvasBlock`, `useBlocksStore.deleteBlock`).
+  - Delete an entire Drop Area (if it contains blocks) using a delete button that appears on hover (`DropArea`, `DesktopDropArea`, etc., `useBlocksStore.deleteDropArea`).
+  - Split an _empty_ Drop Area horizontally by clicking a '+' indicator that appears on hover (behavior depends on viewport limits) (`DropArea`, `useBlocksStore.splitDropArea`, `canSplit`).
+  - Split a _populated_ Drop Area horizontally by clicking a '+' indicator (moves existing blocks to the first new area) (`DropArea`, `useBlocksStore.splitPopulatedDropArea`, `canSplit`).
+  - Merge two adjacent, compatible (e.g., one empty or both having same parent) Drop Areas by clicking a merge indicator in the gap between them (`DesktopDropArea`, `TabletDropArea`, `MobileDropArea`, `MergeGapIndicator`, `useBlocksStore.mergeDropAreas`, `canMerge`).
+
+**4.5. Editor - Block Content & Configuration**
+
+- **As a user, I can:**
+  - Edit the text content of Heading and Paragraph blocks directly on the canvas using a Tiptap-based rich text editor (`HeadingBlock`, `ParagraphBlock`, `useEditor`).
+  - Format text within Heading/Paragraph blocks using a toolbar (Bold, Italic, Underline, Link, Lists, Blockquote, Horizontal Rule, Emoji) (`HeadingBlock`, `ParagraphBlock`, `TiptapToolbar`).
+  - Change the level (H1-H6) of a Heading block using its toolbar (`HeadingBlock`).
+  - Change the text color of a Heading block using a color picker in its toolbar (`HeadingBlock`, `ColorPicker`).
+  - Add an image to an Image block by dropping an image file directly onto it (`ImageBlock`, `useDrop`, `NativeTypes.FILE`). The image is uploaded to Supabase Storage and added to the `media_items` table.
+  - (Implied) Drag an image from the Mediathek (Right Sidebar) onto an Image block (`ImageBlock`, `useDrop`, `ItemTypes.MEDIA_IMAGE`).
+  - See loading and error states within the Image block during upload/loading (`ImageBlock`).
+  - (Implied) Configure properties of the _selected_ block using the Right Sidebar (structure exists, URL/Alt text for Image block is conceptually shown in `image.md`).
+  - Directly drop a supported media file (Image, Video, Audio, Document) onto any DropArea (empty or between blocks) to automatically create the corresponding block (`useDropArea`, `DropAreaContent` - Requires implementation as requested).
+
+**4.6. Editor - Project Saving & Loading**
+
+- **As a user, I can:**
+  - Have my project automatically saved periodically if Auto-Save is enabled (`useBlocksStore.autoSaveEnabled`, `triggerAutoSave`, debounced save).
+  - Toggle the Auto-Save feature on/off (`Navbar`, `useBlocksStore.toggleAutoSave`).
+  - Manually save the current project using a "Save" button (`Navbar`, `useBlocksStore.saveProject`).
+  - See the status of the save operation (Idle, Saving, Saved, Error) (`Navbar`).
+  - See an indicator of when the project was last successfully saved (`Navbar`, `useBlocksStore.lastSaved`).
+  - Have my project data (title, description, block structure) persisted in Supabase Storage (`saveProjectToStorage`, `loadProjectFromStorage`).
+  - Delete the currently open project using a "Delete" button in the Navbar (`Navbar`, `deleteProjectFromStorage`, `deleteProjectFromDatabase`).
+
+**4.7. Mediathek (Standalone View)**
+
+- **As an authenticated user, I can:**
+  - Access a dedicated Mediathek page (`/mediathek` or via Dashboard sidebar).
+  - View all my uploaded media files, grouped by type (Images, Videos, Audio, Documents) (`MediathekView`).
+  - Search for media files by filename (`MediathekView`, `Input`).
+  - Upload new media files via drag-and-drop or a file selector (`MediathekView`, `handleFileUpload`). Uploaded files are stored in the appropriate Supabase bucket (`images`, `videos`, etc.) and recorded in the `media_items` table.
+  - See upload progress (`MediathekView`).
+  - Delete media items from the library (removes from storage and database) (`MediathekView`, `handleDelete`).
+
+**4.8. Mediathek (Editor Sidebar Tab)**
+
+- **As a user, I can:**
+  - Access a Mediathek tab within the Editor's Right Sidebar (`EditorRightSidebar`, `MediaLibraryContent`).
+  - View, search, upload, and delete media items similarly to the standalone Mediathek view, powered by Supabase (`MediaLibraryContent`).
+  - (Implied) Drag media items (specifically images currently) from this tab onto compatible blocks on the canvas (e.g., `ImageBlock`).
+
+**5. Design & UI/UX Considerations**
+
+- The UI should be clean, intuitive, and consistent, leveraging Tailwind CSS and shadcn/ui components.
+- Drag-and-drop interactions should feel smooth and provide clear visual feedback (hover states, insertion indicators, drag previews).
+- The application must be responsive, adapting the editor and preview correctly for desktop, tablet, and mobile viewports.
+- Loading states should be clearly indicated during data fetching (projects, media) and saving/uploading operations.
+- Error states should be handled gracefully with informative messages (e.g., using toasts via `sonner`).
+
+**6. MVP Release Criteria (Based on Current Implementation)**
+
+- Stable user authentication (Magic Link, OAuth).
+- Functional Dashboard: Project listing, creation, loading, deletion.
+- Core Editor: Load/Save projects, add/move/delete basic blocks (Heading, Paragraph, Image), viewport switching, preview mode.
+- Image Block: File drop upload to Supabase, rendering from URL.
+- other Media Blocks: File drop upload to Supabase, rendering from URL
+- Mediathek: View, upload, delete media items (syncing with Supabase).
+- Basic Drag-and-Drop functionality for blocks (within/between areas).
+- Basic Split/Merge functionality for Drop Areas.
+
+**7. Future Considerations / To be implemented (From Memory Bank / Code)**
+
+- Full implementation and configuration options for all planned block types (Button, Form, Divider, Video, Audio, Document).
+- Project share/export functionality => export to prerenderd and sharable HTML site (e.g. https://blockbuilder.com/board/u127sdf37832) or as an eMail Template.
+- Collaboration features.
+- Implementation of Analytics, Profile, and Settings dashboard views.
+- Formal testing suite (Unit, Integration, E2E).
+- Theme switching (Light/Dark/System - UI exists in SettingsView).
+- Internationalization/Language selection (UI exists in SettingsView).
+
+**8. Open Questions/Assumptions**
+
+- How should non-image blocks (Video, Audio, Document) be rendered and configured?
+- What specific properties are configurable for each block type beyond basic content?
+- What are the exact rules/limitations for splitting/merging Drop Areas across different viewports and nesting levels? (Current implementation has some viewport-specific limits).
+- How is project thumbnail generation/selection handled? (Functions exist but integration point isn't fully clear).
+- What is the intended functionality of the "Recent" and "Templates" tabs on the dashboard?

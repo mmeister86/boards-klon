@@ -73,6 +73,49 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         renderHeadingContent()
       ) : block.type === "paragraph" ? (
         renderParagraphContent()
+      ) : // --- NEU: Spezifische Behandlung für Audio-Blöcke ---
+      block.type === "audio" ? (
+        <audio
+          src={block.content}
+          controls
+          className="w-full"
+          preload="metadata" // Lade Metadaten (wie Dauer) vorab
+        />
+      ) : // --- NEU: Spezifische Behandlung für Video-Blöcke ---
+      block.type === "video" ? (
+        <video
+          src={block.content}
+          controls
+          className="w-full rounded-md" // rounded-md für Konsistenz mit VideoBlock
+          preload="metadata"
+        />
+      ) : // --- NEU: Spezifische Behandlung für Dokument-Blöcke ---
+      block.type === "document" ? (
+        block.thumbnailUrl ? (
+          // Wenn ein Vorschaubild vorhanden ist, zeige es an und verlinke es
+          <a href={block.content} target="_blank" rel="noopener noreferrer">
+            <img
+              src={block.thumbnailUrl}
+              alt={`Preview of ${block.fileName || "document"}`}
+              className="block w-full h-auto rounded-lg object-contain border border-gray-200" // object-contain, damit ganze Seite sichtbar ist
+              loading="lazy"
+            />
+          </a>
+        ) : (
+          // Wenn kein Vorschaubild vorhanden ist, zeige den Link wie bisher
+          <a
+            href={block.content}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline flex items-center space-x-2"
+          >
+            {/* Optional: Icon hinzufügen, muss aber importiert werden */}
+            {/* <FileText className="h-5 w-5 flex-shrink-0" /> */}
+            <span>
+              {block.fileName || block.content.split("/").pop() || "Document"}
+            </span>
+          </a>
+        )
       ) : (
         // Default rendering for other types (if any)
         <div className="preview-content">{block.content}</div>

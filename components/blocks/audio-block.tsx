@@ -6,11 +6,16 @@ import { ItemTypes } from "@/lib/item-types";
 import { Music } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/* --- Hilfsfunktion zum Bereinigen von Dateinamen (für zukünftige Upload-Logik) ---
 const sanitizeFilename = (filename: string): string => {
   // Umlaute und ß ersetzen
   const umlautMap: { [key: string]: string } = {
-    ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss",
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
   };
   let sanitized = filename;
   for (const key in umlautMap) {
@@ -22,7 +27,6 @@ const sanitizeFilename = (filename: string): string => {
     .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
     .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
 };
-*/
 
 interface AudioBlockProps {
   blockId: string;
@@ -62,6 +66,10 @@ export function AudioBlock({
 
   // Connect the drag ref
   drag(dragRef);
+
+  // Extract filename from URL if not provided, then sanitize it
+  const rawFileName = content.split("/").pop() || "Audio File";
+  const displayFileName = sanitizeFilename(rawFileName);
 
   const handlePlayPause = () => {
     if (audioRef.current) {
@@ -182,6 +190,14 @@ export function AudioBlock({
             </div>
           </div>
         </div>
+
+        {/* Display the sanitized filename */}
+        <p
+          className="mt-2 text-center text-sm text-gray-600 truncate"
+          title={displayFileName}
+        >
+          {displayFileName}
+        </p>
 
         <audio
           ref={audioRef}
