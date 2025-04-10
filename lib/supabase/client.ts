@@ -37,4 +37,3 @@ export function createClient() {
 }
 
 // Note: We're removing the singleton pattern to avoid stale auth state
-
