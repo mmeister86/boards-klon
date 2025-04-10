@@ -34,6 +34,8 @@ interface BlocksState {
   isSaving: boolean;
   autoSaveEnabled: boolean;
   lastSaved: Date | null;
+  projectJustDeleted: boolean;
+  deletedProjectTitle: string | null;
 
   // Block Actions
   addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => void;
@@ -85,6 +87,8 @@ interface BlocksState {
   togglePreviewMode: () => void;
   toggleAutoSave: (enabled: boolean) => void;
   triggerAutoSave: () => void;
+  setProjectJustDeleted: (deleted: boolean) => void;
+  setDeletedProjectTitle: (title: string | null) => void;
 }
 
 // Debounce helper function
@@ -144,6 +148,8 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     isSaving: false,
     autoSaveEnabled: true,
     lastSaved: null,
+    projectJustDeleted: false,
+    deletedProjectTitle: null,
 
     // Block Actions
     addBlock: (block, dropAreaId) => {
@@ -898,5 +904,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         get().triggerAutoSave();
       }, 0);
     },
+
+    // UI State Action Implementation
+    setProjectJustDeleted: (deleted) => set({ projectJustDeleted: deleted }),
+    setDeletedProjectTitle: (title) => set({ deletedProjectTitle: title }),
   };
 });

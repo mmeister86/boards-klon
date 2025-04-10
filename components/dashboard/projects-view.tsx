@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PlusCircle, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,24 @@ import { deleteProjectFromDatabase } from "@/lib/supabase/database"; // Need thi
 import type { Project } from "@/lib/types";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useBlocksStore } from "@/store/blocks-store";
 
 export default function ProjectsView() {
+  console.log("[ProjectsView] Rendering...");
   const router = useRouter();
+  const projectJustDeleted = useBlocksStore(
+    (state) => state.projectJustDeleted
+  );
+  const deletedProjectTitle = useBlocksStore(
+    (state) => state.deletedProjectTitle
+  );
+  const setProjectJustDeleted = useBlocksStore(
+    (state) => state.setProjectJustDeleted
+  );
+  const setDeletedProjectTitle = useBlocksStore(
+    (state) => state.setDeletedProjectTitle
+  );
+  const toastShownForDeletion = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +91,47 @@ export default function ProjectsView() {
     }
     loadProjects();
   }, [refreshCounter, showErrorToast]); // Depend on refreshCounter
+
+  // Load projects from Supabase storage
+  useEffect(() => {
+    console.log(
+      "[ProjectsView] useEffect running. projectJustDeleted:",
+      projectJustDeleted,
+      "toastShownRef:",
+      toastShownForDeletion.current
+    );
+    if (projectJustDeleted && !toastShownForDeletion.current) {
+      console.log(
+        "[ProjectsView] projectJustDeleted is true AND toast not shown yet. Showing toast..."
+      );
+      toast.error(`"${deletedProjectTitle || "Projekt"}" wurde gelöscht`, {
+        description: `Ihr Projekt wurde erfolgreich gelöscht.`,
+        style: {
+          backgroundColor: "hsl(var(--destructive))",
+          color: "white",
+        },
+      });
+      toastShownForDeletion.current = true;
+      console.log("[ProjectsView] Set toastShownRef.current = true");
+
+      console.log("[ProjectsView] Resetting projectJustDeleted to false.");
+      setProjectJustDeleted(false);
+      console.log("[ProjectsView] Resetting deletedProjectTitle to null.");
+      setDeletedProjectTitle(null);
+    } else if (!projectJustDeleted) {
+      if (toastShownForDeletion.current) {
+        console.log(
+          "[ProjectsView] projectJustDeleted is false. Resetting toastShownRef.current = false."
+        );
+        toastShownForDeletion.current = false;
+      }
+    }
+  }, [
+    projectJustDeleted,
+    setProjectJustDeleted,
+    deletedProjectTitle,
+    setDeletedProjectTitle,
+  ]);
 
   // Filter projects based on search query
   const filteredProjects = projects.filter((project) =>
@@ -220,7 +276,7 @@ export default function ProjectsView() {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center min-h-[calc(100vh-300px)] xl:pr-[150px]">
+        <div className="flex items-center justify-center min-h-[calc(100vh-300px)] xl:pr-[250px]">
           <div className="text-center">
             <h3 className="text-lg font-medium mb-2">
               Keine Projekte gefunden

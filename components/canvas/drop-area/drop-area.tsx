@@ -173,28 +173,28 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
               }}
               className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
               title="Drop-Bereich aufteilen (leer)"
-              aria-label="Split empty drop area"
+              aria-label="Leeren Drop-Bereich aufteilen"
             >
               <Plus size={18} />
             </button>
           </div>
         )}
 
-        {/* Split Button for POPULATED areas */}
+        {/* Split Button for POPULATED areas - positioned top-right */}
         {shouldShowSplitButtonPopulated && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <button
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent potential parent handlers
-                handleSplitPopulated(); // Call the split function for populated areas
-              }}
-              className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
-              title="Drop-Bereich aufteilen (enthält Blöcke)"
-              aria-label="Split populated drop area"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent potential parent handlers
+              handleSplitPopulated(); // Call the split function for populated areas
+            }}
+            // Position under delete button (-right-4), same size and hover effect
+            className="absolute top-6 -right-4 p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all opacity-0 group-hover:opacity-100 pointer-events-auto z-20"
+            title="Drop-Bereich aufteilen (enthält Blöcke)"
+            aria-label="Befüllten Drop-Bereich aufteilen"
+          >
+            {/* Match delete button icon size */}
+            <Plus size={16} />
+          </button>
         )}
 
         <DropAreaContent
@@ -211,14 +211,8 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           <button
             onClick={() => deleteDropArea(dropArea.id)}
             className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
-            title={
-              dropArea.blocks.length === 1
-                ? "Block löschen"
-                : "Drop-Bereich löschen"
-            }
-            aria-label={
-              dropArea.blocks.length === 1 ? "Delete block" : "Delete drop area"
-            }
+            title="Block löschen"
+            aria-label="Block löschen"
           >
             <Trash2 size={16} />
           </button>

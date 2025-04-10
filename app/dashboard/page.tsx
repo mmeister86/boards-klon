@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+// import { useRouter } from "next/navigation";
+// import { toast } from "sonner";
 // Removed unused imports: useEffect, useCallback, useRouter, PlusCircle, Search, Loader2, Button, Input, ProjectCard, listProjectsFromStorage, initializeStorage, Project, toast
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 import MediathekView from "@/components/mediathek/mediathek-view";
@@ -12,6 +14,7 @@ import Navbar from "@/components/layout/navbar";
 
 export default function DashboardPage() {
   // Removed router, project state, loading state, refresh counter, toast functions, effects, and handlers
+  // const router = useRouter();
 
   const [activeView, setActiveView] = useState<
     "projects" | "mediathek" | "analytics" | "profile" | "settings" // Added profile and settings

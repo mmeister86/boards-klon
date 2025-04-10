@@ -189,6 +189,7 @@ export function ParagraphBlock({
 
   const editor = useEditor({
     editable: !readOnly, // Control editability based on readOnly prop
+    immediatelyRender: false, // Add this line to prevent SSR hydration mismatch
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },

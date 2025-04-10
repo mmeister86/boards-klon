@@ -55,6 +55,8 @@ export default function Navbar({
     toggleAutoSave,
     lastSaved,
     currentProjectId,
+    setProjectJustDeleted,
+    setDeletedProjectTitle,
   } = useBlocksStore();
   const { user, supabase } = useSupabase();
   const [title, setTitle] = useState(projectTitle);
@@ -163,13 +165,26 @@ export default function Navbar({
       return;
     }
     try {
+      // Remember the title *before* deleting
+      const titleToDelete = title;
+
       // Lösche den Projektdatensatz aus der Datenbank
       const dbDeleted = await deleteProjectFromDatabase(currentProjectId);
       // Lösche die zugehörigen Dateien aus dem Storage
       const storageDeleted = await deleteProjectFromStorage(currentProjectId);
 
       if (dbDeleted || storageDeleted) {
-        // Bei erfolgreichem Löschen, navigiere zum Dashboard
+        // Speichere den Titel im Store
+        console.log("[Navbar] Setting deletedProjectTitle:", titleToDelete);
+        setDeletedProjectTitle(titleToDelete);
+
+        // Setze das Flag im Store
+        console.log(
+          "[Navbar] Deletion successful. Setting projectJustDeleted=true"
+        );
+        setProjectJustDeleted(true);
+        // Navigiere zum Dashboard ohne Query-Parameter
+        console.log("[Navbar] Redirecting to /dashboard");
         router.replace("/dashboard");
       } else {
         throw new Error("Failed to delete project");

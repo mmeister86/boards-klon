@@ -163,6 +163,7 @@ export function HeadingBlock({
   const editorRef = React.useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },

@@ -293,7 +293,7 @@ export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
   if (dropArea.blocks.length === 0) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground p-8">
-        <p className="text-sm">Drop blocks here</p>
+        <p className="text-sm">Lege deine Elemente hier ab</p>
       </div> // Add closing tag
     );
   }
