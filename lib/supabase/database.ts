@@ -294,3 +294,157 @@ export async function migrateMockProjectsToDatabase(mockProjects: Project[]): Pr
   }
 }
 
+/**
+ * Publish a board to make it publicly accessible
+ */
+export async function publishBoard(
+  projectId: string,
+  title: string,
+  authorName: string,
+  userId: string
+): Promise<boolean> {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not available")
+    return false
+  }
+
+  try {
+    const now = new Date().toISOString()
+
+    // Check if board is already published
+    const { data: existingBoard } = await supabase
+      .from("published_boards")
+      .select("id")
+      .eq("project_id", projectId)
+      .single()
+
+    if (existingBoard) {
+      // Update existing published board
+      const { error: updateError } = await supabase
+        .from("published_boards")
+        .update({
+          title,
+          author_name: authorName,
+          updated_at: now,
+          is_published: true
+        })
+        .eq("project_id", projectId)
+
+      if (updateError) {
+        console.error("Error updating published board:", updateError)
+        return false
+      }
+    } else {
+      // Create new published board
+      const { error: insertError } = await supabase
+        .from("published_boards")
+        .insert({
+          project_id: projectId,
+          title,
+          author_name: authorName,
+          user_id: userId,
+          published_at: now,
+          updated_at: now,
+          is_published: true
+        })
+
+      if (insertError) {
+        console.error("Error publishing board:", insertError)
+        return false
+      }
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error publishing board:", error)
+    return false
+  }
+}
+
+/**
+ * Unpublish a board to make it private
+ */
+export async function unpublishBoard(projectId: string): Promise<boolean> {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not available")
+    return false
+  }
+
+  try {
+    const { error } = await supabase
+      .from("published_boards")
+      .update({ is_published: false })
+      .eq("project_id", projectId)
+
+    if (error) {
+      console.error("Error unpublishing board:", error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error unpublishing board:", error)
+    return false
+  }
+}
+
+/**
+ * Get published board information
+ */
+export async function getPublishedBoard(projectId: string) {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not available")
+    return null
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("published_boards")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("is_published", true)
+      .single()
+
+    if (error) {
+      console.error("Error getting published board:", error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error getting published board:", error)
+    return null
+  }
+}
+
+/**
+ * List all published boards for a user
+ */
+export async function listPublishedBoards(userId: string) {
+  const supabase = getSupabase()
+  if (!supabase) {
+    console.error("Supabase client not available")
+    return []
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("published_boards")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+
+    if (error) {
+      console.error("Error listing published boards:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error listing published boards:", error)
+    return []
+  }
+}

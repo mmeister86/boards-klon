@@ -14,6 +14,12 @@ import {
   loadProjectFromStorage,
 } from "@/lib/supabase/storage";
 import type { ProjectData } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
+import {
+  publishBoard,
+  unpublishBoard,
+  getPublishedBoard,
+} from "@/lib/supabase/database";
 
 // Types for the store
 interface DragItem {
@@ -36,6 +42,9 @@ interface BlocksState {
   lastSaved: Date | null;
   projectJustDeleted: boolean;
   deletedProjectTitle: string | null;
+  isPublishing: boolean;
+  isPublished: boolean;
+  publishedUrl: string | null;
 
   // Block Actions
   addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => void;
@@ -89,6 +98,11 @@ interface BlocksState {
   triggerAutoSave: () => void;
   setProjectJustDeleted: (deleted: boolean) => void;
   setDeletedProjectTitle: (title: string | null) => void;
+
+  // Publishing Actions
+  publishBoard: () => Promise<boolean>;
+  unpublishBoard: () => Promise<boolean>;
+  checkPublishStatus: () => Promise<void>;
 }
 
 // Debounce helper function
@@ -103,6 +117,12 @@ function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
     timeout = setTimeout(() => func(...args), wait);
   };
 }
+
+// Create a singleton instance of the Supabase client
+const getSupabase = () => {
+  if (typeof window === "undefined") return null;
+  return createClient();
+};
 
 // Create the store
 export const useBlocksStore = create<BlocksState>((set, get) => {
@@ -150,6 +170,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     lastSaved: null,
     projectJustDeleted: false,
     deletedProjectTitle: null,
+    isPublishing: false,
+    isPublished: false,
+    publishedUrl: null,
 
     // Block Actions
     addBlock: (block, dropAreaId) => {
@@ -908,5 +931,104 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     // UI State Action Implementation
     setProjectJustDeleted: (deleted) => set({ projectJustDeleted: deleted }),
     setDeletedProjectTitle: (title) => set({ deletedProjectTitle: title }),
+
+    // Publishing Actions
+    publishBoard: async () => {
+      const { currentProjectId, currentProjectTitle, isPublishing } = get();
+
+      if (!currentProjectId || isPublishing) {
+        return false;
+      }
+
+      set({ isPublishing: true });
+
+      try {
+        // First save the current state
+        const saveSuccess = await get().saveProject(currentProjectTitle);
+        if (!saveSuccess) {
+          throw new Error("Failed to save project before publishing");
+        }
+
+        // Get the user info from Supabase
+        const supabase = getSupabase();
+        if (!supabase) {
+          throw new Error("Supabase client not available");
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error("User not authenticated");
+        }
+
+        // Publish the board
+        const success = await publishBoard(
+          currentProjectId,
+          currentProjectTitle,
+          user.user_metadata?.full_name || "Anonymous",
+          user.id
+        );
+
+        if (success) {
+          set({
+            isPublished: true,
+            publishedUrl: `/boards/${currentProjectId}`,
+          });
+        }
+
+        return success;
+      } catch (error) {
+        console.error("Error publishing board:", error);
+        return false;
+      } finally {
+        set({ isPublishing: false });
+      }
+    },
+
+    unpublishBoard: async () => {
+      const { currentProjectId, isPublishing } = get();
+
+      if (!currentProjectId || isPublishing) {
+        return false;
+      }
+
+      set({ isPublishing: true });
+
+      try {
+        const success = await unpublishBoard(currentProjectId);
+
+        if (success) {
+          set({
+            isPublished: false,
+            publishedUrl: null,
+          });
+        }
+
+        return success;
+      } catch (error) {
+        console.error("Error unpublishing board:", error);
+        return false;
+      } finally {
+        set({ isPublishing: false });
+      }
+    },
+
+    checkPublishStatus: async () => {
+      const { currentProjectId } = get();
+
+      if (!currentProjectId) {
+        return;
+      }
+
+      try {
+        const publishedBoard = await getPublishedBoard(currentProjectId);
+
+        set({
+          isPublished: !!publishedBoard?.is_published,
+          publishedUrl: publishedBoard?.is_published ? `/boards/${currentProjectId}` : null,
+        });
+      } catch (error) {
+        console.error("Error checking publish status:", error);
+      }
+    },
   };
 });

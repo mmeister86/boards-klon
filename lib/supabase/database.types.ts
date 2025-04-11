@@ -81,6 +81,38 @@ export interface Database {
           preview_url?: string | null
         }
       }
+      published_boards: {
+        Row: {
+          id: string
+          project_id: string
+          title: string
+          author_name: string
+          user_id: string
+          published_at: string
+          updated_at: string
+          is_published: boolean
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          title: string
+          author_name: string
+          user_id: string
+          published_at?: string
+          updated_at?: string
+          is_published?: boolean
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          title?: string
+          author_name?: string
+          user_id?: string
+          published_at?: string
+          updated_at?: string
+          is_published?: boolean
+        }
+      }
       // Add other tables as needed
     }
     Views: {

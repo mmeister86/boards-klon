@@ -27,6 +27,7 @@ export default function EditorPage() {
     setProjectTitle,
     isLoading,
     createNewProject,
+    checkPublishStatus,
   } = useBlocksStore();
 
   const searchParams = useSearchParams();
@@ -76,6 +77,8 @@ export default function EditorPage() {
             setError(`Failed to load project with ID: ${projectId}`);
           } else {
             console.log(`Successfully loaded project: ${projectId}`);
+            // Check publish status after loading project
+            await checkPublishStatus();
           }
         } else {
           // Create a new project manually when no projectId is provided

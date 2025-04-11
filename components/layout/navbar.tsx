@@ -57,6 +57,10 @@ export default function Navbar({
     currentProjectId,
     setProjectJustDeleted,
     setDeletedProjectTitle,
+    isPublished,
+    unpublishBoard,
+    publishBoard,
+    publishedUrl,
   } = useBlocksStore();
   const { user, supabase } = useSupabase();
   const [title, setTitle] = useState(projectTitle);
@@ -367,9 +371,49 @@ export default function Navbar({
                 variant="ghost"
                 size="sm"
                 className="flex items-center gap-1"
+                onClick={async () => {
+                  if (!user) {
+                    setError("Please sign in to publish your board");
+                    return;
+                  }
+
+                  try {
+                    if (isPublished) {
+                      const success = await unpublishBoard();
+                      if (success) {
+                        // Show success message
+                        setError("Board unpublished successfully");
+                        setTimeout(() => setError(null), 2000);
+                      } else {
+                        throw new Error("Failed to unpublish board");
+                      }
+                    } else {
+                      const success = await publishBoard();
+                      if (success) {
+                        // Show success message with URL
+                        setError(
+                          `Board published! URL: ${window.location.origin}${publishedUrl}`
+                        );
+                        setTimeout(() => setError(null), 5000);
+                      } else {
+                        throw new Error("Failed to publish board");
+                      }
+                    }
+                  } catch (error) {
+                    setError(
+                      error instanceof Error
+                        ? error.message
+                        : "Error publishing/unpublishing board"
+                    );
+                  }
+                }}
               >
-                <Share className="h-4 w-4" />
-                <span className="hidden sm:inline">Teilen</span>
+                <Share
+                  className={`h-4 w-4 ${isPublished ? "text-green-500" : ""}`}
+                />
+                <span className="hidden sm:inline">
+                  {isPublished ? "Veröffentlicht" : "Veröffentlichen"}
+                </span>
               </Button>
 
               {/* Export button */}
