@@ -1,3 +1,400 @@
+# .cursor/rules/cursor_rules.mdc
+
+```mdc
+---
+description: Guidelines for creating and maintaining Cursor rules to ensure consistency and effectiveness.
+globs: .cursor/rules/*.mdc
+alwaysApply: true
+---
+
+- **Required Rule Structure:**
+  \`\`\`markdown
+  ---
+  description: Clear, one-line description of what the rule enforces
+  globs: path/to/files/*.ext, other/path/**/*
+  alwaysApply: boolean
+  ---
+
+  - **Main Points in Bold**
+    - Sub-points with details
+    - Examples and explanations
+  \`\`\`
+
+- **File References:**
+  - Use `[filename](mdc:path/to/file)` ([filename](mdc:filename)) to reference files
+  - Example: [prisma.mdc](mdc:.cursor/rules/prisma.mdc) for rule references
+  - Example: [schema.prisma](mdc:prisma/schema.prisma) for code references
+
+- **Code Examples:**
+  - Use language-specific code blocks
+  \`\`\`typescript
+  // ✅ DO: Show good examples
+  const goodExample = true;
+  
+  // ❌ DON'T: Show anti-patterns
+  const badExample = false;
+  \`\`\`
+
+- **Rule Content Guidelines:**
+  - Start with high-level overview
+  - Include specific, actionable requirements
+  - Show examples of correct implementation
+  - Reference existing code when possible
+  - Keep rules DRY by referencing other rules
+
+- **Rule Maintenance:**
+  - Update rules when new patterns emerge
+  - Add examples from actual codebase
+  - Remove outdated patterns
+  - Cross-reference related rules
+
+- **Best Practices:**
+  - Use bullet points for clarity
+  - Keep descriptions concise
+  - Include both DO and DON'T examples
+  - Reference actual code over theoretical examples
+  - Use consistent formatting across rules 
+```
+
+# .cursor/rules/dev_workflow.mdc
+
+```mdc
+---
+description: Guide for using meta-development script (scripts/dev.js) to manage task-driven development workflows
+globs: **/*
+alwaysApply: true
+---
+
+- **Global CLI Commands**
+  - Task Master now provides a global CLI through the `task-master` command
+  - All functionality from `scripts/dev.js` is available through this interface
+  - Install globally with `npm install -g claude-task-master` or use locally via `npx`
+  - Use `task-master <command>` instead of `node scripts/dev.js <command>`
+  - Examples:
+    - `task-master list` instead of `node scripts/dev.js list`
+    - `task-master next` instead of `node scripts/dev.js next`
+    - `task-master expand --id=3` instead of `node scripts/dev.js expand --id=3`
+  - All commands accept the same options as their script equivalents
+  - The CLI provides additional commands like `task-master init` for project setup
+
+- **Development Workflow Process**
+  - Start new projects by running `task-master init` or `node scripts/dev.js parse-prd --input=<prd-file.txt>` to generate initial tasks.json
+  - Begin coding sessions with `task-master list` to see current tasks, status, and IDs
+  - Analyze task complexity with `task-master analyze-complexity --research` before breaking down tasks
+  - Select tasks based on dependencies (all marked 'done'), priority level, and ID order
+  - Clarify tasks by checking task files in tasks/ directory or asking for user input
+  - View specific task details using `task-master show <id>` to understand implementation requirements
+  - Break down complex tasks using `task-master expand --id=<id>` with appropriate flags
+  - Clear existing subtasks if needed using `task-master clear-subtasks --id=<id>` before regenerating
+  - Implement code following task details, dependencies, and project standards
+  - Verify tasks according to test strategies before marking as complete
+  - Mark completed tasks with `task-master set-status --id=<id> --status=done`
+  - Update dependent tasks when implementation differs from original plan
+  - Generate task files with `task-master generate` after updating tasks.json
+  - Maintain valid dependency structure with `task-master fix-dependencies` when needed
+  - Respect dependency chains and task priorities when selecting work
+  - Report progress regularly using the list command
+
+- **Task Complexity Analysis**
+  - Run `node scripts/dev.js analyze-complexity --research` for comprehensive analysis
+  - Review complexity report in scripts/task-complexity-report.json
+  - Or use `node scripts/dev.js complexity-report` for a formatted, readable version of the report
+  - Focus on tasks with highest complexity scores (8-10) for detailed breakdown
+  - Use analysis results to determine appropriate subtask allocation
+  - Note that reports are automatically used by the expand command
+
+- **Task Breakdown Process**
+  - For tasks with complexity analysis, use `node scripts/dev.js expand --id=<id>`
+  - Otherwise use `node scripts/dev.js expand --id=<id> --subtasks=<number>`
+  - Add `--research` flag to leverage Perplexity AI for research-backed expansion
+  - Use `--prompt="<context>"` to provide additional context when needed
+  - Review and adjust generated subtasks as necessary
+  - Use `--all` flag to expand multiple pending tasks at once
+  - If subtasks need regeneration, clear them first with `clear-subtasks` command
+
+- **Implementation Drift Handling**
+  - When implementation differs significantly from planned approach
+  - When future tasks need modification due to current implementation choices
+  - When new dependencies or requirements emerge
+  - Call `node scripts/dev.js update --from=<futureTaskId> --prompt="<explanation>"` to update tasks.json
+
+- **Task Status Management**
+  - Use 'pending' for tasks ready to be worked on
+  - Use 'done' for completed and verified tasks
+  - Use 'deferred' for postponed tasks
+  - Add custom status values as needed for project-specific workflows
+
+- **Task File Format Reference**
+  \`\`\`
+  # Task ID: <id>
+  # Title: <title>
+  # Status: <status>
+  # Dependencies: <comma-separated list of dependency IDs>
+  # Priority: <priority>
+  # Description: <brief description>
+  # Details:
+  <detailed implementation notes>
+  
+  # Test Strategy:
+  <verification approach>
+  \`\`\`
+
+- **Command Reference: parse-prd**
+  - Legacy Syntax: `node scripts/dev.js parse-prd --input=<prd-file.txt>`
+  - CLI Syntax: `task-master parse-prd --input=<prd-file.txt>`
+  - Description: Parses a PRD document and generates a tasks.json file with structured tasks
+  - Parameters: 
+    - `--input=<file>`: Path to the PRD text file (default: sample-prd.txt)
+  - Example: `task-master parse-prd --input=requirements.txt`
+  - Notes: Will overwrite existing tasks.json file. Use with caution.
+
+- **Command Reference: update**
+  - Legacy Syntax: `node scripts/dev.js update --from=<id> --prompt="<prompt>"`
+  - CLI Syntax: `task-master update --from=<id> --prompt="<prompt>"`
+  - Description: Updates tasks with ID >= specified ID based on the provided prompt
+  - Parameters:
+    - `--from=<id>`: Task ID from which to start updating (required)
+    - `--prompt="<text>"`: Explanation of changes or new context (required)
+  - Example: `task-master update --from=4 --prompt="Now we are using Express instead of Fastify."`
+  - Notes: Only updates tasks not marked as 'done'. Completed tasks remain unchanged.
+
+- **Command Reference: generate**
+  - Legacy Syntax: `node scripts/dev.js generate`
+  - CLI Syntax: `task-master generate`
+  - Description: Generates individual task files in tasks/ directory based on tasks.json
+  - Parameters: 
+    - `--file=<path>, -f`: Use alternative tasks.json file (default: 'tasks/tasks.json')
+    - `--output=<dir>, -o`: Output directory (default: 'tasks')
+  - Example: `task-master generate`
+  - Notes: Overwrites existing task files. Creates tasks/ directory if needed.
+
+- **Command Reference: set-status**
+  - Legacy Syntax: `node scripts/dev.js set-status --id=<id> --status=<status>`
+  - CLI Syntax: `task-master set-status --id=<id> --status=<status>`
+  - Description: Updates the status of a specific task in tasks.json
+  - Parameters:
+    - `--id=<id>`: ID of the task to update (required)
+    - `--status=<status>`: New status value (required)
+  - Example: `task-master set-status --id=3 --status=done`
+  - Notes: Common values are 'done', 'pending', and 'deferred', but any string is accepted.
+
+- **Command Reference: list**
+  - Legacy Syntax: `node scripts/dev.js list`
+  - CLI Syntax: `task-master list`
+  - Description: Lists all tasks in tasks.json with IDs, titles, and status
+  - Parameters: 
+    - `--status=<status>, -s`: Filter by status
+    - `--with-subtasks`: Show subtasks for each task
+    - `--file=<path>, -f`: Use alternative tasks.json file (default: 'tasks/tasks.json')
+  - Example: `task-master list`
+  - Notes: Provides quick overview of project progress. Use at start of sessions.
+
+- **Command Reference: expand**
+  - Legacy Syntax: `node scripts/dev.js expand --id=<id> [--num=<number>] [--research] [--prompt="<context>"]`
+  - CLI Syntax: `task-master expand --id=<id> [--num=<number>] [--research] [--prompt="<context>"]`
+  - Description: Expands a task with subtasks for detailed implementation
+  - Parameters:
+    - `--id=<id>`: ID of task to expand (required unless using --all)
+    - `--all`: Expand all pending tasks, prioritized by complexity
+    - `--num=<number>`: Number of subtasks to generate (default: from complexity report)
+    - `--research`: Use Perplexity AI for research-backed generation
+    - `--prompt="<text>"`: Additional context for subtask generation
+    - `--force`: Regenerate subtasks even for tasks that already have them
+  - Example: `task-master expand --id=3 --num=5 --research --prompt="Focus on security aspects"`
+  - Notes: Uses complexity report recommendations if available.
+
+- **Command Reference: analyze-complexity**
+  - Legacy Syntax: `node scripts/dev.js analyze-complexity [options]`
+  - CLI Syntax: `task-master analyze-complexity [options]`
+  - Description: Analyzes task complexity and generates expansion recommendations
+  - Parameters:
+    - `--output=<file>, -o`: Output file path (default: scripts/task-complexity-report.json)
+    - `--model=<model>, -m`: Override LLM model to use
+    - `--threshold=<number>, -t`: Minimum score for expansion recommendation (default: 5)
+    - `--file=<path>, -f`: Use alternative tasks.json file
+    - `--research, -r`: Use Perplexity AI for research-backed analysis
+  - Example: `task-master analyze-complexity --research`
+  - Notes: Report includes complexity scores, recommended subtasks, and tailored prompts.
+
+- **Command Reference: clear-subtasks**
+  - Legacy Syntax: `node scripts/dev.js clear-subtasks --id=<id>`
+  - CLI Syntax: `task-master clear-subtasks --id=<id>`
+  - Description: Removes subtasks from specified tasks to allow regeneration
+  - Parameters:
+    - `--id=<id>`: ID or comma-separated IDs of tasks to clear subtasks from
+    - `--all`: Clear subtasks from all tasks
+  - Examples:
+    - `task-master clear-subtasks --id=3`
+    - `task-master clear-subtasks --id=1,2,3`
+    - `task-master clear-subtasks --all`
+  - Notes: 
+    - Task files are automatically regenerated after clearing subtasks
+    - Can be combined with expand command to immediately generate new subtasks
+    - Works with both parent tasks and individual subtasks
+
+- **Task Structure Fields**
+  - **id**: Unique identifier for the task (Example: `1`)
+  - **title**: Brief, descriptive title (Example: `"Initialize Repo"`)
+  - **description**: Concise summary of what the task involves (Example: `"Create a new repository, set up initial structure."`)
+  - **status**: Current state of the task (Example: `"pending"`, `"done"`, `"deferred"`)
+  - **dependencies**: IDs of prerequisite tasks (Example: `[1, 2]`)
+    - Dependencies are displayed with status indicators (✅ for completed, ⏱️ for pending)
+    - This helps quickly identify which prerequisite tasks are blocking work
+  - **priority**: Importance level (Example: `"high"`, `"medium"`, `"low"`)
+  - **details**: In-depth implementation instructions (Example: `"Use GitHub client ID/secret, handle callback, set session token."`)
+  - **testStrategy**: Verification approach (Example: `"Deploy and call endpoint to confirm 'Hello World' response."`)
+  - **subtasks**: List of smaller, more specific tasks (Example: `[{"id": 1, "title": "Configure OAuth", ...}]`)
+
+- **Environment Variables Configuration**
+  - **ANTHROPIC_API_KEY** (Required): Your Anthropic API key for Claude (Example: `ANTHROPIC_API_KEY=sk-ant-api03-...`)
+  - **MODEL** (Default: `"claude-3-7-sonnet-20250219"`): Claude model to use (Example: `MODEL=claude-3-opus-20240229`)
+  - **MAX_TOKENS** (Default: `"4000"`): Maximum tokens for responses (Example: `MAX_TOKENS=8000`)
+  - **TEMPERATURE** (Default: `"0.7"`): Temperature for model responses (Example: `TEMPERATURE=0.5`)
+  - **DEBUG** (Default: `"false"`): Enable debug logging (Example: `DEBUG=true`)
+  - **LOG_LEVEL** (Default: `"info"`): Console output level (Example: `LOG_LEVEL=debug`)
+  - **DEFAULT_SUBTASKS** (Default: `"3"`): Default subtask count (Example: `DEFAULT_SUBTASKS=5`)
+  - **DEFAULT_PRIORITY** (Default: `"medium"`): Default priority (Example: `DEFAULT_PRIORITY=high`)
+  - **PROJECT_NAME** (Default: `"MCP SaaS MVP"`): Project name in metadata (Example: `PROJECT_NAME=My Awesome Project`)
+  - **PROJECT_VERSION** (Default: `"1.0.0"`): Version in metadata (Example: `PROJECT_VERSION=2.1.0`)
+  - **PERPLEXITY_API_KEY**: For research-backed features (Example: `PERPLEXITY_API_KEY=pplx-...`)
+  - **PERPLEXITY_MODEL** (Default: `"sonar-medium-online"`): Perplexity model (Example: `PERPLEXITY_MODEL=sonar-large-online`)
+
+- **Determining the Next Task**
+  - Run `task-master next` to show the next task to work on
+  - The next command identifies tasks with all dependencies satisfied
+  - Tasks are prioritized by priority level, dependency count, and ID
+  - The command shows comprehensive task information including:
+    - Basic task details and description
+    - Implementation details
+    - Subtasks (if they exist)
+    - Contextual suggested actions
+  - Recommended before starting any new development work
+  - Respects your project's dependency structure
+  - Ensures tasks are completed in the appropriate sequence
+  - Provides ready-to-use commands for common task actions
+
+- **Viewing Specific Task Details**
+  - Run `task-master show <id>` or `task-master show --id=<id>` to view a specific task
+  - Use dot notation for subtasks: `task-master show 1.2` (shows subtask 2 of task 1)
+  - Displays comprehensive information similar to the next command, but for a specific task
+  - For parent tasks, shows all subtasks and their current status
+  - For subtasks, shows parent task information and relationship
+  - Provides contextual suggested actions appropriate for the specific task
+  - Useful for examining task details before implementation or checking status
+
+- **Managing Task Dependencies**
+  - Use `task-master add-dependency --id=<id> --depends-on=<id>` to add a dependency
+  - Use `task-master remove-dependency --id=<id> --depends-on=<id>` to remove a dependency
+  - The system prevents circular dependencies and duplicate dependency entries
+  - Dependencies are checked for existence before being added or removed
+  - Task files are automatically regenerated after dependency changes
+  - Dependencies are visualized with status indicators in task listings and files
+
+- **Command Reference: add-dependency**
+  - Legacy Syntax: `node scripts/dev.js add-dependency --id=<id> --depends-on=<id>`
+  - CLI Syntax: `task-master add-dependency --id=<id> --depends-on=<id>`
+  - Description: Adds a dependency relationship between two tasks
+  - Parameters:
+    - `--id=<id>`: ID of task that will depend on another task (required)
+    - `--depends-on=<id>`: ID of task that will become a dependency (required)
+  - Example: `task-master add-dependency --id=22 --depends-on=21`
+  - Notes: Prevents circular dependencies and duplicates; updates task files automatically
+
+- **Command Reference: remove-dependency**
+  - Legacy Syntax: `node scripts/dev.js remove-dependency --id=<id> --depends-on=<id>`
+  - CLI Syntax: `task-master remove-dependency --id=<id> --depends-on=<id>`
+  - Description: Removes a dependency relationship between two tasks
+  - Parameters:
+    - `--id=<id>`: ID of task to remove dependency from (required)
+    - `--depends-on=<id>`: ID of task to remove as a dependency (required)
+  - Example: `task-master remove-dependency --id=22 --depends-on=21`
+  - Notes: Checks if dependency actually exists; updates task files automatically
+
+- **Command Reference: validate-dependencies**
+  - Legacy Syntax: `node scripts/dev.js validate-dependencies [options]`
+  - CLI Syntax: `task-master validate-dependencies [options]`
+  - Description: Checks for and identifies invalid dependencies in tasks.json and task files
+  - Parameters:
+    - `--file=<path>, -f`: Use alternative tasks.json file (default: 'tasks/tasks.json')
+  - Example: `task-master validate-dependencies`
+  - Notes: 
+    - Reports all non-existent dependencies and self-dependencies without modifying files
+    - Provides detailed statistics on task dependency state
+    - Use before fix-dependencies to audit your task structure
+
+- **Command Reference: fix-dependencies**
+  - Legacy Syntax: `node scripts/dev.js fix-dependencies [options]`
+  - CLI Syntax: `task-master fix-dependencies [options]`
+  - Description: Finds and fixes all invalid dependencies in tasks.json and task files
+  - Parameters:
+    - `--file=<path>, -f`: Use alternative tasks.json file (default: 'tasks/tasks.json')
+  - Example: `task-master fix-dependencies`
+  - Notes: 
+    - Removes references to non-existent tasks and subtasks
+    - Eliminates self-dependencies (tasks depending on themselves)
+    - Regenerates task files with corrected dependencies
+    - Provides detailed report of all fixes made
+
+- **Command Reference: complexity-report**
+  - Legacy Syntax: `node scripts/dev.js complexity-report [options]`
+  - CLI Syntax: `task-master complexity-report [options]`
+  - Description: Displays the task complexity analysis report in a formatted, easy-to-read way
+  - Parameters:
+    - `--file=<path>, -f`: Path to the complexity report file (default: 'scripts/task-complexity-report.json')
+  - Example: `task-master complexity-report`
+  - Notes: 
+    - Shows tasks organized by complexity score with recommended actions
+    - Provides complexity distribution statistics
+    - Displays ready-to-use expansion commands for complex tasks
+    - If no report exists, offers to generate one interactively
+
+- **Command Reference: add-task**
+  - CLI Syntax: `task-master add-task [options]`
+  - Description: Add a new task to tasks.json using AI
+  - Parameters:
+    - `--file=<path>, -f`: Path to the tasks file (default: 'tasks/tasks.json')
+    - `--prompt=<text>, -p`: Description of the task to add (required)
+    - `--dependencies=<ids>, -d`: Comma-separated list of task IDs this task depends on
+    - `--priority=<priority>`: Task priority (high, medium, low) (default: 'medium')
+  - Example: `task-master add-task --prompt="Create user authentication using Auth0"`
+  - Notes: Uses AI to convert description into structured task with appropriate details
+
+- **Command Reference: init**
+  - CLI Syntax: `task-master init`
+  - Description: Initialize a new project with Task Master structure
+  - Parameters: None
+  - Example: `task-master init`
+  - Notes: 
+    - Creates initial project structure with required files
+    - Prompts for project settings if not provided
+    - Merges with existing files when appropriate
+    - Can be used to bootstrap a new Task Master project quickly
+
+- **Code Analysis & Refactoring Techniques**
+  - **Top-Level Function Search**
+    - Use grep pattern matching to find all exported functions across the codebase
+    - Command: `grep -E "export (function|const) \w+|function \w+\(|const \w+ = \(|module\.exports" --include="*.js" -r ./`
+    - Benefits:
+      - Quickly identify all public API functions without reading implementation details
+      - Compare functions between files during refactoring (e.g., monolithic to modular structure)
+      - Verify all expected functions exist in refactored modules
+      - Identify duplicate functionality or naming conflicts
+    - Usage examples:
+      - When migrating from `scripts/dev.js` to modular structure: `grep -E "function \w+\(" scripts/dev.js`
+      - Check function exports in a directory: `grep -E "export (function|const)" scripts/modules/`
+      - Find potential naming conflicts: `grep -E "function (get|set|create|update)\w+\(" -r ./`
+    - Variations:
+      - Add `-n` flag to include line numbers
+      - Add `--include="*.ts"` to filter by file extension
+      - Use with `| sort` to alphabetize results
+    - Integration with refactoring workflow:
+      - Start by mapping all functions in the source file
+      - Create target module files based on function grouping
+      - Verify all functions were properly migrated
+      - Check for any unintentional duplications or omissions
+
+```
+
 # .cursor/rules/memory-bank.mdc
 
 ```mdc
@@ -166,6 +563,84 @@ When asked to enter "Planner Mode" or using the /plan command, deeply reflect up
 
 ```
 
+# .cursor/rules/self_improve.mdc
+
+```mdc
+---
+description: Guidelines for continuously improving Cursor rules based on emerging code patterns and best practices.
+globs: **/*
+alwaysApply: true
+---
+
+- **Rule Improvement Triggers:**
+  - New code patterns not covered by existing rules
+  - Repeated similar implementations across files
+  - Common error patterns that could be prevented
+  - New libraries or tools being used consistently
+  - Emerging best practices in the codebase
+
+- **Analysis Process:**
+  - Compare new code with existing rules
+  - Identify patterns that should be standardized
+  - Look for references to external documentation
+  - Check for consistent error handling patterns
+  - Monitor test patterns and coverage
+
+- **Rule Updates:**
+  - **Add New Rules When:**
+    - A new technology/pattern is used in 3+ files
+    - Common bugs could be prevented by a rule
+    - Code reviews repeatedly mention the same feedback
+    - New security or performance patterns emerge
+
+  - **Modify Existing Rules When:**
+    - Better examples exist in the codebase
+    - Additional edge cases are discovered
+    - Related rules have been updated
+    - Implementation details have changed
+
+- **Example Pattern Recognition:**
+  \`\`\`typescript
+  // If you see repeated patterns like:
+  const data = await prisma.user.findMany({
+    select: { id: true, email: true },
+    where: { status: 'ACTIVE' }
+  });
+  
+  // Consider adding to [prisma.mdc](mdc:.cursor/rules/prisma.mdc):
+  // - Standard select fields
+  // - Common where conditions
+  // - Performance optimization patterns
+  \`\`\`
+
+- **Rule Quality Checks:**
+  - Rules should be actionable and specific
+  - Examples should come from actual code
+  - References should be up to date
+  - Patterns should be consistently enforced
+
+- **Continuous Improvement:**
+  - Monitor code review comments
+  - Track common development questions
+  - Update rules after major refactors
+  - Add links to relevant documentation
+  - Cross-reference related rules
+
+- **Rule Deprecation:**
+  - Mark outdated patterns as deprecated
+  - Remove rules that no longer apply
+  - Update references to deprecated rules
+  - Document migration paths for old patterns
+
+- **Documentation Updates:**
+  - Keep examples synchronized with code
+  - Update references to external docs
+  - Maintain links between related rules
+  - Document breaking changes
+
+Follow [cursor_rules.mdc](mdc:.cursor/rules/cursor_rules.mdc) for proper rule formatting and structure.
+```
+
 # .eslintrc.json
 
 ```json
@@ -216,6 +691,27 @@ yarn-error.log*
 next-env.d.ts
 .npmrc
 
+# Added by Claude Task Master
+# Logs
+logs
+*.log
+dev-debug.log
+# Dependency directories
+node_modules/
+# Environment variables
+.env
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+# Task files
+tasks.json
+tasks/ 
 ```
 
 # .npmrc
@@ -224,6 +720,23 @@ next-env.d.ts
 @tiptap-pro:registry=https://registry.tiptap.dev/
 //registry.tiptap.dev/:_authToken=dgsjY1qVjclcBWt3SW/etLDGprRjY//itu0mqZX5Z2whJxsCP4mdxQDS9KVVa4XlUUjzKSd+h64CRfgqQtKmJA==
 
+```
+
+# .roomodes
+
+```
+{
+  "customModes": [
+    {
+      "slug": "boomerang-mode",
+      "name": "Boomerang Mode",
+      "roleDefinition": "You are Roo, a strategic workflow orchestrator who coordinates complex tasks by delegating them to appropriate specialized modes. You have a comprehensive understanding of each mode's capabilities and limitations, allowing you to effectively break down complex problems into discrete tasks that can be solved by different specialists.",
+      "customInstructions": "Your role is to coordinate complex workflows by delegating tasks to specialized modes. As an orchestrator, you should:\n\n1. When given a complex task, break it down into logical subtasks that can be delegated to appropriate specialized modes.\n\n2. For each subtask, use the `new_task` tool to delegate. Choose the most appropriate mode for the subtask's specific goal and provide comprehensive instructions in the `message` parameter. These instructions must include:\n    *   All necessary context from the parent task or previous subtasks required to complete the work.\n    *   A clearly defined scope, specifying exactly what the subtask should accomplish.\n    *   An explicit statement that the subtask should *only* perform the work outlined in these instructions and not deviate.\n    *   An instruction for the subtask to signal completion by using the `attempt_completion` tool, providing a concise yet thorough summary of the outcome in the `result` parameter, keeping in mind that this summary will be the source of truth used to keep track of what was completed on this project. \n    *   A statement that these specific instructions supersede any conflicting general instructions the subtask's mode might have.\n\n3. Track and manage the progress of all subtasks. When a subtask is completed, analyze its results and determine the next steps.\n\n4. Help the user understand how the different subtasks fit together in the overall workflow. Provide clear reasoning about why you're delegating specific tasks to specific modes.\n\n5. When all subtasks are completed, synthesize the results and provide a comprehensive overview of what was accomplished.\n\n6. Ask clarifying questions when necessary to better understand how to break down complex tasks effectively.\n\n7. Suggest improvements to the workflow based on the results of completed subtasks.\n\nUse subtasks to maintain clarity. If a request significantly shifts focus or requires a different expertise (mode), consider creating a subtask rather than overloading the current one.",
+      "groups": [],
+      "source": "global"
+    }
+  ]
+}
 ```
 
 # .supabase/config.json
@@ -284,7 +797,7 @@ import { redirect } from "next/navigation"
 export async function signIn(formData: FormData) {
   const supabase = createServerClient()
   const email = formData.get("email") as string
-  
+
   // Request magic link via email
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -327,7 +840,34 @@ export async function signOut() {
   await supabase.auth.signOut()
   return redirect("/")
 }
+// Sign in/up with OAuth provider
+export async function signInWithProvider(provider: "google" | "apple") {
+  const supabase = createServerClient()
+  const redirectURL = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`
 
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: redirectURL,
+    },
+  })
+
+  if (error) {
+    console.error("OAuth sign-in error:", error)
+    // Redirecting to sign-in page with error is tricky in server actions
+    // Best handled client-side or by redirecting with a query param
+    // For now, just redirecting back to sign-in might be okay,
+    // but ideally, we'd show an error message.
+    return redirect("/sign-in?error=OAuth sign-in failed")
+  }
+
+  if (data.url) {
+    return redirect(data.url) // Redirect the user to the provider's authentication page
+  }
+
+  // Fallback redirect if no URL is returned (should not happen in normal flow)
+  return redirect("/sign-in?error=Could not initiate OAuth sign-in")
+}
 
 ```
 
@@ -390,6 +930,8 @@ export default function Loading() {
 "use client";
 
 import { useState } from "react";
+// import { useRouter } from "next/navigation";
+// import { toast } from "sonner";
 // Removed unused imports: useEffect, useCallback, useRouter, PlusCircle, Search, Loader2, Button, Input, ProjectCard, listProjectsFromStorage, initializeStorage, Project, toast
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 import MediathekView from "@/components/mediathek/mediathek-view";
@@ -401,6 +943,7 @@ import Navbar from "@/components/layout/navbar";
 
 export default function DashboardPage() {
   // Removed router, project state, loading state, refresh counter, toast functions, effects, and handlers
+  // const router = useRouter();
 
   const [activeView, setActiveView] = useState<
     "projects" | "mediathek" | "analytics" | "profile" | "settings" // Added profile and settings
@@ -1958,217 +2501,6 @@ export default function AnalyticsView() {
 
 ```
 
-# components/auth-modal.tsx
-
-```tsx
-"use client";
-
-import type React from "react";
-
-import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useSupabase } from "@/components/providers/supabase-provider";
-import { Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-// Router navigation handled by component methods
-
-interface AuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  initialMode: "signin" | "signup";
-}
-
-export default function AuthModal({
-  isOpen,
-  onClose,
-  initialMode,
-}: AuthModalProps) {
-  // Using the router for navigation is handled in component methods
-  const { supabase } = useSupabase();
-  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
-  const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setError(null);
-      setSuccess(null);
-      setEmail("");
-    }
-  }, [isOpen]);
-
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Request magic link for sign in
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        setSuccess(
-          "Magischer Link gesendet! Überprüfen Sie Ihre E-Mail, um sich anzumelden"
-        );
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Use magic link for signup
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        setSuccess(
-          "Magischer Link gesendet! Überprüfen Sie Ihre E-Mail, um die Registrierung abzuschließen"
-        );
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "signin" ? "Anmelden" : "Registrieren"}
-          </DialogTitle>
-        </DialogHeader>
-        <Tabs
-          value={mode}
-          onValueChange={(value) => setMode(value as "signin" | "signup")}
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">Anmelden</TabsTrigger>
-            <TabsTrigger value="signup">Registrieren</TabsTrigger>
-          </TabsList>
-          <TabsContent value="signin">
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-Mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="ihre@email.de"
-                  value={email}
-                  onChange={handleEmailChange}
-                  required
-                />
-              </div>
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              {success && (
-                <Alert>
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Wird gesendet...
-                  </>
-                ) : (
-                  "Anmelden"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
-          <TabsContent value="signup">
-            <form onSubmit={handleSignUp} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-Mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="ihre@email.de"
-                  value={email}
-                  onChange={handleEmailChange}
-                  required
-                />
-              </div>
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              {success && (
-                <Alert>
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Wird gesendet...
-                  </>
-                ) : (
-                  "Registrieren"
-                )}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-```
-
 # components/auth/auth-form.tsx
 
 ```tsx
@@ -2441,6 +2773,228 @@ export function UserAuthButton() {
 
 ```
 
+# components/blocks/audio-block.tsx
+
+```tsx
+"use client";
+
+import { useRef, useState } from "react";
+import { useDrag } from "react-dnd";
+import { ItemTypes } from "@/lib/item-types";
+import { Music } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
+interface AudioBlockProps {
+  blockId: string;
+  dropAreaId: string;
+  content: string; // URL to the audio file
+  isSelected?: boolean;
+  onSelect?: () => void;
+}
+
+export function AudioBlock({
+  blockId,
+  dropAreaId,
+  content,
+  isSelected,
+  onSelect,
+}: AudioBlockProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [duration, setDuration] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.EXISTING_BLOCK,
+    item: {
+      id: blockId,
+      type: "audio",
+      content,
+      sourceDropAreaId: dropAreaId,
+    },
+    collect: (monitor) => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  });
+
+  // Connect the drag ref
+  drag(dragRef);
+
+  // Extract filename from URL if not provided, then sanitize it
+  const rawFileName = content.split("/").pop() || "Audio File";
+  const displayFileName = sanitizeFilename(rawFileName);
+
+  const handlePlayPause = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleLoadedData = () => {
+    setIsLoading(false);
+    setError(null);
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleError = () => {
+    setIsLoading(false);
+    setError("Failed to load audio");
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  return (
+    <div
+      ref={dragRef}
+      className={cn(
+        "group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md",
+        isDragging && "opacity-50",
+        isSelected && "ring-2 ring-blue-500"
+      )}
+      onClick={onSelect}
+    >
+      {isLoading && (
+        <div className="flex h-24 items-center justify-center bg-gray-100">
+          <Music className="h-8 w-8 animate-pulse text-gray-400" />
+        </div>
+      )}
+
+      {error && (
+        <div className="flex h-24 items-center justify-center bg-red-50 text-red-500">
+          <Music className="mr-2 h-6 w-6" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className={cn("space-y-2", (isLoading || error) && "hidden")}>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handlePlayPause}
+            className="rounded-full bg-gray-100 p-3 text-gray-900 hover:bg-gray-200"
+          >
+            {isPlaying ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 9v6m4-6v6"
+                />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                />
+              </svg>
+            )}
+          </button>
+
+          <div className="flex-1">
+            <input
+              type="range"
+              min={0}
+              max={duration}
+              value={currentTime}
+              onChange={(e) => {
+                const time = parseFloat(e.target.value);
+                if (audioRef.current) {
+                  audioRef.current.currentTime = time;
+                  setCurrentTime(time);
+                }
+              }}
+              className="w-full"
+            />
+            <div className="flex justify-between text-sm text-gray-500">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Display the sanitized filename */}
+        <p
+          className="mt-2 text-center text-sm text-gray-600 truncate"
+          title={displayFileName}
+        >
+          {displayFileName}
+        </p>
+
+        <audio
+          ref={audioRef}
+          src={content}
+          onLoadedData={handleLoadedData}
+          onTimeUpdate={handleTimeUpdate}
+          onError={handleError}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => setIsPlaying(false)}
+          className="hidden"
+        />
+      </div>
+    </div>
+  );
+}
+
+```
+
 # components/blocks/canvas-block.tsx
 
 ```tsx
@@ -2455,7 +3009,9 @@ import { Trash2, Move } from "@/lib/icons"; // Removed Split import
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
 import { ParagraphBlock } from "./paragraph-block";
 import { ImageBlock } from "./image-block"; // Import the new component
-import { getBlockStyle } from "@/lib/utils/block-utils";
+import { VideoBlock } from "./video-block";
+import { AudioBlock } from "./audio-block";
+import { DocumentBlock } from "./document-block";
 import React from "react";
 
 interface CanvasBlockProps {
@@ -2589,7 +3145,6 @@ interface BlockContentProps {
 
 function BlockContent({ block, viewport }: BlockContentProps) {
   const { updateBlockContent } = useBlocksStore();
-  const blockStyle = getBlockStyle(block, viewport);
 
   const handleHeadingChange = (data: { level: number; content: string }) => {
     // Ensure the level is valid before updating
@@ -2637,8 +3192,39 @@ function BlockContent({ block, viewport }: BlockContentProps) {
       <ImageBlock
         blockId={block.id}
         dropAreaId={block.dropAreaId}
-        content={block.content} // Pass the URL (or null)
-        altText={block.altText} // Pass alt text
+        content={block.content}
+        altText={block.altText}
+      />
+    );
+  }
+
+  if (block.type === "video") {
+    return (
+      <VideoBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+      />
+    );
+  }
+
+  if (block.type === "audio") {
+    return (
+      <AudioBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+      />
+    );
+  }
+
+  if (block.type === "document") {
+    return (
+      <DocumentBlock
+        blockId={block.id}
+        dropAreaId={block.dropAreaId}
+        content={block.content}
+        fileName={block.fileName}
       />
     );
   }
@@ -2654,8 +3240,114 @@ function BlockContent({ block, viewport }: BlockContentProps) {
     );
   }
 
-  // Default for other block types
-  return <div className={blockStyle}>{block.content}</div>;
+  // Default fallback
+  return (
+    <div className="p-4 bg-red-50 text-red-500 rounded">
+      Unknown block type: {block.type}
+    </div>
+  );
+}
+
+```
+
+# components/blocks/document-block.tsx
+
+```tsx
+"use client";
+
+import { useRef } from "react";
+import { useDrag } from "react-dnd";
+import { ItemTypes } from "@/lib/item-types";
+import { FileText, ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
+interface DocumentBlockProps {
+  blockId: string;
+  dropAreaId: string;
+  content: string; // URL to the document
+  fileName?: string;
+  isSelected?: boolean;
+  onSelect?: () => void;
+}
+
+export function DocumentBlock({
+  blockId,
+  dropAreaId,
+  content,
+  fileName,
+  isSelected,
+  onSelect,
+}: DocumentBlockProps) {
+  const dragRef = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.EXISTING_BLOCK,
+    item: {
+      id: blockId,
+      type: "document",
+      content,
+      sourceDropAreaId: dropAreaId,
+    },
+    collect: (monitor) => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  });
+
+  // Connect the drag ref
+  drag(dragRef);
+
+  // Extract filename from URL if not provided, then sanitize it
+  const rawDisplayName = fileName || content.split("/").pop() || "Document";
+  const displayName = sanitizeFilename(rawDisplayName);
+
+  return (
+    <div
+      ref={dragRef}
+      className={cn(
+        "group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md",
+        isDragging && "opacity-50",
+        isSelected && "ring-2 ring-blue-500"
+      )}
+      onClick={onSelect}
+    >
+      <a
+        href={content}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center space-x-3 text-gray-700 hover:text-gray-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <FileText className="h-8 w-8 flex-shrink-0 text-gray-400" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{displayName}</p>
+          <p className="text-xs text-gray-500">Click to open</p>
+        </div>
+        <ExternalLink className="h-5 w-5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </a>
+    </div>
+  );
 }
 
 ```
@@ -2671,7 +3363,7 @@ import type { LucideIcon } from "lucide-react";
 
 interface DraggableBlockProps {
   type: string;
-  content: string;
+  content: string | null;
   icon: LucideIcon;
   description: string;
 }
@@ -2885,6 +3577,7 @@ export function HeadingBlock({
   const editorRef = React.useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
@@ -2984,6 +3677,29 @@ import { useRouter } from "next/navigation";
 import { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
 
+// --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen (kopiert aus storage.ts) ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
 // Special value to indicate an empty image block
 const EMPTY_IMAGE_BLOCK = "__EMPTY_IMAGE_BLOCK__";
 
@@ -3004,7 +3720,11 @@ async function uploadImageToStorage(
   console.log(`Uploading file: ${file.name}`);
   if (!supabaseClient) throw new Error("Supabase client not available");
 
-  const filePath = `${userId}/${Date.now()}-${file.name}`; // Include userId in path
+  // --- MODIFIZIERT: Dateinamen bereinigen ---
+  const sanitizedFileName = sanitizeFilename(file.name);
+  const filePath = `${userId}/${Date.now()}-${sanitizedFileName}`; // Bereinigten Namen verwenden
+
+  console.log(`Sanitized path for upload: ${filePath}`); // Logging hinzugefügt
 
   try {
     // Upload file to storage
@@ -3659,6 +4379,7 @@ export function ParagraphBlock({
 
   const editor = useEditor({
     editable: !readOnly, // Control editability based on readOnly prop
+    immediatelyRender: false, // Add this line to prevent SSR hydration mismatch
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
@@ -3796,6 +4517,198 @@ export function ParagraphBlock({
           dangerouslySetInnerHTML={{ __html: content }}
         />
       )}
+    </div>
+  );
+}
+
+```
+
+# components/blocks/video-block.tsx
+
+```tsx
+"use client";
+
+import { useRef, useState } from "react";
+import { useDrag } from "react-dnd";
+import { ItemTypes } from "@/lib/item-types";
+import { Film } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// --- Hilfsfunktion zum Bereinigen von Dateinamen (für zukünftige Upload-Logik) ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
+interface VideoBlockProps {
+  blockId: string;
+  dropAreaId: string;
+  content: string; // URL to the video
+  isSelected?: boolean;
+  onSelect?: () => void;
+}
+
+export function VideoBlock({
+  blockId,
+  dropAreaId,
+  content,
+  isSelected,
+  onSelect,
+}: VideoBlockProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.EXISTING_BLOCK,
+    item: {
+      id: blockId,
+      type: "video",
+      content,
+      sourceDropAreaId: dropAreaId,
+    },
+    collect: (monitor) => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  });
+
+  // Connect the drag ref
+  drag(dragRef);
+
+  // Extract filename from URL if not provided, then sanitize it
+  const rawFileName = content.split("/").pop() || "Video File";
+  const displayFileName = sanitizeFilename(rawFileName); // Use the function
+
+  const handlePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleLoadedData = () => {
+    setIsLoading(false);
+    setError(null);
+  };
+
+  const handleError = () => {
+    setIsLoading(false);
+    setError("Failed to load video");
+  };
+
+  return (
+    <div
+      ref={dragRef}
+      className={cn(
+        "group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md",
+        isDragging && "opacity-50",
+        isSelected && "ring-2 ring-blue-500"
+      )}
+      onClick={onSelect}
+    >
+      {isLoading && (
+        <div className="flex h-48 items-center justify-center bg-gray-100">
+          <Film className="h-8 w-8 animate-pulse text-gray-400" />
+        </div>
+      )}
+
+      {error && (
+        <div className="flex h-48 items-center justify-center bg-red-50 text-red-500">
+          <Film className="mr-2 h-6 w-6" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <video
+        ref={videoRef}
+        src={content}
+        className={cn(
+          "w-full rounded-md",
+          isLoading && "hidden",
+          error && "hidden"
+        )}
+        controls
+        onLoadedData={handleLoadedData}
+        onError={handleError}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
+
+      {/* Display the sanitized filename */}
+      <p
+        className="mt-2 text-center text-sm text-gray-600 truncate"
+        title={displayFileName}
+      >
+        {displayFileName}
+      </p>
+
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity",
+          "group-hover:opacity-100",
+          (isLoading || error) && "hidden"
+        )}
+      >
+        <button
+          onClick={handlePlayPause}
+          className="rounded-full bg-white p-3 text-gray-900 shadow-lg hover:bg-gray-100"
+        >
+          {isPlaying ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 9v6m4-6v6"
+              />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -4353,34 +5266,43 @@ export function CustomDragLayer() {
 # components/canvas/drop-area.tsx
 
 ```tsx
-"use client"
+"use client";
 
-import { useDrop } from "react-dnd"
-import { useState } from "react"
-import { ItemTypes } from "@/lib/item-types"
-import { useBlocksStore } from "@/store/blocks-store"
-import type { DropAreaType } from "@/lib/types"
-import type { ViewportType } from "@/lib/hooks/use-viewport"
-import { CanvasBlock } from "@/components/blocks/canvas-block"
-import { SquareSplitHorizontalIcon as SplitHorizontal } from "lucide-react"
+import { useDrop } from "react-dnd";
+import { useState } from "react";
+import { ItemTypes } from "@/lib/item-types";
+import { useBlocksStore } from "@/store/blocks-store";
+import type { DropAreaType } from "@/lib/types";
+import type { ViewportType } from "@/lib/hooks/use-viewport";
+import { CanvasBlock } from "@/components/blocks/canvas-block";
+import { SquareSplitHorizontalIcon as SplitHorizontal } from "lucide-react";
 
 interface DropAreaProps {
-  dropArea: DropAreaType
-  showSplitIndicator?: boolean
-  viewport: ViewportType
+  dropArea: DropAreaType;
+  showSplitIndicator?: boolean;
+  viewport: ViewportType;
 }
 
-export function DropArea({ dropArea, showSplitIndicator = false, viewport }: DropAreaProps) {
-  const { addBlock, splitDropArea, canSplit, moveBlock } = useBlocksStore()
-  const [isHovering, setIsHovering] = useState(false)
+export function DropArea({
+  dropArea,
+  showSplitIndicator = false,
+  viewport,
+}: DropAreaProps) {
+  const { addBlock, splitDropArea, canSplit, moveBlock } = useBlocksStore();
+  const [isHovering, setIsHovering] = useState(false);
 
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK], // Accept existing blocks too
-    drop: (item: { id?: string; type: string; content: string; sourceDropAreaId?: string }) => {
+    drop: (item: {
+      id?: string;
+      type: string;
+      content: string;
+      sourceDropAreaId?: string;
+    }) => {
       // Handle the drop event
       if (item.sourceDropAreaId) {
         // This is an existing block being moved
-        moveBlock(item.id!, item.sourceDropAreaId, dropArea.id)
+        moveBlock(item.id!, item.sourceDropAreaId, dropArea.id);
       } else {
         // This is a new block being added
         addBlock(
@@ -4389,48 +5311,49 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
             content: item.content || "Dropped Square", // Default content if not provided
             dropAreaId: dropArea.id,
           },
-          dropArea.id,
-        )
+          dropArea.id
+        );
       }
-      return { name: `Drop Area ${dropArea.id}` }
+      return { name: `Drop Area ${dropArea.id}` };
     },
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
       canDrop: !!monitor.canDrop(),
     }),
-  })
+  });
 
   // Determine visual cues based on drop state
   const getDropAreaStyles = () => {
-    let baseClasses = "w-full min-h-[120px] rounded-xl border-2 relative bento-box transition-all duration-200"
+    let baseClasses =
+      "w-full min-h-[120px] rounded-xl border-2 relative bento-box transition-all duration-200";
 
     // Empty drop area has dashed border
     if (dropArea.blocks.length === 0) {
-      baseClasses += " border-dashed"
+      baseClasses += " border-dashed";
     } else {
-      baseClasses += " border-transparent"
+      baseClasses += " border-transparent";
     }
 
     // Visual cues for drag operations
     if (isOver && canDrop) {
       // Active drop target - strong visual cue
-      baseClasses += " border-primary bg-primary/10 scale-[1.02] shadow-lg"
+      baseClasses += " border-primary bg-primary/10 scale-[1.02] shadow-lg";
     } else if (canDrop) {
       // Potential drop target - subtle visual cue
-      baseClasses += " border-primary/50 bg-primary/5"
+      baseClasses += " border-primary/50 bg-primary/5";
     } else {
       // Default state
-      baseClasses += " border-border"
+      baseClasses += " border-border";
     }
 
-    return baseClasses
-  }
+    return baseClasses;
+  };
 
   const handleSplit = () => {
     if (canSplit(dropArea.id, viewport)) {
-      splitDropArea(dropArea.id)
+      splitDropArea(dropArea.id);
     }
-  }
+  };
 
   // Only show split indicator if:
   // 1. showSplitIndicator is true
@@ -4445,20 +5368,36 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
     !isOver &&
     dropArea.blocks.length === 0 &&
     !dropArea.isSplit &&
-    canSplit(dropArea.id, viewport)
+    canSplit(dropArea.id, viewport);
 
   // For mobile viewport, always stack vertically
-  if (viewport === "mobile" && dropArea.isSplit && dropArea.splitAreas.length === 2) {
+  if (
+    viewport === "mobile" &&
+    dropArea.isSplit &&
+    dropArea.splitAreas.length === 2
+  ) {
     return (
       <div className="w-full space-y-4">
-        <DropArea dropArea={dropArea.splitAreas[0]} showSplitIndicator={false} viewport={viewport} />
-        <DropArea dropArea={dropArea.splitAreas[1]} showSplitIndicator={false} viewport={viewport} />
+        <DropArea
+          dropArea={dropArea.splitAreas[0]}
+          showSplitIndicator={false}
+          viewport={viewport}
+        />
+        <DropArea
+          dropArea={dropArea.splitAreas[1]}
+          showSplitIndicator={false}
+          viewport={viewport}
+        />
       </div>
-    )
+    );
   }
 
   // For tablet viewport with 2x2 grid layout
-  if (viewport === "tablet" && dropArea.isSplit && dropArea.splitAreas.length === 2) {
+  if (
+    viewport === "tablet" &&
+    dropArea.isSplit &&
+    dropArea.splitAreas.length === 2
+  ) {
     // Check if this is a second-level split (creating a 2x2 grid)
     if (dropArea.splitAreas.some((area) => area.isSplit)) {
       return (
@@ -4478,7 +5417,11 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
               />
             </>
           ) : (
-            <DropArea dropArea={dropArea.splitAreas[0]} showSplitIndicator={showSplitIndicator} viewport={viewport} />
+            <DropArea
+              dropArea={dropArea.splitAreas[0]}
+              showSplitIndicator={showSplitIndicator}
+              viewport={viewport}
+            />
           )}
 
           {/* Render the second split area */}
@@ -4496,37 +5439,61 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
               />
             </>
           ) : (
-            <DropArea dropArea={dropArea.splitAreas[1]} showSplitIndicator={showSplitIndicator} viewport={viewport} />
+            <DropArea
+              dropArea={dropArea.splitAreas[1]}
+              showSplitIndicator={showSplitIndicator}
+              viewport={viewport}
+            />
           )}
         </div>
-      )
+      );
     }
 
     // First-level split for tablet - side by side
     return (
       <div className="w-full flex gap-4">
         <div className="flex-1 bento-box">
-          <DropArea dropArea={dropArea.splitAreas[0]} showSplitIndicator={showSplitIndicator} viewport={viewport} />
+          <DropArea
+            dropArea={dropArea.splitAreas[0]}
+            showSplitIndicator={showSplitIndicator}
+            viewport={viewport}
+          />
         </div>
         <div className="flex-1 bento-box">
-          <DropArea dropArea={dropArea.splitAreas[1]} showSplitIndicator={showSplitIndicator} viewport={viewport} />
+          <DropArea
+            dropArea={dropArea.splitAreas[1]}
+            showSplitIndicator={showSplitIndicator}
+            viewport={viewport}
+          />
         </div>
       </div>
-    )
+    );
   }
 
   // For desktop with up to 4-in-a-row layout
-  if (viewport === "desktop" && dropArea.isSplit && dropArea.splitAreas.length === 2) {
+  if (
+    viewport === "desktop" &&
+    dropArea.isSplit &&
+    dropArea.splitAreas.length === 2
+  ) {
     return (
       <div className="w-full flex gap-4">
         <div className="flex-1 bento-box">
-          <DropArea dropArea={dropArea.splitAreas[0]} showSplitIndicator={showSplitIndicator} viewport={viewport} />
+          <DropArea
+            dropArea={dropArea.splitAreas[0]}
+            showSplitIndicator={showSplitIndicator}
+            viewport={viewport}
+          />
         </div>
         <div className="flex-1 bento-box">
-          <DropArea dropArea={dropArea.splitAreas[1]} showSplitIndicator={showSplitIndicator} viewport={viewport} />
+          <DropArea
+            dropArea={dropArea.splitAreas[1]}
+            showSplitIndicator={showSplitIndicator}
+            viewport={viewport}
+          />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -4539,7 +5506,9 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
       {/* Drop indicator - show when dragging over */}
       {isOver && canDrop && (
         <div className="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none z-10 flex items-center justify-center">
-          <div className="bg-primary/20 rounded-lg px-3 py-1.5 text-sm font-medium text-primary">Drop here</div>
+          <div className="bg-primary/20 rounded-lg px-3 py-1.5 text-sm font-medium text-primary">
+            Drop here
+          </div>
         </div>
       )}
 
@@ -4556,7 +5525,7 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
 
       {dropArea.blocks.length === 0 ? (
         <div className="h-full flex items-center justify-center text-muted-foreground p-8">
-          <p className="text-sm">Drop blocks here</p>
+          <p className="text-sm">Lege deine Elemente hier ab</p>
         </div>
       ) : (
         <div className="space-y-4 p-4">
@@ -4566,9 +5535,8 @@ export function DropArea({ dropArea, showSplitIndicator = false, viewport }: Dro
         </div>
       )}
     </div>
-  )
+  );
 }
-
 
 ```
 
@@ -4989,7 +5957,7 @@ export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
   if (dropArea.blocks.length === 0) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground p-8">
-        <p className="text-sm">Drop blocks here</p>
+        <p className="text-sm">Lege deine Elemente hier ab</p>
       </div> // Add closing tag
     );
   }
@@ -5239,28 +6207,28 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
               }}
               className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
               title="Drop-Bereich aufteilen (leer)"
-              aria-label="Split empty drop area"
+              aria-label="Leeren Drop-Bereich aufteilen"
             >
               <Plus size={18} />
             </button>
           </div>
         )}
 
-        {/* Split Button for POPULATED areas */}
+        {/* Split Button for POPULATED areas - positioned top-right */}
         {shouldShowSplitButtonPopulated && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <button
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent potential parent handlers
-                handleSplitPopulated(); // Call the split function for populated areas
-              }}
-              className="pointer-events-auto p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all"
-              title="Drop-Bereich aufteilen (enthält Blöcke)"
-              aria-label="Split populated drop area"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent potential parent handlers
+              handleSplitPopulated(); // Call the split function for populated areas
+            }}
+            // Position under delete button (-right-4), same size and hover effect
+            className="absolute top-6 -right-4 p-2 rounded-full bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-all opacity-0 group-hover:opacity-100 pointer-events-auto z-20"
+            title="Drop-Bereich aufteilen (enthält Blöcke)"
+            aria-label="Befüllten Drop-Bereich aufteilen"
+          >
+            {/* Match delete button icon size */}
+            <Plus size={16} />
+          </button>
         )}
 
         <DropAreaContent
@@ -5277,14 +6245,8 @@ export const DropArea = forwardRef<HTMLDivElement, DropAreaProps>(
           <button
             onClick={() => deleteDropArea(dropArea.id)}
             className="absolute -right-4 -top-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 z-20"
-            title={
-              dropArea.blocks.length === 1
-                ? "Block löschen"
-                : "Drop-Bereich löschen"
-            }
-            aria-label={
-              dropArea.blocks.length === 1 ? "Delete block" : "Delete drop area"
-            }
+            title="Block löschen"
+            aria-label="Block löschen"
           >
             <Trash2 size={16} />
           </button>
@@ -5791,14 +6753,14 @@ TabletDropArea.displayName = "TabletDropArea";
 # components/canvas/viewport-selector.tsx
 
 ```tsx
-"use client"
+"use client";
 
-import { useViewport } from "@/lib/hooks/use-viewport"
-import { Button } from "@/components/ui/button"
-import { Laptop, Tablet, Smartphone } from "lucide-react"
+import { useViewport } from "@/lib/hooks/use-viewport";
+import { Button } from "@/components/ui/button";
+import { Laptop, Tablet, Smartphone } from "lucide-react";
 
 export function ViewportSelector() {
-  const { viewport, setViewport } = useViewport()
+  const { viewport, setViewport } = useViewport();
 
   return (
     <div className="inline-flex items-center justify-center space-x-1 bg-card p-1 rounded-full shadow-sm border border-border">
@@ -5806,7 +6768,9 @@ export function ViewportSelector() {
         variant={viewport === "desktop" ? "default" : "ghost"}
         size="sm"
         onClick={() => setViewport("desktop")}
-        className={`flex items-center gap-2 rounded-full ${viewport === "desktop" ? "bg-primary text-primary-foreground" : ""}`}
+        className={`flex items-center gap-2 rounded-full ${
+          viewport === "desktop" ? "bg-primary text-primary-foreground" : ""
+        }`}
       >
         <Laptop className="h-4 w-4" />
         <span className="hidden sm:inline">Desktop</span>
@@ -5815,7 +6779,9 @@ export function ViewportSelector() {
         variant={viewport === "tablet" ? "default" : "ghost"}
         size="sm"
         onClick={() => setViewport("tablet")}
-        className={`flex items-center gap-2 rounded-full ${viewport === "tablet" ? "bg-primary text-primary-foreground" : ""}`}
+        className={`flex items-center gap-2 rounded-full ${
+          viewport === "tablet" ? "bg-primary text-primary-foreground" : ""
+        }`}
       >
         <Tablet className="h-4 w-4" />
         <span className="hidden sm:inline">Tablet</span>
@@ -5824,15 +6790,16 @@ export function ViewportSelector() {
         variant={viewport === "mobile" ? "default" : "ghost"}
         size="sm"
         onClick={() => setViewport("mobile")}
-        className={`flex items-center gap-2 rounded-full ${viewport === "mobile" ? "bg-primary text-primary-foreground" : ""}`}
+        className={`flex items-center gap-2 rounded-full ${
+          viewport === "mobile" ? "bg-primary text-primary-foreground" : ""
+        }`}
       >
         <Smartphone className="h-4 w-4" />
-        <span className="hidden sm:inline">Mobile</span>
+        <span className="hidden sm:inline">Smartphone</span>
       </Button>
     </div>
-  )
+  );
 }
-
 
 ```
 
@@ -6043,7 +7010,7 @@ export default function ProjectCard({
 ```tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PlusCircle, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6058,9 +7025,24 @@ import { deleteProjectFromDatabase } from "@/lib/supabase/database"; // Need thi
 import type { Project } from "@/lib/types";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useBlocksStore } from "@/store/blocks-store";
 
 export default function ProjectsView() {
+  console.log("[ProjectsView] Rendering...");
   const router = useRouter();
+  const projectJustDeleted = useBlocksStore(
+    (state) => state.projectJustDeleted
+  );
+  const deletedProjectTitle = useBlocksStore(
+    (state) => state.deletedProjectTitle
+  );
+  const setProjectJustDeleted = useBlocksStore(
+    (state) => state.setProjectJustDeleted
+  );
+  const setDeletedProjectTitle = useBlocksStore(
+    (state) => state.setDeletedProjectTitle
+  );
+  const toastShownForDeletion = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -6120,6 +7102,47 @@ export default function ProjectsView() {
     loadProjects();
   }, [refreshCounter, showErrorToast]); // Depend on refreshCounter
 
+  // Load projects from Supabase storage
+  useEffect(() => {
+    console.log(
+      "[ProjectsView] useEffect running. projectJustDeleted:",
+      projectJustDeleted,
+      "toastShownRef:",
+      toastShownForDeletion.current
+    );
+    if (projectJustDeleted && !toastShownForDeletion.current) {
+      console.log(
+        "[ProjectsView] projectJustDeleted is true AND toast not shown yet. Showing toast..."
+      );
+      toast.error(`"${deletedProjectTitle || "Projekt"}" wurde gelöscht`, {
+        description: `Ihr Projekt wurde erfolgreich gelöscht.`,
+        style: {
+          backgroundColor: "hsl(var(--destructive))",
+          color: "white",
+        },
+      });
+      toastShownForDeletion.current = true;
+      console.log("[ProjectsView] Set toastShownRef.current = true");
+
+      console.log("[ProjectsView] Resetting projectJustDeleted to false.");
+      setProjectJustDeleted(false);
+      console.log("[ProjectsView] Resetting deletedProjectTitle to null.");
+      setDeletedProjectTitle(null);
+    } else if (!projectJustDeleted) {
+      if (toastShownForDeletion.current) {
+        console.log(
+          "[ProjectsView] projectJustDeleted is false. Resetting toastShownRef.current = false."
+        );
+        toastShownForDeletion.current = false;
+      }
+    }
+  }, [
+    projectJustDeleted,
+    setProjectJustDeleted,
+    deletedProjectTitle,
+    setDeletedProjectTitle,
+  ]);
+
   // Filter projects based on search query
   const filteredProjects = projects.filter((project) =>
     project.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -6171,11 +7194,6 @@ export default function ProjectsView() {
     }
   };
 
-  const forceRefresh = () => {
-    setIsLoading(true);
-    setRefreshCounter((prev) => prev + 1);
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-4 md:gap-6">
@@ -6211,20 +7229,6 @@ export default function ProjectsView() {
           <PlusCircle className="h-4 w-4" />
           <span className="hidden sm:inline">Neues Projekt</span>
           <span className="sm:hidden">Neu</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={forceRefresh}
-          disabled={isLoading}
-          title="Projektliste aktualisieren"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Search className="h-4 w-4" />
-          )}
         </Button>
       </div>
 
@@ -6263,7 +7267,7 @@ export default function ProjectsView() {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
+        <div className="flex items-center justify-center min-h-[calc(100vh-300px)] xl:pr-[250px]">
           <div className="text-center">
             <h3 className="text-lg font-medium mb-2">
               Keine Projekte gefunden
@@ -6305,287 +7309,6 @@ export function DragAndDropProvider({ children }: DragAndDropProviderProps) {
       {children}
       <CustomDragLayer /> {/* Render the custom layer */}
     </DndProvider>
-  );
-}
-
-```
-
-# components/draggable-item.tsx
-
-```tsx
-"use client";
-
-import { useDrag } from "react-dnd";
-import { ItemTypes } from "@/lib/item-types";
-
-export function DraggableItem() {
-  const [{ isDragging }, drag] = useDrag({
-    type: ItemTypes.SQUARE,
-    item: { id: "square" },
-    collect: (monitor) => ({
-      isDragging: !!monitor.isDragging(),
-    }),
-  });
-
-  return (
-    <div
-      ref={drag}
-      className={`w-24 h-24 bg-blue-500 rounded-md cursor-move flex items-center justify-center text-white font-medium ${
-        isDragging ? "opacity-50" : "opacity-100"
-      }`}
-      style={{ touchAction: "none" }}
-    >
-      Ziehen Sie mich
-    </div>
-  );
-}
-
-```
-
-# components/draggable-square.tsx
-
-```tsx
-"use client"
-
-import { useDrag } from "react-dnd"
-import { ItemTypes } from "@/lib/item-types"
-
-export function DraggableSquare() {
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: ItemTypes.SQUARE,
-    item: { id: "square" },
-    collect: (monitor) => ({
-      isDragging: !!monitor.isDragging(),
-    }),
-  }))
-
-  return (
-    <div
-      ref={drag}
-      className={`w-24 h-24 bg-blue-500 rounded-md cursor-move flex items-center justify-center text-white font-medium ${
-        isDragging ? "opacity-50" : "opacity-100"
-      }`}
-      style={{ touchAction: "none" }}
-    >
-      Drag me
-    </div>
-  )
-}
-
-
-```
-
-# components/drop-target.tsx
-
-```tsx
-"use client";
-
-import { useDrop } from "react-dnd";
-import { ItemTypes } from "@/lib/item-types";
-import { useState } from "react";
-import { SquareSplitHorizontalIcon as SplitHorizontal, X } from "lucide-react";
-
-interface DropTargetProps {
-  onDrop: (zone: "main" | "left" | "right") => void;
-  isDropped: boolean;
-  dropZone: null | "main" | "left" | "right";
-  onReset: () => void;
-  isWider?: boolean;
-}
-
-export function DropTarget({
-  onDrop,
-  isDropped,
-  dropZone,
-  onReset,
-  isWider = false,
-}: DropTargetProps) {
-  const [isHovering, setIsHovering] = useState(false);
-  const [isSplit, setIsSplit] = useState(false);
-
-  // Handle splitting the drop area
-  const handleSplit = () => {
-    if (isDropped) {
-      // If something is already dropped, reset it first
-      onReset();
-    }
-    setIsSplit(true);
-  };
-
-  // Handle merging the split drop areas back
-  const handleMerge = () => {
-    if (isDropped) {
-      // If something is already dropped, reset it first
-      onReset();
-    }
-    setIsSplit(false);
-  };
-
-  // Main drop target (when not split)
-  const [{ isOverMain, canDropMain }, dropMain] = useDrop({
-    accept: ItemTypes.SQUARE,
-    drop: () => {
-      onDrop("main");
-      return { name: "Main Drop Target" };
-    },
-    collect: (monitor) => ({
-      isOverMain: !!monitor.isOver(),
-      canDropMain: !!monitor.canDrop(),
-    }),
-  });
-
-  // Left drop target (when split)
-  const [{ isOverLeft, canDropLeft }, dropLeft] = useDrop({
-    accept: ItemTypes.SQUARE,
-    drop: () => {
-      onDrop("left");
-      return { name: "Left Drop Target" };
-    },
-    collect: (monitor) => ({
-      isOverLeft: !!monitor.isOver(),
-      canDropLeft: !!monitor.canDrop(),
-    }),
-  });
-
-  // Right drop target (when split)
-  const [{ isOverRight, canDropRight }, dropRight] = useDrop({
-    accept: ItemTypes.SQUARE,
-    drop: () => {
-      onDrop("right");
-      return { name: "Right Drop Target" };
-    },
-    collect: (monitor) => ({
-      isOverRight: !!monitor.isOver(),
-      canDropRight: !!monitor.canDrop(),
-    }),
-  });
-
-  // Background colors for main drop target
-  let backgroundColorMain = "bg-gray-200";
-  if (isOverMain && canDropMain) {
-    backgroundColorMain = "bg-green-200";
-  } else if (canDropMain) {
-    backgroundColorMain = "bg-yellow-100";
-  }
-
-  // Background colors for left drop target
-  let backgroundColorLeft = "bg-gray-200";
-  if (isOverLeft && canDropLeft) {
-    backgroundColorLeft = "bg-green-200";
-  } else if (canDropLeft) {
-    backgroundColorLeft = "bg-yellow-100";
-  }
-
-  // Background colors for right drop target
-  let backgroundColorRight = "bg-gray-200";
-  if (isOverRight && canDropRight) {
-    backgroundColorRight = "bg-green-200";
-  } else if (canDropRight) {
-    backgroundColorRight = "bg-yellow-100";
-  }
-
-  // Calculate width based on isWider prop
-  const width = isWider ? "w-[192px] md:w-[576px]" : "w-64";
-
-  return (
-    <div
-      className={`${width} relative`}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-    >
-      {/* Split control button */}
-      {!isSplit && isHovering && !isDropped && (
-        <button
-          onClick={handleSplit}
-          className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow-md hover:bg-gray-100 transition-colors"
-          title="Ablagebereich teilen"
-        >
-          <SplitHorizontal size={16} />
-        </button>
-      )}
-
-      {/* Merge control button */}
-      {isSplit && isHovering && !isDropped && (
-        <button
-          onClick={handleMerge}
-          className="absolute top-2 right-2 z-10 bg-white p-1 rounded-full shadow-md hover:bg-gray-100 transition-colors"
-          title="Ablagebereiche zusammenführen"
-        >
-          <X size={16} />
-        </button>
-      )}
-
-      {!isSplit ? (
-        // Single drop area
-        <div
-          ref={dropMain}
-          className={`h-64 ${backgroundColorMain} rounded-lg border-2 border-dashed border-gray-400 flex items-center justify-center transition-colors duration-200`}
-        >
-          {isDropped && dropZone === "main" ? (
-            <div className="flex flex-col items-center">
-              <div className="w-24 h-24 bg-blue-500 rounded-md flex items-center justify-center text-white font-medium mb-4">
-                Abgelegt!
-              </div>
-              <button
-                className="px-3 py-1 bg-blue-500 text-white rounded-md text-sm"
-                onClick={onReset}
-              >
-                Zurücksetzen
-              </button>
-            </div>
-          ) : (
-            <p className="text-gray-500">Hier ablegen</p>
-          )}
-        </div>
-      ) : (
-        // Split drop areas with gap
-        <div className="flex gap-4">
-          {/* Left drop target */}
-          <div
-            ref={dropLeft}
-            className={`flex-1 h-64 ${backgroundColorLeft} rounded-lg border-2 border-dashed border-gray-400 flex items-center justify-center transition-colors duration-200`}
-          >
-            {isDropped && dropZone === "left" ? (
-              <div className="flex flex-col items-center">
-                <div className="w-24 h-24 bg-blue-500 rounded-md flex items-center justify-center text-white font-medium mb-4">
-                  Links!
-                </div>
-                <button
-                  className="px-3 py-1 bg-blue-500 text-white rounded-md text-sm"
-                  onClick={onReset}
-                >
-                  Zurücksetzen
-                </button>
-              </div>
-            ) : (
-              <p className="text-gray-500">Linke Zone</p>
-            )}
-          </div>
-
-          {/* Right drop target */}
-          <div
-            ref={dropRight}
-            className={`flex-1 h-64 ${backgroundColorRight} rounded-lg border-2 border-dashed border-gray-400 flex items-center justify-center transition-colors duration-200`}
-          >
-            {isDropped && dropZone === "right" ? (
-              <div className="flex flex-col items-center">
-                <div className="w-24 h-24 bg-blue-500 rounded-md flex items-center justify-center text-white font-medium mb-4">
-                  Rechts!
-                </div>
-                <button
-                  className="px-3 py-1 bg-blue-500 text-white rounded-md text-sm"
-                  onClick={onReset}
-                >
-                  Zurücksetzen
-                </button>
-              </div>
-            ) : (
-              <p className="text-gray-500">Rechte Zone</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -7680,7 +8403,7 @@ const blockTypes = [
   },
   {
     type: "image",
-    content: "Bild",
+    content: null,
     icon: ImageIcon,
     description: "Füge ein Bild ein",
   },
@@ -7785,6 +8508,8 @@ export default function Navbar({
     toggleAutoSave,
     lastSaved,
     currentProjectId,
+    setProjectJustDeleted,
+    setDeletedProjectTitle,
   } = useBlocksStore();
   const { user, supabase } = useSupabase();
   const [title, setTitle] = useState(projectTitle);
@@ -7893,13 +8618,26 @@ export default function Navbar({
       return;
     }
     try {
+      // Remember the title *before* deleting
+      const titleToDelete = title;
+
       // Lösche den Projektdatensatz aus der Datenbank
       const dbDeleted = await deleteProjectFromDatabase(currentProjectId);
       // Lösche die zugehörigen Dateien aus dem Storage
       const storageDeleted = await deleteProjectFromStorage(currentProjectId);
 
       if (dbDeleted || storageDeleted) {
-        // Bei erfolgreichem Löschen, navigiere zum Dashboard
+        // Speichere den Titel im Store
+        console.log("[Navbar] Setting deletedProjectTitle:", titleToDelete);
+        setDeletedProjectTitle(titleToDelete);
+
+        // Setze das Flag im Store
+        console.log(
+          "[Navbar] Deletion successful. Setting projectJustDeleted=true"
+        );
+        setProjectJustDeleted(true);
+        // Navigiere zum Dashboard ohne Query-Parameter
+        console.log("[Navbar] Redirecting to /dashboard");
         router.replace("/dashboard");
       } else {
         throw new Error("Failed to delete project");
@@ -8205,7 +8943,6 @@ import {
   Loader2,
   Upload,
   Trash2,
-  Film,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8305,37 +9042,6 @@ export default function MediathekView() {
     return acc;
   }, {} as Record<string, MediaItem[]>);
 
-  const categories = [
-    {
-      title: "Fotos",
-      icon: <LucideImage size={18} />,
-      iconColor: "text-blue-500",
-      type: "image",
-      items: groupedMedia["image"] || [],
-    },
-    {
-      title: "Videos",
-      icon: <Film size={18} />,
-      iconColor: "text-red-500",
-      type: "video",
-      items: groupedMedia["video"] || [],
-    },
-    {
-      title: "Audio",
-      icon: <Music size={18} />,
-      iconColor: "text-green-500",
-      type: "audio",
-      items: groupedMedia["audio"] || [],
-    },
-    {
-      title: "Dokumente",
-      icon: <FileText size={18} />,
-      iconColor: "text-purple-500",
-      type: "document",
-      items: groupedMedia["document"] || [],
-    },
-  ];
-
   // Render media preview with actual image URLs
   const renderMediaPreview = (item: MediaItem) => {
     const type = item.file_type.startsWith("image/")
@@ -8367,7 +9073,7 @@ export default function MediathekView() {
     switch (type) {
       case "image":
         return (
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <Image
               src={item.url}
               alt={item.file_name}
@@ -8380,7 +9086,7 @@ export default function MediathekView() {
         );
       case "video":
         return (
-          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-muted rounded-[30px] overflow-hidden">
             <div className="w-full h-full flex items-center justify-center">
               <Video className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -8389,7 +9095,7 @@ export default function MediathekView() {
         );
       case "audio":
         return (
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <div className="w-full h-full flex items-center justify-center">
               <Music className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -8398,7 +9104,7 @@ export default function MediathekView() {
         );
       case "document":
         return (
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+          <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <div className="w-full h-full flex items-center justify-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -8435,9 +9141,9 @@ export default function MediathekView() {
           {displayItems.map((item) => (
             <div key={item.id} className="relative group">
               {renderMediaPreview(item)}
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                <p className="text-sm truncate">{item.file_name}</p>
-                <p className="text-xs opacity-75">
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-b-[30px]">
+                <p className="pl-4 text-sm truncate">{item.file_name}</p>
+                <p className="pl-4 text-xs opacity-75">
                   {(item.size / 1024 / 1024).toFixed(1)} MB
                 </p>
               </div>
@@ -8487,6 +9193,29 @@ export default function MediathekView() {
     });
   };
 
+  // --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen ---
+  const sanitizeFilename = (filename: string): string => {
+    // Umlaute und ß ersetzen
+    const umlautMap: { [key: string]: string } = {
+      ä: "ae",
+      ö: "oe",
+      ü: "ue",
+      Ä: "Ae",
+      Ö: "Oe",
+      Ü: "Ue",
+      ß: "ss",
+    };
+    let sanitized = filename;
+    for (const key in umlautMap) {
+      sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+    }
+
+    // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+    return sanitized
+      .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+      .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+  };
+
   // Handle file upload
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -8510,7 +9239,11 @@ export default function MediathekView() {
           }
 
           const bucket = getBucketForFile(file);
-          const filePath = `${user.id}/${Date.now()}-${file.name}`;
+          // --- MODIFIZIERT: Dateinamen bereinigen ---
+          const sanitizedFileName = sanitizeFilename(file.name);
+          const filePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
+
+          console.log(`Uploading to bucket: ${bucket}, path: ${filePath}`); // Logging hinzugefügt
 
           // Upload file to storage with proper caching and content type
           const { error: uploadError } = await supabase.storage
@@ -8534,10 +9267,10 @@ export default function MediathekView() {
           // Get dimensions if it's an image
           const dimensions = await getImageDimensions(file);
 
-          // Prepare the media item data
+          // Prepare the media item data (use original file.name for display)
           const mediaItem: MediaItem = {
             id: uuidv4(),
-            file_name: file.name,
+            file_name: file.name, // Originalnamen für die DB/Anzeige beibehalten
             file_type: file.type,
             url: publicUrl,
             size: file.size,
@@ -8566,7 +9299,7 @@ export default function MediathekView() {
           toast.success(`${file.name} erfolgreich hochgeladen`);
           setUploadProgress((prev) => prev + 100 / files.length);
         } catch (error) {
-          console.error("File processing error:", error);
+          console.error(`File processing error for ${file.name}:`, error);
           toast.error(`Fehler beim Hochladen von ${file.name}`);
         }
       }
@@ -8599,13 +9332,6 @@ export default function MediathekView() {
   // Handle file input change
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleFileUpload(e.target.files);
-  };
-
-  // Hilfsfunktion zum Formatieren der Dateigröße
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
   // Helper function to get file path from URL
@@ -8690,6 +9416,40 @@ export default function MediathekView() {
     }
   };
 
+  // Gemeinsame JSX-Elemente für beide Dropzone-Varianten
+  const UploadIconContent = () => (
+    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+      <Upload className="h-6 w-6 text-primary" />
+    </div>
+  );
+
+  const UploadingIndicator = () => (
+    <>
+      {isUploading && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">
+              {Math.round(uploadProgress)}%
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // Hidden File Input (needed for both dropzones)
+  const HiddenFileInput = () => (
+    <input
+      id="file-upload" // ID muss konsistent sein für das Label
+      type="file"
+      multiple
+      className="hidden"
+      onChange={handleFileInputChange}
+      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+    />
+  );
+
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -8714,89 +9474,113 @@ export default function MediathekView() {
             </div>
           ) : (
             <div className="space-y-8">
-              {renderMediaCategory(
-                "image",
-                "Bilder",
-                <LucideImage className="h-5 w-5" />
-              )}
-              {renderMediaCategory(
-                "video",
-                "Videos",
-                <Video className="h-5 w-5" />
-              )}
-              {renderMediaCategory(
-                "audio",
-                "Audio",
-                <Music className="h-5 w-5" />
-              )}
-              {renderMediaCategory(
-                "document",
-                "Dokumente",
-                <FileText className="h-5 w-5" />
-              )}
-              {/* Display message if no media matches search */}
-              {filteredMedia.length === 0 && !isLoading && (
-                <p className="text-muted-foreground text-center py-4">
-                  Keine Medien gefunden.
-                </p>
+              {/* Render categories only if there are items, otherwise the dropzone shows */}
+
+              {mediaItems.length > 0 && (
+                <>
+                  {renderMediaCategory(
+                    "image",
+                    "Bilder",
+                    <LucideImage className="h-5 w-5" />
+                  )}
+                  {renderMediaCategory(
+                    "video",
+                    "Videos",
+                    <Video className="h-5 w-5" />
+                  )}
+                  {renderMediaCategory(
+                    "audio",
+                    "Audio",
+                    <Music className="h-5 w-5" />
+                  )}
+                  {renderMediaCategory(
+                    "document",
+                    "Dokumente",
+                    <FileText className="h-5 w-5" />
+                  )}
+                  {/* Display message if no media matches search AND library is not empty */}
+                  {filteredMedia.length === 0 && !isLoading && (
+                    <p className="text-muted-foreground text-center py-4">
+                      Keine Medien für Ihre Suche gefunden.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Rechte Spalte: Upload-Bereich */}
-        <div className="w-80">
-          <div className="sticky top-8">
-            <h2 className="text-xl font-semibold mb-4">Medien hochladen</h2>
-            <div
-              className={`
-                relative border-2 border-dashed rounded-lg p-8
-                flex flex-col items-center justify-center gap-4
-                transition-colors duration-200
-                ${isDragging ? "border-primary bg-primary/5" : "border-border"}
-              `}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Upload className="h-6 w-6 text-primary" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  Dateien hierher ziehen oder
-                </p>
-                <label htmlFor="file-upload">
-                  <Button variant="link" className="mt-1" asChild>
-                    <span>Dateien auswählen</span>
-                  </Button>
-                </label>
-                <input
-                  id="file-upload"
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileInputChange}
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Maximale Dateigröße: 50MB
+      {/* Verstecktes Datei-Input-Feld für beide Dropzone-Typen */}
+      <HiddenFileInput />
+
+      {/* Konditionale Anzeige der Dropzone */}
+      {mediaItems.length === 0 && !isLoading ? (
+        // 1. Große Dropzone, wenn Mediathek leer ist
+        <div className="mt-12 w-full">
+          <div
+            className={`
+                  relative border-2 border-dashed rounded-lg p-8
+                  flex flex-col items-center justify-center gap-4
+                  transition-colors duration-200 h-[75vH] bg-gray-50/80
+                  ${
+                    isDragging ? "border-primary bg-primary/5" : "border-border"
+                  }
+                `}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <UploadIconContent />
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">
+                Dateien hierher ziehen oder
               </p>
-              {isUploading && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Upload: {Math.round(uploadProgress)}%
-                    </p>
-                  </div>
-                </div>
-              )}
+              <label htmlFor="file-upload">
+                <Button variant="link" className="mt-1" asChild>
+                  <span>Dateien auswählen</span>
+                </Button>
+              </label>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Maximale Dateigröße: 50MB
+            </p>
+            <UploadingIndicator />
           </div>
         </div>
-      </div>
+      ) : mediaItems.length > 0 && !isLoading ? (
+        // 2. Kleine, fixierte Dropzone, wenn Mediathek NICHT leer ist
+        <label htmlFor="file-upload">
+          {" "}
+          {/* Label umschließt Button für Klickbarkeit */}
+          <div
+            className={`
+              fixed bottom-8 right-8 z-50
+              w-48 h-48 border-2 border-dashed rounded-xl {/* Größe und Ecken angepasst */}
+              flex items-center justify-center
+              cursor-pointer transition-all duration-200
+              hover:scale-105 hover:border-primary hover:bg-primary/10 {/* Leicht veränderte Hover-Skalierung */}
+              ${
+                isDragging
+                  ? "border-primary bg-primary/5 scale-105"
+                  : "border-border bg-background/80 backdrop-blur-sm"
+              } {/* Leicht veränderte Drag-Skalierung */}
+            `}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            title="Dateien hochladen" // Tooltip
+          >
+            {/* Vereinfachter Inhalt für kleine Dropzone */}
+            <Upload
+              className={`h-8 w-8 transition-colors ${
+                isDragging ? "text-primary" : "text-muted-foreground"
+              }`}
+            />
+            <UploadingIndicator />
+          </div>
+        </label>
+      ) : null}
     </>
   );
 }
@@ -8966,71 +9750,6 @@ export default function Navbar() {
 
 ```
 
-# components/preview/phone-mockup.tsx
-
-```tsx
-"use client";
-
-import { ReactNode, useState, useEffect } from "react";
-import { Signal, Wifi, Battery } from "lucide-react";
-
-interface PhoneMockupProps {
-  children: ReactNode;
-}
-
-export function PhoneMockup({ children }: PhoneMockupProps) {
-  const [time, setTime] = useState(
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  );
-
-  // Update time every minute
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(
-        new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="relative mx-auto">
-      {/* Phone Frame */}
-      <div
-        className="relative bg-white rounded-[2.5rem] border-[14px] border-black overflow-hidden"
-        style={{
-          width: "min(90vw, 375px)",
-          height: "min(calc(90vw * 2.16), 812px)",
-        }}
-      >
-        {/* Screen Content */}
-        <div className="relative w-full h-full overflow-hidden flex flex-col bg-white">
-          {/* Status Bar */}
-          <div className="flex justify-between items-center px-4 py-2 text-xs font-medium">
-            <div>{time}</div>
-            <div className="flex items-center gap-1">
-              <Signal className="w-3.5 h-3.5" />
-              <Wifi className="w-3.5 h-3.5" />
-              <Battery className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto min-h-0 relative">
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-```
-
 # components/preview/preview-block.tsx
 
 ```tsx
@@ -9109,6 +9828,49 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         renderHeadingContent()
       ) : block.type === "paragraph" ? (
         renderParagraphContent()
+      ) : // --- NEU: Spezifische Behandlung für Audio-Blöcke ---
+      block.type === "audio" ? (
+        <audio
+          src={block.content}
+          controls
+          className="w-full"
+          preload="metadata" // Lade Metadaten (wie Dauer) vorab
+        />
+      ) : // --- NEU: Spezifische Behandlung für Video-Blöcke ---
+      block.type === "video" ? (
+        <video
+          src={block.content}
+          controls
+          className="w-full rounded-md" // rounded-md für Konsistenz mit VideoBlock
+          preload="metadata"
+        />
+      ) : // --- NEU: Spezifische Behandlung für Dokument-Blöcke ---
+      block.type === "document" ? (
+        block.thumbnailUrl ? (
+          // Wenn ein Vorschaubild vorhanden ist, zeige es an und verlinke es
+          <a href={block.content} target="_blank" rel="noopener noreferrer">
+            <img
+              src={block.thumbnailUrl}
+              alt={`Preview of ${block.fileName || "document"}`}
+              className="block w-full h-auto rounded-lg object-contain border border-gray-200" // object-contain, damit ganze Seite sichtbar ist
+              loading="lazy"
+            />
+          </a>
+        ) : (
+          // Wenn kein Vorschaubild vorhanden ist, zeige den Link wie bisher
+          <a
+            href={block.content}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline flex items-center space-x-2"
+          >
+            {/* Optional: Icon hinzufügen, muss aber importiert werden */}
+            {/* <FileText className="h-5 w-5 flex-shrink-0" /> */}
+            <span>
+              {block.fileName || block.content.split("/").pop() || "Document"}
+            </span>
+          </a>
+        )
       ) : (
         // Default rendering for other types (if any)
         <div className="preview-content">{block.content}</div>
@@ -9368,7 +10130,7 @@ export default function Preview() {
         {/* Status Bar (Conditional) - Now direct child */}
         {(viewport === "mobile" || viewport === "tablet") && (
           <div
-            className={`flex justify-between items-center text-xs font-medium ${
+            className={`flex justify-between items-center text-xs font-medium pb-2 bg-gray-700 text-white mb-2 ${
               viewport === "mobile" ? "px-4 py-2" : "px-6 py-2"
             }`}
           >
@@ -9384,6 +10146,8 @@ export default function Preview() {
               />
               <Battery
                 className={viewport === "mobile" ? "w-4 h-4" : "w-5 h-5"}
+                stroke="white" // Weißer Umriss für das Batterie-Icon
+                fill="green" // Grüne Füllung für das Batterie-Icon
               />
             </div>
           </div>
@@ -9406,70 +10170,6 @@ export default function Preview() {
           </div>
         </div>
         {/* Removed intermediate div */}
-      </div>
-    </div>
-  );
-}
-
-```
-
-# components/preview/tablet-mockup.tsx
-
-```tsx
-"use client";
-
-import { ReactNode, useState, useEffect } from "react";
-import { Battery, Wifi } from "lucide-react";
-
-interface TabletMockupProps {
-  children: ReactNode;
-}
-
-export function TabletMockup({ children }: TabletMockupProps) {
-  const [time, setTime] = useState(
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  );
-
-  // Update time every minute
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(
-        new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="relative mx-auto">
-      {/* Tablet Frame */}
-      <div
-        className="relative bg-white rounded-[2rem] border-[14px] border-black overflow-hidden"
-        style={{
-          width: "min(95vw, 834px)",
-          height: "min(calc(95vw * 1.334), 1112px)",
-        }}
-      >
-        {/* Screen Content */}
-        <div className="relative w-full h-full overflow-hidden flex flex-col bg-white">
-          {/* Status Bar */}
-          <div className="flex justify-between items-center px-6 py-2 text-xs font-medium">
-            <div>{time}</div>
-            <div className="flex items-center gap-2">
-              <Wifi className="w-4 h-4" />
-              <Battery className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto min-h-0 relative">
-            {children}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -11549,382 +12249,6 @@ TooltipContent.displayName = TooltipPrimitive.Content.displayName
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
 ```
 
-# components/ui/typewriter-hero.tsx
-
-```tsx
-import * as React from "react";
-import { cn } from "@/lib/utils";
-
-// TypeScript interface für die Component Props
-export interface TypewriterHeroProps
-  extends React.HTMLAttributes<HTMLDivElement> {
-  title?: string;
-  description?: string;
-  words?: string[];
-  typingSpeed?: number;
-  deletingSpeed?: number;
-  pauseDuration?: number;
-  className?: string;
-  titleClassName?: string;
-  descriptionClassName?: string;
-  typingClassName?: string;
-  cursorClassName?: string;
-  align?: "left" | "center" | "right";
-}
-
-// TypewriterHero Component mit Schreibmaschinen-Effekt
-export function TypewriterHero({
-  title = "Welcome to",
-  description = "A modern and beautiful UI library for React",
-  words = ["Beautiful", "Modern", "Responsive", "Accessible"],
-  typingSpeed = 100,
-  deletingSpeed = 50,
-  pauseDuration = 2000,
-  className,
-  titleClassName,
-  descriptionClassName,
-  typingClassName,
-  cursorClassName,
-  align = "center",
-  ...props
-}: TypewriterHeroProps) {
-  // State für den aktuellen Text und Animation
-  const [currentText, setCurrentText] = React.useState("");
-  const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [isDeleting, setIsDeleting] = React.useState(false);
-  const [isWaiting, setIsWaiting] = React.useState(false);
-
-  // Animations-Logik mit useEffect
-  React.useEffect(() => {
-    const timeout = setTimeout(
-      () => {
-        if (isWaiting) {
-          setIsWaiting(false);
-          setIsDeleting(true);
-          return;
-        }
-
-        if (isDeleting) {
-          if (currentText === "") {
-            setIsDeleting(false);
-            setCurrentIndex((prev) => (prev + 1) % words.length);
-          } else {
-            setCurrentText((prev) => prev.slice(0, -1));
-          }
-        } else {
-          const targetWord = words[currentIndex];
-          if (currentText === targetWord) {
-            setIsWaiting(true);
-          } else {
-            setCurrentText((prev) => targetWord.slice(0, prev.length + 1));
-          }
-        }
-      },
-      isWaiting ? pauseDuration : isDeleting ? deletingSpeed : typingSpeed
-    );
-
-    return () => clearTimeout(timeout);
-  }, [
-    currentText,
-    currentIndex,
-    isDeleting,
-    isWaiting,
-    words,
-    typingSpeed,
-    deletingSpeed,
-    pauseDuration,
-  ]);
-
-  // Component Render
-  return (
-    <div
-      className={cn(
-        "relative w-full overflow-hidden py-24",
-        align === "center" && "text-center",
-        align === "right" && "text-right",
-        className
-      )}
-      {...props}
-    >
-      <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        {title && (
-          <h1
-            className={cn(
-              "text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl",
-              titleClassName
-            )}
-          >
-            {title}{" "}
-            <span
-              className={cn(
-                "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent",
-                typingClassName
-              )}
-            >
-              {currentText}
-              <span
-                className={cn(
-                  "ml-1 inline-block h-[1em] w-[2px] animate-text-blink bg-current",
-                  cursorClassName
-                )}
-                aria-hidden="true"
-              />
-            </span>
-          </h1>
-        )}
-        {description && (
-          <p
-            className={cn(
-              "mt-6 max-w-3xl text-xl text-gray-600 dark:text-gray-400",
-              align === "center" && "mx-auto",
-              align === "right" && "ml-auto",
-              descriptionClassName
-            )}
-          >
-            {description}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-```
-
-# components/ui/use-toast.ts
-
-```ts
-"use client"
-
-import * as React from "react"
-
-import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
-
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
-
-type ToasterToast = ToastProps & {
-  id: string
-  title?: React.ReactNode
-  description?: React.ReactNode
-  action?: ToastActionElement
-}
-
-// Define action type constants
-const ADD_TOAST = "ADD_TOAST";
-const UPDATE_TOAST = "UPDATE_TOAST";
-const DISMISS_TOAST = "DISMISS_TOAST"; 
-const REMOVE_TOAST = "REMOVE_TOAST";
-
-let count = 0
-
-function genId() {
-  count = (count + 1) % Number.MAX_VALUE
-  return count.toString()
-}
-
-// We don't need a separate ActionType interface since we're using string constants directly
-
-type Action =
-  | {
-      type: typeof ADD_TOAST
-      toast: ToasterToast
-    }
-  | {
-      type: typeof UPDATE_TOAST
-      toast: Partial<ToasterToast>
-    }
-  | {
-      type: typeof DISMISS_TOAST
-      toastId?: string
-    }
-  | {
-      type: typeof REMOVE_TOAST
-      toastId?: string
-    }
-
-interface State {
-  toasts: ToasterToast[]
-}
-
-const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
-
-const addToRemoveQueue = (toastId: string) => {
-  if (toastTimeouts.has(toastId)) {
-    return
-  }
-
-  const timeout = setTimeout(() => {
-    toastTimeouts.delete(toastId)
-    dispatch({
-      type: "REMOVE_TOAST",
-      toastId: toastId,
-    })
-  }, TOAST_REMOVE_DELAY)
-
-  toastTimeouts.set(toastId, timeout)
-}
-
-export const reducer = (state: State, action: Action): State => {
-  switch (action.type) {
-    case ADD_TOAST:
-      return {
-        ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
-      }
-
-    case UPDATE_TOAST:
-      return {
-        ...state,
-        toasts: state.toasts.map((t) => (t.id === action.toast.id ? { ...t, ...action.toast } : t)),
-      }
-
-    case DISMISS_TOAST: {
-      const { toastId } = action
-
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
-      if (toastId) {
-        addToRemoveQueue(toastId)
-      } else {
-        state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
-        })
-      }
-
-      return {
-        ...state,
-        toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined
-            ? {
-                ...t,
-                open: false,
-              }
-            : t,
-        ),
-      }
-    }
-    case REMOVE_TOAST:
-      if (action.toastId === undefined) {
-        return {
-          ...state,
-          toasts: [],
-        }
-      }
-      return {
-        ...state,
-        toasts: state.toasts.filter((t) => t.id !== action.toastId),
-      }
-  }
-}
-
-const listeners: Array<(state: State) => void> = []
-
-let memoryState: State = { toasts: [] }
-
-function dispatch(action: Action) {
-  memoryState = reducer(memoryState, action)
-  listeners.forEach((listener) => {
-    listener(memoryState)
-  })
-}
-
-type Toast = Omit<ToasterToast, "id">
-
-function toast({ ...props }: Toast) {
-  const id = genId()
-
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: "UPDATE_TOAST",
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
-
-  dispatch({
-    type: "ADD_TOAST",
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
-  })
-
-  return {
-    id: id,
-    dismiss,
-    update,
-  }
-}
-
-function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
-
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
-    }
-  }, [state])
-
-  return {
-    ...state,
-    toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-  }
-}
-
-export { useToast, toast }
-
-
-```
-
-# components/user-auth-button.tsx
-
-```tsx
-"use client"
-
-import { Button } from "@/components/ui/button"
-import { signOut } from "@/app/auth/actions"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { Loader2, LogOut } from "lucide-react"
-
-export function UserAuthButton() {
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-
-  const handleSignOut = async () => {
-    setIsLoading(true)
-    await signOut()
-    router.refresh()
-  }
-
-  // Navigation to auth page handled by parent component
-
-  return (
-    <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={isLoading}>
-      {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <>
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </>
-      )}
-    </Button>
-  )
-}
-
-
-```
-
 # globals.d.ts
 
 ```ts
@@ -12142,477 +12466,6 @@ function useToast() {
 }
 
 export { useToast, toast }
-
-```
-
-# image.md
-
-```md
-Okay, let's design and implement the `ImageBlock` component based on your requirements.
-
-**1. Update Block Type Definition**
-
-First, let's potentially add `altText` to our block type definition if it's not implicitly handled by `content`. We'll assume `content` stores the image URL or is empty/null for the placeholder state.
-
-\`\`\`ts
-// lib/types.ts (or wherever BlockType is defined)
-export interface BlockType {
-  id: string;
-  type: string;
-  content: string; // Will store the image URL or be empty/null
-  dropAreaId: string;
-  // ... other properties
-  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
-  altText?: string; // Optional: Add alt text specifically for images
-}
-\`\`\`
-
-**2. Create the `ImageBlock` Component**
-
-This component will handle rendering the placeholder, the image, loading/error states, and the drop zone logic.
-
-\`\`\`tsx
-// components/blocks/image-block.tsx
-"use client";
-
-import React, { useState, useEffect, useCallback } from "react";
-import { useDrop, DragObjectWithType } from "react-dnd";
-import { NativeTypes } from "react-dnd-html5-backend";
-import { ImageIcon, Loader2, AlertCircle, UploadCloud } from "lucide-react";
-import { useBlocksStore } from "@/store/blocks-store";
-import { cn } from "@/lib/utils";
-import { ItemTypes } from "@/lib/item-types"; // Assuming you have ItemTypes defined
-
-// --- Mock Upload Function (Replace with actual Supabase logic) ---
-// Utility function to handle image uploads (e.g., to Supabase Storage)
-// This should be moved to a utility file (e.g., lib/supabase/storage.ts)
-async function uploadImageToStorage(file: File): Promise<string> {
-  console.log(`Simulating upload for: ${file.name}`);
-  // ** Placeholder: Replace with your actual Supabase upload logic **
-  // 1. Get Supabase client
-  // 2. Upload file to a designated bucket/path (e.g., `images/${Date.now()}-${file.name}`)
-  // 3. Get the public URL of the uploaded file
-  // Example structure:
-  /*
-  const supabase = getSupabase(); // Assuming you have a getSupabase() helper
-  if (!supabase) throw new Error("Supabase client not available");
-  const filePath = `public/${Date.now()}-${file.name}`;
-  const { error } = await supabase.storage
-    .from('images') // Your image bucket name
-    .upload(filePath, file);
-  if (error) throw error;
-  const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-  if (!data?.publicUrl) throw new Error("Could not get public URL");
-  return data.publicUrl;
-  */
-
-  // --- Mock Implementation ---
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Simulate a public URL - replace with actual URL from Supabase
-      const mockUrl = URL.createObjectURL(file); // Use ObjectURL for quick local preview simulation
-      console.log(`Simulated upload complete. URL: ${mockUrl}`);
-      resolve(mockUrl);
-      // Important: In a real scenario, you might want to revoke this ObjectURL later
-      // URL.revokeObjectURL(mockUrl);
-    }, 1500); // Simulate 1.5 second upload
-  });
-  // --- End Mock Implementation ---
-}
-// --- End Mock Upload Function ---
-
-interface ImageBlockProps {
-  blockId: string;
-  dropAreaId: string;
-  content: string | null; // Image URL or null/empty for placeholder
-  altText?: string;
-}
-
-// Define accepted drop item types
-interface FileDropItem {
-  files: File[];
-}
-// Define your Media Library item type if it's different
-interface MediaLibraryImageItem {
-  type: typeof ItemTypes.MEDIA_IMAGE; // Example type
-  url: string;
-  alt?: string;
-}
-
-type AcceptedDropItem = FileDropItem | MediaLibraryImageItem;
-
-export function ImageBlock({
-  blockId,
-  dropAreaId,
-  content,
-  altText,
-}: ImageBlockProps) {
-  const { updateBlockContent } = useBlocksStore();
-  const [imageUrl, setImageUrl] = useState<string | null>(content);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Update local state if block content changes from store
-  useEffect(() => {
-    setImageUrl(content);
-    setIsLoading(!!content); // Assume loading if content exists initially
-    setError(null); // Reset error on content change
-  }, [content]);
-
-  const handleImageLoad = () => {
-    setIsLoading(false);
-    setError(null);
-  };
-
-  const handleImageError = () => {
-    setIsLoading(false);
-    setError("Bild konnte nicht geladen werden.");
-    // Optionally clear the invalid URL from the store
-    // updateBlockContent(blockId, dropAreaId, "", { altText: "" });
-  };
-
-  const processDroppedFiles = useCallback(
-    async (files: File[]) => {
-      const imageFile = files.find((file) => file.type.startsWith("image/"));
-      if (!imageFile) {
-        setError("Nur Bilddateien werden akzeptiert.");
-        setTimeout(() => setError(null), 3000);
-        return;
-      }
-
-      setIsUploading(true);
-      setError(null);
-      try {
-        const uploadedUrl = await uploadImageToStorage(imageFile);
-        updateBlockContent(blockId, dropAreaId, uploadedUrl, {
-          altText: altText || imageFile.name, // Use existing alt or filename
-        });
-        // ImageUrl state will update via useEffect when content prop changes
-      } catch (uploadError: any) {
-        console.error("Upload failed:", uploadError);
-        setError(
-          `Upload fehlgeschlagen: ${
-            uploadError.message || "Unbekannter Fehler"
-          }`
-        );
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    [blockId, dropAreaId, updateBlockContent, altText]
-  );
-
-  const [{ isOver, canDrop }, drop] = useDrop<
-    AcceptedDropItem, // Item type
-    void, // Drop result (not needed here)
-    { isOver: boolean; canDrop: boolean } // Collected props
-  >({
-    // Accept OS files and potentially items from your media library
-    accept: [
-      NativeTypes.FILE,
-      ItemTypes.MEDIA_IMAGE /* Add your media library type */,
-    ],
-    drop: (item, monitor) => {
-      if (monitor.getItemType() === NativeTypes.FILE) {
-        const fileItem = item as FileDropItem;
-        if (fileItem.files) {
-          processDroppedFiles(fileItem.files);
-        }
-      } else if (monitor.getItemType() === ItemTypes.MEDIA_IMAGE) {
-        // Handle drop from media library (assuming item has a 'url')
-        const mediaItem = item as MediaLibraryImageItem;
-        if (mediaItem.url) {
-          updateBlockContent(blockId, dropAreaId, mediaItem.url, {
-            altText: mediaItem.alt || altText || "", // Use alt from media item or existing
-          });
-        }
-      }
-    },
-    canDrop: (item, monitor) => {
-      // Allow drop only if it's a file or a specific media type
-      const itemType = monitor.getItemType();
-      if (itemType === NativeTypes.FILE) {
-        // Optionally check file types here if possible, though full check happens on drop
-        return true;
-      }
-      if (itemType === ItemTypes.MEDIA_IMAGE) {
-        return true;
-      }
-      return false;
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
-    }),
-  });
-
-  const isActive = isOver && canDrop;
-
-  return (
-    <div
-      ref={drop}
-      className={cn(
-        "relative w-full border border-dashed border-transparent transition-colors duration-200",
-        // Apply aspect ratio only for placeholder, not when image is loaded
-        !imageUrl && "aspect-video",
-        // Apply dropzone styling when active
-        isActive
-          ? "border-primary bg-primary/10"
-          : canDrop
-          ? "border-primary/50" // Indicate potential drop
-          : "border-transparent",
-        // Basic placeholder background
-        !imageUrl && "bg-muted rounded-lg"
-      )}
-    >
-      {/* Placeholder View */}
-      {!imageUrl && !isUploading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
-          <UploadCloud
-            className={cn(
-              "h-10 w-10 mb-2 transition-colors",
-              isActive ? "text-primary" : "text-muted-foreground/50"
-            )}
-          />
-          <p className="text-sm font-medium">
-            Bild hierher ziehen oder{" "}
-            <span className="text-primary">hochladen</span>
-          </p>
-          <p className="text-xs mt-1">Oder URL im Seitenmenü eingeben</p>
-        </div>
-      )}
-
-      {/* Uploading State */}
-      {isUploading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-background/80 rounded-lg">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-          <p className="text-sm font-medium">Wird hochgeladen...</p>
-        </div>
-      )}
-
-      {/* Image View */}
-      {imageUrl && !isUploading && (
-        <div className="relative w-full">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted rounded-lg">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          )}
-          {error && !isLoading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-destructive/10 rounded-lg p-4 text-destructive">
-              <AlertCircle className="h-6 w-6 mb-1" />
-              <p className="text-xs text-center">{error}</p>
-            </div>
-          )}
-          <img
-            src={imageUrl}
-            alt={altText || ""}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            // Fill width, height adjusts automatically, hide if loading/error
-            className={cn(
-              "block w-full h-auto rounded-lg object-cover", // object-cover ensures the image covers the area nicely
-              (isLoading || error) && "opacity-0" // Hide broken/loading image
-            )}
-            // Add loading="lazy" for performance
-            loading="lazy"
-          />
-        </div>
-      )}
-
-      {/* Drop Overlay (Visual feedback during drag) */}
-      {isActive && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-primary/10 rounded-lg border-2 border-primary pointer-events-none">
-          <UploadCloud className="h-10 w-10 mb-2 text-primary" />
-          <p className="text-sm font-medium text-primary">Bild hier ablegen</p>
-        </div>
-      )}
-    </div>
-  );
-}
-\`\`\`
-
-**3. Integrate with `CanvasBlock`**
-
-Modify `components/blocks/canvas-block.tsx` to render the new `ImageBlock`.
-
-\`\`\`tsx
-// components/blocks/canvas-block.tsx
-// ... other imports
-import { ImageBlock } from "./image-block"; // Import the new component
-
-// ... inside BlockContent component ...
-function BlockContent({ block, viewport }: BlockContentProps) {
-  // ... existing code for heading, paragraph ...
-
-  if (block.type === "image") {
-    return (
-      <ImageBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
-        content={block.content} // Pass the URL (or null)
-        altText={block.altText} // Pass alt text
-      />
-    );
-  }
-
-  // Default for other block types
-  return <div className={blockStyle}>{block.content}</div>;
-}
-
-// ... rest of the file
-\`\`\`
-
-**4. Integrate with `RightSidebar` (Configuration)**
-
-This part requires modifying your existing `RightSidebar` component. The exact implementation depends on how your sidebar currently handles configuration, but here's the conceptual approach:
-
-\`\`\`tsx
-// components/layout/right-sidebar.tsx (Conceptual)
-"use client";
-
-import { useBlocksStore } from "@/store/blocks-store";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-// ... other imports
-
-export default function RightSidebar() {
-  const { selectedBlockId, dropAreas, updateBlockContent } = useBlocksStore();
-
-  // Find the selected block based on selectedBlockId and dropAreas state
-  let selectedBlock = null;
-  if (selectedBlockId) {
-    for (const area of dropAreas) {
-      // Need a recursive find function if you have nested drop areas
-      const found = area.blocks.find((b) => b.id === selectedBlockId);
-      if (found) {
-        selectedBlock = found;
-        break;
-      }
-      // Add recursive search in area.splitAreas if necessary
-    }
-  }
-
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (selectedBlock) {
-      updateBlockContent(
-        selectedBlock.id,
-        selectedBlock.dropAreaId,
-        e.target.value
-      );
-    }
-  };
-
-  const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (selectedBlock) {
-      updateBlockContent(
-        selectedBlock.id,
-        selectedBlock.dropAreaId,
-        selectedBlock.content,
-        {
-          altText: e.target.value, // Update the altText property
-        }
-      );
-    }
-  };
-
-  const handleClearImage = () => {
-    if (selectedBlock) {
-      updateBlockContent(selectedBlock.id, selectedBlock.dropAreaId, "", {
-        altText: "",
-      }); // Clear content and altText
-    }
-  };
-
-  return (
-    <div className="w-64 bg-card border-l border-border p-5 overflow-y-auto">
-      <h2 className="text-lg font-semibold mb-5">Properties</h2>
-
-      {/* Conditionally render config based on selected block type */}
-      {selectedBlock && selectedBlock.type === "image" && (
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              value={selectedBlock.content || ""}
-              onChange={handleUrlChange}
-            />
-          </div>
-          <div>
-            <Label htmlFor="altText">Alt Text</Label>
-            <Input
-              id="altText"
-              type="text"
-              placeholder="Descriptive text for the image"
-              value={selectedBlock.altText || ""}
-              onChange={handleAltTextChange}
-            />
-          </div>
-          <Button variant="outline" size="sm" onClick={handleClearImage}>
-            Bild entfernen
-          </Button>
-        </div>
-      )}
-
-      {/* Add config panels for other block types here */}
-      {selectedBlock && selectedBlock.type === "heading" && (
-        <div>{/* Heading config... */}</div>
-      )}
-      {selectedBlock && selectedBlock.type === "paragraph" && (
-        <div>{/* Paragraph config... */}</div>
-      )}
-
-      {!selectedBlock && (
-        <p className="text-sm text-muted-foreground">
-          Select a block to edit its properties.
-        </p>
-      )}
-    </div>
-  );
-}
-\`\`\`
-
-**5. Add `ItemTypes.MEDIA_IMAGE` (if needed)**
-
-If your media library drag source uses a specific type, define it:
-
-\`\`\`ts
-// lib/item-types.ts
-export const ItemTypes = {
-  SQUARE: "square",
-  BLOCK: "block",
-  EXISTING_BLOCK: "existing_block",
-  MEDIA_IMAGE: "media_image", // Add type for media library images
-} as const; // Use 'as const' for literal types
-
-// ... rest of the file
-\`\`\`
-
-**Explanation:**
-
-1.  **`ImageBlock.tsx`:**
-    - Manages internal state for `imageUrl`, `isLoading`, `isUploading`, and `error`.
-    - Uses `useEffect` to sync `imageUrl` with the `content` prop from the store.
-    - Implements `useDrop` to accept `NativeTypes.FILE` (OS drops) and `ItemTypes.MEDIA_IMAGE` (media library drops).
-    - The `drop` handler determines the item type and either calls `processDroppedFiles` (for OS files) or directly updates the store with the URL (for media library items).
-    - `processDroppedFiles` filters for image files, calls the (mock) `uploadImageToStorage`, handles loading/error states during upload, and updates the store via `updateBlockContent` on success.
-    - Renders conditionally:
-      - Placeholder with icon/text when `!imageUrl && !isUploading`.
-      - Uploading indicator when `isUploading`.
-      - The `<img>` tag when `imageUrl` is set. It includes `onLoad`/`onError` handlers and shows loading/error states overlayed if necessary.
-    - Applies dynamic classes for dropzone feedback (`isActive`, `canDrop`).
-    - The main `div` and `img` use `w-full` to fill horizontal space. `h-auto` on the `img` maintains aspect ratio. The placeholder uses `aspect-video` by default.
-2.  **Upload Function:** The `uploadImageToStorage` function is crucial. The provided mock uses `URL.createObjectURL` for quick simulation, but **you must replace this with your actual Supabase Storage upload logic.**
-3.  **`CanvasBlock` Integration:** Simple wiring to render `ImageBlock` when `block.type === 'image'`.
-4.  **`RightSidebar` Integration:** Shows how to conditionally render input fields for "Image URL" (`block.content`) and "Alt Text" (`block.altText`) when an image block is selected. Changes trigger `updateBlockContent`. A "Clear Image" button is added.
-5.  **Layout:** The `w-full` classes ensure the block tries to take up the available horizontal space defined by its parent container (`CanvasBlock` wrapper within the `DropArea`). The final width is determined by the `DropArea`'s layout context (full width, split column, etc.).
-
-Remember to replace the mock upload function with your real Supabase implementation!
 
 ```
 
@@ -12940,17 +12793,22 @@ import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { findDropAreaById } from "@/lib/utils/drop-area-utils";
 import type { DropTargetMonitor } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { uploadMediaFile, addMediaItemToDatabase } from "@/lib/supabase/storage";
+import { toast } from "sonner";
 
 interface DragItem {
   id?: string; // ID of the block being dragged (if existing)
   type: string; // Type of the block (e.g., 'heading', 'paragraph')
   content: string; // Default content for new blocks
   sourceDropAreaId?: string; // Original drop area ID (if moving existing block)
+  files?: File[]; // Add files for NativeTypes.FILE
 }
 
 export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   const dropTargetRef = useRef<HTMLDivElement | null>(null);
-  // Removed isHoveringBetween and hoverPosition state
+  const { supabase: supabaseClient, user } = useSupabase();
 
   const {
     addBlock, // Function to add a new block
@@ -12979,33 +12837,52 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
     { name: string; handled: boolean; dropAreaId: string } | undefined,
     { isOver: boolean; canDrop: boolean }
   >({
-    accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK], // Accepts new blocks and existing blocks
-    // Simplified hover: Only concerned with direct hover over this specific area
+    accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK, NativeTypes.FILE],
+
+    canDrop: (item: DragItem, monitor) => {
+      // Handle file drops
+      if (monitor.getItemType() === NativeTypes.FILE) {
+        const files = (item as { files: File[] }).files;
+        if (!files || files.length === 0) return false;
+
+        // Check if at least one file has a supported type
+        const hasValidFile = files.some(file => {
+          const type = file.type.toLowerCase();
+          return (
+            type.startsWith('image/') ||
+            type.startsWith('video/') ||
+            type.startsWith('audio/') ||
+            type === 'application/pdf' ||
+            type === 'application/msword' ||
+            type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          );
+        });
+
+        return hasValidFile;
+      }
+
+      // Default canDrop behavior for other item types
+      return true;
+    },
+
     hover: (
       item: DragItem,
       monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
     ) => {
-      // No complex edge detection needed here anymore
-      // We still might want to update isHovering state if needed for direct hover styles
-      const clientOffset = monitor.getClientOffset(); // Get mouse position
+      const clientOffset = monitor.getClientOffset();
       if (clientOffset) {
-        setMousePosition(clientOffset); // Update state
+        setMousePosition(clientOffset);
       }
 
       if (!monitor.isOver({ shallow: true })) {
-        if (isHovering) setIsHovering(false); // Clear hover if not over anymore
-        setMousePosition(null); // Clear mouse position when not hovering
+        if (isHovering) setIsHovering(false);
+        setMousePosition(null);
         return;
       }
-      if (!isHovering) setIsHovering(true); // Set hover if over
+      if (!isHovering) setIsHovering(true);
     },
-    drop: (
-      item: DragItem,
-      monitor: DropTargetMonitor<
-        DragItem,
-        { name: string; handled: boolean; dropAreaId: string } | undefined
-      >
-    ) => {
+
+    drop: (item: DragItem, monitor) => {
       const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
       // Check if handled by parent
@@ -13022,6 +12899,101 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           `[${dropOpId}] DropAreaHook ${dropArea.id}: Drop target ref is null or not directly over.`
         );
         return undefined;
+      }
+
+      // Handle file drops
+      if (monitor.getItemType() === NativeTypes.FILE) {
+        if (!supabaseClient || !user) {
+          toast.error("Please sign in to upload files");
+          return undefined;
+        }
+
+        const files = (item as { files: File[] }).files;
+        if (!files || files.length === 0) return undefined;
+
+        // Find the first supported file
+        const supportedFile = files.find(file => {
+          const type = file.type.toLowerCase();
+          return (
+            type.startsWith('image/') ||
+            type.startsWith('video/') ||
+            type.startsWith('audio/') ||
+            type === 'application/pdf' ||
+            type === 'application/msword' ||
+            type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          );
+        });
+
+        if (!supportedFile) {
+          toast.error("No supported file types found");
+          return undefined;
+        }
+
+        // Show loading state
+        const loadingToast = toast.loading("Uploading file...");
+
+        // Handle file upload in the background
+        (async () => {
+          try {
+            // Upload file
+            const url = await uploadMediaFile(supportedFile, user.id, supabaseClient);
+            if (!url) {
+              toast.dismiss(loadingToast);
+              toast.error("Failed to upload file");
+              return;
+            }
+
+            // Add to database
+            const mediaItem = await addMediaItemToDatabase(
+              supportedFile,
+              url,
+              user.id,
+              supabaseClient
+            );
+
+            if (!mediaItem) {
+              toast.dismiss(loadingToast);
+              toast.error("Failed to save file information");
+              return;
+            }
+
+            // Determine block type based on file type
+            let blockType: string;
+            if (supportedFile.type.startsWith('image/')) {
+              blockType = 'image';
+            } else if (supportedFile.type.startsWith('video/')) {
+              blockType = 'video';
+            } else if (supportedFile.type.startsWith('audio/')) {
+              blockType = 'audio';
+            } else {
+              blockType = 'document';
+            }
+
+            // Add block to store
+            addBlock(
+              {
+                type: blockType,
+                content: url,
+                dropAreaId: dropArea.id,
+                ...(blockType === 'image' && { altText: supportedFile.name }),
+              },
+              dropArea.id
+            );
+
+            toast.dismiss(loadingToast);
+            toast.success("File uploaded successfully");
+          } catch (error) {
+            console.error("Error handling file drop:", error);
+            toast.dismiss(loadingToast);
+            toast.error("Failed to process file");
+          }
+        })();
+
+        return {
+          name: "Started file upload",
+          handled: true,
+          dropAreaId: dropArea.id,
+        };
       }
 
       // --- Core Logic: Determine if this hook should handle the drop ---
@@ -13093,11 +13065,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         return undefined;
       }
     },
-    collect: (
-      monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
-    ) => ({
-      isOver: !!monitor.isOver({ shallow: true }), // Is an item hovering directly over this target?
-      canDrop: !!monitor.canDrop(), // Can this target accept the dragged item?
+    collect: (monitor) => ({
+      isOver: !!monitor.isOver({ shallow: true }),
+      canDrop: !!monitor.canDrop(),
     }),
   });
 
@@ -13616,7 +13586,6 @@ export function createClient() {
 
 // Note: We're removing the singleton pattern to avoid stale auth state
 
-
 ```
 
 # lib/supabase/database.ts
@@ -14040,6 +14009,41 @@ export interface Database {
           created_at?: string
         }
       }
+      media_items: {
+        Row: {
+          id: string
+          file_name: string
+          file_type: string
+          url: string
+          size: number
+          width: number
+          height: number
+          user_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          id?: string
+          file_name: string
+          file_type: string
+          url: string
+          size: number
+          width: number
+          height: number
+          user_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          id?: string
+          file_name?: string
+          file_type?: string
+          url?: string
+          size?: number
+          width?: number
+          height?: number
+          user_id?: string
+          uploaded_at?: string
+        }
+      }
       // Add other tables as needed
     }
     Views: {
@@ -14053,7 +14057,6 @@ export interface Database {
     }
   }
 }
-
 
 ```
 
@@ -14142,7 +14145,6 @@ export function createMiddlewareClient(request: NextRequest) {
   return { supabase, response }
 }
 
-
 ```
 
 # lib/supabase/server.ts
@@ -14199,7 +14201,6 @@ export function createServerClient() {
   )
 }
 
-
 ```
 
 # lib/supabase/storage.ts
@@ -14208,6 +14209,8 @@ export function createServerClient() {
 import { createClient } from "@/lib/supabase/client";
 import type { DropAreaType } from "@/lib/types";
 import type { ProjectData } from "@/lib/types";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "./database.types";
 
 // Define the Project type for UI display
 interface Project {
@@ -14579,6 +14582,197 @@ export async function migrateMockProjects(
   }
 }
 
+// Constants for supported media types and their corresponding buckets
+const BUCKET_MAPPING = {
+  image: 'images',
+  video: 'videos',
+  audio: 'audio',
+  document: 'documents'
+} as const;
+
+// --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen (kopiert aus mediathek-view) ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
+/**
+ * Get media type category from MIME type
+ * @param mimeType The MIME type of the file
+ * @returns The media category or null if unsupported
+ */
+function getMediaCategory(mimeType: string): keyof typeof BUCKET_MAPPING | null {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+  // Consider common document types
+  if (
+    [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain",
+    ].includes(mimeType)
+  ) {
+    return "document";
+  }
+  return null;
+}
+
+/**
+ * Upload a media file to the appropriate Supabase storage bucket
+ * @param file The file to upload
+ * @param userId The ID of the user uploading the file
+ * @param supabaseClient The Supabase client instance
+ * @returns The public URL of the uploaded file or null if upload fails
+ */
+export async function uploadMediaFile(
+  file: File,
+  userId: string,
+  supabaseClient: SupabaseClient<Database>
+): Promise<string | null> {
+  const category = getMediaCategory(file.type);
+  if (!category) {
+    console.error("Unsupported file type:", file.type);
+    return null;
+  }
+
+  const bucket = BUCKET_MAPPING[category];
+
+  // --- MODIFIZIERT: Dateinamen bereinigen ---
+  const sanitizedFileName = sanitizeFilename(file.name);
+  const filePath = `${userId}/${Date.now()}-${sanitizedFileName}`;
+
+  try {
+    console.log(
+      `Attempting to upload ${file.name} (sanitized: ${sanitizedFileName}) to bucket ${bucket} at path ${filePath}`
+    );
+
+    const { error: uploadError } = await supabaseClient.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error(`Error uploading file ${file.name}:`, uploadError);
+      throw uploadError; // Re-throw to be caught below
+    }
+
+    const { data } = supabaseClient.storage.from(bucket).getPublicUrl(filePath);
+
+    if (!data?.publicUrl) {
+      console.error(`Could not get public URL for ${filePath}`);
+      return null;
+    }
+
+    console.log(`Upload successful for ${file.name}. URL: ${data.publicUrl}`);
+    return data.publicUrl;
+  } catch (error) {
+    console.error(`Failed during upload process for ${file.name}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Add a media item to the database
+ * @param file The original file
+ * @param url The public URL of the uploaded file
+ * @param userId The ID of the user
+ * @param supabaseClient The Supabase client instance
+ * @returns The created media item record or null if operation fails
+ */
+export async function addMediaItemToDatabase(
+  file: File,
+  url: string,
+  userId: string,
+  supabaseClient: SupabaseClient<Database>
+): Promise<Database['public']['Tables']['media_items']['Row'] | null> {
+  try {
+    const mediaCategory = getMediaCategory(file.type);
+    if (!mediaCategory) {
+      return null;
+    }
+
+    let dimensions = undefined;
+    if (mediaCategory === 'image') {
+      dimensions = await getImageDimensions(file);
+    }
+
+    const mediaItem = {
+      file_name: file.name,
+      file_type: file.type,
+      url: url,
+      size: file.size,
+      user_id: userId,
+      uploaded_at: new Date().toISOString(),
+      width: dimensions?.width ?? 0,
+      height: dimensions?.height ?? 0
+    };
+
+    const { data, error } = await supabaseClient
+      .from('media_items')
+      .insert(mediaItem)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding media item to database:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in addMediaItemToDatabase:', error);
+    return null;
+  }
+}
+
+/**
+ * Get dimensions of an image file
+ * @param file The image file
+ * @returns Promise resolving to width and height or undefined if not possible
+ */
+async function getImageDimensions(file: File): Promise<{ width: number; height: number } | undefined> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      resolve(undefined);
+      return;
+    }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({
+        width: img.width,
+        height: img.height
+      });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(undefined);
+    };
+
+    img.src = url;
+  });
+}
+
 ```
 
 # lib/supabase/supabase-browser.ts
@@ -14739,65 +14933,6 @@ export function getSupabaseServerClient() {
 # lib/supabase/types.ts
 
 ```ts
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
-
-export interface Database {
-  public: {
-    Tables: {
-      columns: {
-        Row: {
-          id: string
-          title: string
-          position: number
-          created_at?: string
-        }
-        Insert: {
-          id?: string
-          title: string
-          position: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          title?: string
-          position?: number
-          created_at?: string
-        }
-      }
-      items: {
-        Row: {
-          id: string
-          content: string
-          column_id: string
-          created_at?: string
-        }
-        Insert: {
-          id?: string
-          content: string
-          column_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          content?: string
-          column_id?: string
-          created_at?: string
-        }
-      }
-      // Add other tables as needed
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-  }
-}
-
 
 ```
 
@@ -14806,12 +14941,14 @@ export interface Database {
 ```ts
 export interface BlockType {
   id: string;
-  type: string;
+  type: 'heading' | 'paragraph' | 'image' | 'video' | 'audio' | 'document';
   content: string;
   dropAreaId: string;
   // Additional properties for specific block types
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
-  altText?: string; // Optional: Add alt text specifically for images
+  altText?: string; // For images
+  fileName?: string; // For documents
+  thumbnailUrl?: string; // NEU: For document previews
   // Add more properties for other block types as needed
 }
 
@@ -15250,61 +15387,61 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 1. Project Initialization
 
-   - Setting up project structure
-   - Configuring development environment
-   - Establishing documentation standards
+   - ✅ Setting up project structure
+   - ✅ Configuring development environment
+   - ✅ Establishing documentation standards
 
 2. Core Features Development
 
-   - Visual editor interface
-   - Component system
-   - Drag-and-drop functionality
+   - 🏗️ Visual editor interface
+   - 🏗️ Component system
+   - 🏗️ Drag-and-drop functionality
 
 3. Infrastructure Setup
-   - Supabase integration
-   - Authentication system
-   - State management implementation
+   - 🏗️ Supabase integration
+   - 🏗️ Authentication system
+   - 🏗️ State management implementation
 
 ## Recent changes
 
 1. Project Setup
 
-   - Initialized Next.js project with TypeScript
-   - Added essential dependencies
-   - Configured Tailwind CSS and shadcn/ui
-   - Set up Supabase client
+   - ✅ Initialized Next.js project with TypeScript
+   - ✅ Added essential dependencies
+   - ✅ Configured Tailwind CSS and shadcn/ui
+   - 🏗️ Set up Supabase client
 
 2. Documentation
 
-   - Created Memory Bank structure
-   - Documented project architecture
-   - Established development guidelines
+   - ✅ Created Memory Bank structure
+   - ✅ Documented project architecture
+   - ✅ Established development guidelines
 
 3. Environment Configuration
-   - Added environment variables
-   - Configured development tools
-   - Set up linting and formatting
+   - 🏗️ Added environment variables
+   - ✅ Configured development tools
+   - ✅ Set up linting and formatting
 
 ## Next steps
 
-1. Immediate Tasks
+1. Priority Tasks
 
-   - Implement basic authentication flow
-   - Create editor canvas component
-   - Set up drag-and-drop system
-   - Design component library structure
+   - Configure Supabase environment and credentials
+   - Set up development database
+   - Implement authentication flow with Supabase
+   - Create basic editor layout structure
 
 2. Short-term Goals
 
-   - Complete core editor functionality
-   - Implement project saving/loading
-   - Add basic block components
-   - Set up preview system
+   - Design and implement component library
+   - Set up Zustand store for editor state
+   - Create drag-and-drop infrastructure
+   - Implement basic block components
 
 3. Future Considerations
-   - Rich text editing integration
+   - Rich text editing with TipTap
    - Advanced component features
-   - Collaboration features
+   - Real-time collaboration features
    - Export functionality
 
 ## Active decisions and considerations
@@ -15318,10 +15455,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 2. Architecture Considerations
 
-   - Component modularity
-   - State management strategy
-   - Performance optimization
-   - Code reusability
+   - Component modularity and reusability
+   - State management patterns for editor
+   - Performance optimization strategies
+   - TypeScript type definitions structure
 
 3. UX Considerations
    - Intuitive drag-and-drop interface
@@ -15423,90 +15560,92 @@ Boards Klon exists to democratize web development by providing a visual web buil
 
 1. Project Setup
 
-   - Next.js application structure
-   - TypeScript configuration
-   - Tailwind CSS integration
-   - Basic development environment
+   - ✅ Next.js application structure
+   - ✅ TypeScript configuration
+   - ✅ Tailwind CSS integration
+   - ✅ Basic development environment
 
 2. Dependencies
 
-   - Core packages installed
-   - Development tools configured
-   - Build system working
-   - Linting setup complete
+   - ✅ Core packages installed
+   - ✅ Development tools configured
+   - ✅ Build system working
+   - ✅ Linting setup complete
 
 3. Documentation
-   - Memory Bank structure established
-   - Project architecture documented
-   - Development guidelines created
-   - Technical context defined
+   - ✅ Memory Bank structure established
+   - ✅ Project architecture documented
+   - ✅ Development guidelines created
+   - ✅ Technical context defined
 
 ## What's left to build
 
 1. Core Features
 
-   - Authentication system
-   - Visual editor interface
-   - Component library
-   - Drag-and-drop functionality
-   - Project management
-   - Preview system
+   - 🏗️ Authentication system
+   - 🏗️ Visual editor interface
+   - 🏗️ Component library
+   - 🏗️ Drag-and-drop functionality
+   - 🏗️ Project management
+   - 🏗️ Preview system
 
 2. Infrastructure
 
-   - Supabase integration
-   - State management setup
-   - API routes
-   - Data models
+   - 🏗️ Supabase integration
+   - 🏗️ State management setup
+   - 🏗️ API routes
+   - 🏗️ Data models
 
 3. User Interface
-   - Editor components
-   - Block components
-   - Configuration panels
-   - Responsive layouts
+   - 🏗️ Editor components
+   - 🏗️ Block components
+   - 🏗️ Configuration panels
+   - 🏗️ Responsive layouts
 
 ## Current status
 
 1. Project Phase
 
-   - Initial setup phase
-   - Documentation in progress
-   - Core architecture planning
-   - Development environment ready
+   - ✅ Initial setup phase
+   - ✅ Documentation in progress
+   - 🏗️ Core architecture planning
+   - 🏗️ Development environment ready
 
 2. Development Progress
 
    - Project structure: 100%
-   - Documentation: 80%
+   - Documentation: 100%
    - Core setup: 90%
    - Feature development: 0%
 
 3. Timeline Status
-   - Project initialized
-   - Basic configuration complete
-   - Ready for feature development
-   - Pending core implementation
+   - ✅ Project initialized
+   - ✅ Basic configuration complete
+   - 🏗️ Ready for feature development
+   - 🏗️ Core implementation pending
 
 ## Known issues
 
 1. Setup Issues
 
-   - Environment variables need configuration
-   - Supabase credentials pending
-   - Development database setup required
+   - Environment variables configuration needed
+   - Supabase project setup and credentials required
+   - Development database configuration pending
+   - Test environment setup needed
 
 2. Technical Debt
 
-   - Type definitions needed for components
-   - Test setup pending
-   - Documentation needs expansion
-   - Performance optimization required
+   - Component type definitions needed
+   - Test suite setup required
+   - API route structure planning needed
+   - State management implementation pending
 
 3. Pending Decisions
-   - Block component structure
-   - State management patterns
-   - Data model design
-   - Export format specification
+   - Block component hierarchy and structure
+   - Editor state management patterns
+   - Database schema design
+   - Component library organization
+   - Preview mode implementation strategy
 
 ```
 
@@ -15926,9 +16065,13 @@ export default nextConfig;
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "list": "node scripts/dev.js list",
+    "generate": "node scripts/dev.js generate",
+    "parse-prd": "node scripts/dev.js parse-prd"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-avatar": "^1.1.3",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -15954,18 +16097,28 @@ export default nextConfig;
     "@tiptap/react": "^2.11.7",
     "@tiptap/starter-kit": "^2.11.7",
     "@types/uuid": "^10.0.0",
+    "boxen": "^7.1.1",
+    "chalk": "^5.3.0",
     "class-variance-authority": "^0.7.1",
+    "cli-table3": "^0.6.3",
     "clsx": "^2.1.1",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
     "emoji-picker-react": "^4.12.2",
+    "figlet": "^1.7.0",
     "framer-motion": "^12.6.2",
+    "gradient-string": "^2.0.2",
     "lucide-react": "^0.485.0",
     "next": "14.2.25",
     "next-themes": "^0.4.6",
+    "openai": "^4.86.1",
+    "ora": "^7.0.1",
     "react": "^18",
     "react-colorful": "^5.6.1",
     "react-dom": "^18",
     "react-icons": "^5.5.0",
     "sonner": "^2.0.3",
+    "supabase": "^2.20.12",
     "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.1.0",
@@ -15993,155 +16146,9 @@ export default nextConfig;
     "tailwindcss": "^3.4.17",
     "typescript": "^5",
     "vitest": "^3.1.1"
-  }
+  },
+  "type": "module"
 }
-
-```
-
-# planning_for_tests.md
-
-```md
-Okay, here's a plan for implementing testing in your "Block Builder" project, covering different levels of testing:
-
-**1. Tooling Setup**
-
-- **Test Runner & Framework:** Use **Vitest**. It's fast, compatible with Vite (which Next.js can use under the hood), and has a Jest-compatible API.
-- **Component Testing:** Use **React Testing Library (RTL)** (`@testing-library/react`) for rendering components and interacting with them in a user-centric way.
-- **User Interactions:** Use `@testing-library/user-event` for more realistic simulation of user interactions (typing, clicking, etc.).
-- **Mocking API Calls (Supabase):** Use **Mock Service Worker (MSW)** to intercept HTTP requests made by the Supabase client and return mock responses. This is crucial for integration tests involving data fetching/saving.
-- **End-to-End (E2E) Testing:** Use **Playwright** for testing complete user flows in real browsers.
-
-**Installation:**
-
-\`\`\`bash
-npm install --save-dev vitest @vitest/ui @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom msw playwright @playwright/test
-\`\`\`
-
-**Configuration:**
-
-- **Vitest:** Create a `vitest.config.ts` file. Configure it to use `jsdom` for the environment and set up global imports/setup files (e.g., for RTL cleanup and Jest-DOM matchers).
-- **MSW:** Set up handlers for your Supabase interactions (auth, storage list/upload/download). Create setup files to start the mock server for your tests.
-- **Playwright:** Initialize Playwright (`npx playwright install`) and configure `playwright.config.ts`.
-- **`package.json`:** Add scripts for running tests (`"test": "vitest"`, `"test:ui": "vitest --ui"`, `"test:e2e": "playwright test"`).
-- **`tsconfig.json`:** Ensure `vitest/globals` and `@testing-library/jest-dom` types are included.
-
-**2. Unit Testing (`*.test.ts` / `*.test.tsx`)**
-
-- **Focus:** Testing small, isolated units (functions, simple components) in isolation.
-- **Targets:**
-  - **Utility Functions (`lib/utils/`):** Test functions like `formatDate`, `getBlockStyle`, `findDropAreaById`, `isDropAreaEmpty`, `canMergeAreas` with various inputs and assert the expected outputs.
-  - **Simple UI Components (`components/ui/`, simple blocks):** Render components like `Button`, `Badge`, `Input` with different props and verify they render correctly. Test simple event handlers (e.g., `onClick`). Use RTL's `render`, `screen`, `getByRole`, etc.
-  - **Custom Hooks (Logic):** Test the pure logic parts of hooks like `useViewport` (if applicable) or potentially parts of `useBlockDrag`/`useDropArea` if they can be isolated from `react-dnd`.
-- **Example (`lib/utils.test.ts`):**
-
-  \`\`\`typescript
-  import { formatDate } from "./utils";
-  import { describe, it, expect } from "vitest";
-
-  describe("formatDate", () => {
-    it("should format recent dates relatively", () => {
-      const now = new Date();
-      const fiveMinutesAgo = new Date(
-        now.getTime() - 5 * 60 * 1000
-      ).toISOString();
-      expect(formatDate(fiveMinutesAgo)).toBe("vor 5 Minuten");
-    });
-    // ... more test cases
-  });
-  \`\`\`
-
-**3. Integration Testing (`*.test.tsx`)**
-
-- **Focus:** Testing how multiple units (components, hooks, store, mocks) work together.
-- **Targets:**
-  - **Forms & Authentication:** Render `SignInPage`/`SignUpPage`. Use `user-event` to simulate typing email. Mock Supabase auth calls (`signInWithOtp`) using MSW. Verify loading states, button clicks, and success/error messages/toasts (`sonner` might need specific testing setup or assertions on DOM changes).
-  - **Dashboard (`DashboardPage`):** Render the page. Mock `listProjectsFromStorage` (using MSW if it involves direct Supabase calls, or by mocking the store action if it abstracts Supabase). Verify project cards are rendered based on mock data. Simulate search input (`user-event.type`) and verify filtering. Simulate delete click and verify the delete confirmation dialog appears and the mock delete function is called.
-  - **Editor Components & Store:**
-    - Render `Navbar` (in editor view). Mock `useBlocksStore` state (e.g., `isSaving`, `lastSaved`). Simulate clicking "Save", verify the correct store action (`saveProject`) is called (using Vitest spies/mocks `vi.spyOn`). Simulate title editing and verify `setProjectTitle` is called.
-    - Render components using `useEditorStore` (like Tiptap toolbars). Mock the store state (`activeFormats`), verify button appearances. Simulate clicks and verify store actions (`updateActiveFormats`) are called.
-  - **Supabase Storage Interaction:** Test `blocks-store` actions (`loadProject`, `saveProject`, `createNewProject`) by mocking the underlying `loadProjectFromStorage`, `saveProjectToStorage` functions using `vi.mock` or by using MSW to mock the Supabase client's storage methods directly. Assert that the store state updates correctly after successful/failed operations.
-  - **Tiptap Blocks:** Render `ParagraphBlock` / `HeadingBlock`. Assert initial rendering based on props. Testing deep Tiptap interactions can be complex; focus on verifying that `onUpdate` correctly calls the `updateBlockContent` store action.
-- **Tools:** RTL, `user-event`, MSW, Vitest `vi.mock`/`vi.spyOn`.
-
-**4. Drag and Drop Testing (Special Focus)**
-
-- **Challenge:** Simulating realistic drag-and-drop browser events with RTL is difficult and often unreliable.
-- **Recommended Approach:**
-  - **Unit Test Store Actions:** Create specific unit tests for the Zustand actions related to D&D: `addBlockAtIndex`, `moveBlock`, `reorderBlocks`, `splitDropArea`, `mergeDropAreas`, `insertBlockInNewArea`. Set up an initial `dropAreas` state, call the action with specific arguments, and assert that the final `dropAreas` state in the store is exactly as expected. This verifies the core state manipulation logic.
-  - **Integration Test Component _Results_:** Render components like `DropAreaContent` or `Canvas`. _Instead of simulating the drag_, manually trigger the store actions that _should_ occur _after_ a drop (e.g., call `store.getState().addBlockAtIndex(...)`). Then, use RTL to assert that the UI correctly reflects the state change (e.g., the new block is rendered in the correct position, the insertion indicator is gone). This tests the component's reaction to the state changes caused by D&D.
-  - **E2E Tests (Crucial):** Rely heavily on Playwright for testing the _actual user interaction_ of dragging elements, seeing indicators, dropping, and verifying the visual and state outcomes.
-
-**5. End-to-End Testing (`*.spec.ts` in a `tests-e2e` directory)**
-
-- **Focus:** Testing complete user flows through the application in a real browser environment.
-- **Targets (Critical User Journeys):**
-  - **Authentication:** Navigate to `/`, click sign-in, enter credentials (use environment variables for test accounts), verify successful login and redirection to `/dashboard`. Test sign-out.
-  - **Project Lifecycle:** Create a new project, verify editor loads. Add a block (e.g., Heading). Change its content. Save the project (manually or verify auto-save). Return to dashboard, verify project exists. Reload the project, verify content persistence. Delete the project.
-  - **Core D&D:**
-    - Drag a block from the sidebar (`LeftSidebar`) onto an empty `DropArea` on the `Canvas`. Verify it appears.
-    - Drag an existing `CanvasBlock` and drop it between two other blocks within the same `DropAreaContent`. Verify the insertion indicator appears correctly during hover and the block is placed correctly after drop.
-    - Drag a block from one `DropArea` to another (empty or populated). Verify it moves correctly.
-  - **Splitting/Merging (Visual):** Drag onto an empty area's split indicator, verify it splits. Drag onto a merge indicator, verify areas merge.
-  - **Preview Mode:** Toggle preview mode and switch viewports, verify the basic layout rendering changes as expected (Playwright can take screenshots for visual regression).
-- **Tools:** Playwright. Use page object models for better organization. Interact with elements using locators.
-
-**6. Mocking Supabase with MSW**
-
-- Create handler files (e.g., `src/mocks/handlers.ts`).
-- Define request handlers for Supabase endpoints (e.g., `/auth/v1/otp`, `/storage/v1/object/...`).
-
-  \`\`\`typescript
-  // src/mocks/handlers.ts
-  import { http, HttpResponse } from "msw";
-
-  const handlers = [
-    // Mock Supabase Auth OTP
-    http.post("*/auth/v1/otp", () => {
-      return HttpResponse.json({}); // Simulate success
-    }),
-    // Mock Supabase Storage List
-    http.get("*/storage/v1/object/projects", ({ request }) => {
-      // Return mock file list based on tests
-      return HttpResponse.json([
-        {
-          name: "project-1.json",
-          id: "uuid1",
-          updated_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          last_accessed_at: new Date().toISOString(),
-          metadata: { size: 1000, mimetype: "application/json" },
-        },
-      ]);
-    }),
-    // Mock Storage Download
-    http.get("*/storage/v1/object/projects/:projectId", ({ params }) => {
-      const { projectId } = params;
-      if (projectId === "project-1.json") {
-        // Return mock project data
-        return HttpResponse.json({
-          id: "project-1",
-          title: "Mock Project",
-          dropAreas: [] /*...*/,
-        });
-      }
-      return new HttpResponse(null, { status: 404 });
-    }),
-    // Add handlers for upload, delete, etc.
-  ];
-  export { handlers };
-  \`\`\`
-
-- Set up the mock server in your test setup file.
-
-**Implementation Strategy:**
-
-1.  Start with unit tests for utilities – they are the easiest wins.
-2.  Add integration tests for authentication forms and dashboard data display, setting up MSW early.
-3.  Write unit tests for Zustand store actions, especially the D&D related ones.
-4.  Implement E2E tests for the most critical user flows (auth, project creation, basic block addition, save/load).
-5.  Add integration tests for editor components and their interaction with the store.
-6.  Incrementally add more E2E tests covering specific D&D scenarios (reordering, splitting, merging).
-7.  Integrate tests into your CI/CD pipeline.
 
 ```
 
@@ -16162,6 +16169,582 @@ export default config;
 # public/images/auth-min.jpg
 
 This is a binary file of the type: Image
+
+# README-task-master.md
+
+```md
+# Task Master
+### by [@eyaltoledano](https://x.com/eyaltoledano)
+
+A task management system for AI-driven development with Claude, designed to work seamlessly with Cursor AI.
+
+## Requirements
+
+- Node.js 14.0.0 or higher
+- Anthropic API key (Claude API)
+- Anthropic SDK version 0.39.0 or higher
+- OpenAI SDK (for Perplexity API integration, optional)
+
+## Configuration
+
+The script can be configured through environment variables in a `.env` file at the root of the project:
+
+### Required Configuration
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
+
+### Optional Configuration
+- `MODEL`: Specify which Claude model to use (default: "claude-3-7-sonnet-20250219")
+- `MAX_TOKENS`: Maximum tokens for model responses (default: 4000)
+- `TEMPERATURE`: Temperature for model responses (default: 0.7)
+- `PERPLEXITY_API_KEY`: Your Perplexity API key for research-backed subtask generation
+- `PERPLEXITY_MODEL`: Specify which Perplexity model to use (default: "sonar-medium-online")
+- `DEBUG`: Enable debug logging (default: false)
+- `LOG_LEVEL`: Log level - debug, info, warn, error (default: info)
+- `DEFAULT_SUBTASKS`: Default number of subtasks when expanding (default: 3)
+- `DEFAULT_PRIORITY`: Default priority for generated tasks (default: medium)
+- `PROJECT_NAME`: Override default project name in tasks.json
+- `PROJECT_VERSION`: Override default version in tasks.json
+
+## Installation
+
+\`\`\`bash
+# Install globally
+npm install -g task-master-ai
+
+# OR install locally within your project
+npm install task-master-ai
+\`\`\`
+
+### Initialize a new project
+
+\`\`\`bash
+# If installed globally
+task-master init
+
+# If installed locally
+npx task-master-init
+\`\`\`
+
+This will prompt you for project details and set up a new project with the necessary files and structure.
+
+### Important Notes
+
+1. This package uses ES modules. Your package.json should include `"type": "module"`.
+2. The Anthropic SDK version should be 0.39.0 or higher.
+
+## Quick Start with Global Commands
+
+After installing the package globally, you can use these CLI commands from any directory:
+
+\`\`\`bash
+# Initialize a new project
+task-master init
+
+# Parse a PRD and generate tasks
+task-master parse-prd your-prd.txt
+
+# List all tasks
+task-master list
+
+# Show the next task to work on
+task-master next
+
+# Generate task files
+task-master generate
+\`\`\`
+
+## Troubleshooting
+
+### If `task-master init` doesn't respond:
+
+Try running it with Node directly:
+
+\`\`\`bash
+node node_modules/claude-task-master/scripts/init.js
+\`\`\`
+
+Or clone the repository and run:
+
+\`\`\`bash
+git clone https://github.com/eyaltoledano/claude-task-master.git
+cd claude-task-master
+node scripts/init.js
+\`\`\`
+
+## Task Structure
+
+Tasks in tasks.json have the following structure:
+
+- `id`: Unique identifier for the task (Example: `1`)
+- `title`: Brief, descriptive title of the task (Example: `"Initialize Repo"`)
+- `description`: Concise description of what the task involves (Example: `"Create a new repository, set up initial structure."`)
+- `status`: Current state of the task (Example: `"pending"`, `"done"`, `"deferred"`)
+- `dependencies`: IDs of tasks that must be completed before this task (Example: `[1, 2]`)
+  - Dependencies are displayed with status indicators (✅ for completed, ⏱️ for pending)
+  - This helps quickly identify which prerequisite tasks are blocking work
+- `priority`: Importance level of the task (Example: `"high"`, `"medium"`, `"low"`)
+- `details`: In-depth implementation instructions (Example: `"Use GitHub client ID/secret, handle callback, set session token."`)
+- `testStrategy`: Verification approach (Example: `"Deploy and call endpoint to confirm 'Hello World' response."`)
+- `subtasks`: List of smaller, more specific tasks that make up the main task (Example: `[{"id": 1, "title": "Configure OAuth", ...}]`)
+
+## Integrating with Cursor AI
+
+Claude Task Master is designed to work seamlessly with [Cursor AI](https://www.cursor.so/), providing a structured workflow for AI-driven development.
+
+### Setup with Cursor
+
+1. After initializing your project, open it in Cursor
+2. The `.cursor/rules/dev_workflow.mdc` file is automatically loaded by Cursor, providing the AI with knowledge about the task management system
+3. Place your PRD document in the `scripts/` directory (e.g., `scripts/prd.txt`)
+4. Open Cursor's AI chat and switch to Agent mode
+
+### Initial Task Generation
+
+In Cursor's AI chat, instruct the agent to generate tasks from your PRD:
+
+\`\`\`
+Please use the task-master parse-prd command to generate tasks from my PRD. The PRD is located at scripts/prd.txt.
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master parse-prd scripts/prd.txt
+\`\`\`
+
+This will:
+- Parse your PRD document
+- Generate a structured `tasks.json` file with tasks, dependencies, priorities, and test strategies
+- The agent will understand this process due to the Cursor rules
+
+### Generate Individual Task Files
+
+Next, ask the agent to generate individual task files:
+
+\`\`\`
+Please generate individual task files from tasks.json
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master generate
+\`\`\`
+
+This creates individual task files in the `tasks/` directory (e.g., `task_001.txt`, `task_002.txt`), making it easier to reference specific tasks.
+
+## AI-Driven Development Workflow
+
+The Cursor agent is pre-configured (via the rules file) to follow this workflow:
+
+### 1. Task Discovery and Selection
+
+Ask the agent to list available tasks:
+
+\`\`\`
+What tasks are available to work on next?
+\`\`\`
+
+The agent will:
+- Run `task-master list` to see all tasks
+- Run `task-master next` to determine the next task to work on
+- Analyze dependencies to determine which tasks are ready to be worked on
+- Prioritize tasks based on priority level and ID order
+- Suggest the next task(s) to implement
+
+### 2. Task Implementation
+
+When implementing a task, the agent will:
+- Reference the task's details section for implementation specifics
+- Consider dependencies on previous tasks
+- Follow the project's coding standards
+- Create appropriate tests based on the task's testStrategy
+
+You can ask:
+\`\`\`
+Let's implement task 3. What does it involve?
+\`\`\`
+
+### 3. Task Verification
+
+Before marking a task as complete, verify it according to:
+- The task's specified testStrategy
+- Any automated tests in the codebase
+- Manual verification if required
+
+### 4. Task Completion
+
+When a task is completed, tell the agent:
+
+\`\`\`
+Task 3 is now complete. Please update its status.
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master set-status --id=3 --status=done
+\`\`\`
+
+### 5. Handling Implementation Drift
+
+If during implementation, you discover that:
+- The current approach differs significantly from what was planned
+- Future tasks need to be modified due to current implementation choices
+- New dependencies or requirements have emerged
+
+Tell the agent:
+\`\`\`
+We've changed our approach. We're now using Express instead of Fastify. Please update all future tasks to reflect this change.
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master update --from=4 --prompt="Now we are using Express instead of Fastify."
+\`\`\`
+
+This will rewrite or re-scope subsequent tasks in tasks.json while preserving completed work.
+
+### 6. Breaking Down Complex Tasks
+
+For complex tasks that need more granularity:
+
+\`\`\`
+Task 5 seems complex. Can you break it down into subtasks?
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master expand --id=5 --num=3
+\`\`\`
+
+You can provide additional context:
+\`\`\`
+Please break down task 5 with a focus on security considerations.
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master expand --id=5 --prompt="Focus on security aspects"
+\`\`\`
+
+You can also expand all pending tasks:
+\`\`\`
+Please break down all pending tasks into subtasks.
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master expand --all
+\`\`\`
+
+For research-backed subtask generation using Perplexity AI:
+\`\`\`
+Please break down task 5 using research-backed generation.
+\`\`\`
+
+The agent will execute:
+\`\`\`bash
+task-master expand --id=5 --research
+\`\`\`
+
+## Command Reference
+
+Here's a comprehensive reference of all available commands:
+
+### Parse PRD
+\`\`\`bash
+# Parse a PRD file and generate tasks
+task-master parse-prd <prd-file.txt>
+
+# Limit the number of tasks generated
+task-master parse-prd <prd-file.txt> --num-tasks=10
+\`\`\`
+
+### List Tasks
+\`\`\`bash
+# List all tasks
+task-master list
+
+# List tasks with a specific status
+task-master list --status=<status>
+
+# List tasks with subtasks
+task-master list --with-subtasks
+
+# List tasks with a specific status and include subtasks
+task-master list --status=<status> --with-subtasks
+\`\`\`
+
+### Show Next Task
+\`\`\`bash
+# Show the next task to work on based on dependencies and status
+task-master next
+\`\`\`
+
+### Show Specific Task
+\`\`\`bash
+# Show details of a specific task
+task-master show <id>
+# or
+task-master show --id=<id>
+
+# View a specific subtask (e.g., subtask 2 of task 1)
+task-master show 1.2
+\`\`\`
+
+### Update Tasks
+\`\`\`bash
+# Update tasks from a specific ID and provide context
+task-master update --from=<id> --prompt="<prompt>"
+\`\`\`
+
+### Generate Task Files
+\`\`\`bash
+# Generate individual task files from tasks.json
+task-master generate
+\`\`\`
+
+### Set Task Status
+\`\`\`bash
+# Set status of a single task
+task-master set-status --id=<id> --status=<status>
+
+# Set status for multiple tasks
+task-master set-status --id=1,2,3 --status=<status>
+
+# Set status for subtasks
+task-master set-status --id=1.1,1.2 --status=<status>
+\`\`\`
+
+When marking a task as "done", all of its subtasks will automatically be marked as "done" as well.
+
+### Expand Tasks
+\`\`\`bash
+# Expand a specific task with subtasks
+task-master expand --id=<id> --num=<number>
+
+# Expand with additional context
+task-master expand --id=<id> --prompt="<context>"
+
+# Expand all pending tasks
+task-master expand --all
+
+# Force regeneration of subtasks for tasks that already have them
+task-master expand --all --force
+
+# Research-backed subtask generation for a specific task
+task-master expand --id=<id> --research
+
+# Research-backed generation for all tasks
+task-master expand --all --research
+\`\`\`
+
+### Clear Subtasks
+\`\`\`bash
+# Clear subtasks from a specific task
+task-master clear-subtasks --id=<id>
+
+# Clear subtasks from multiple tasks
+task-master clear-subtasks --id=1,2,3
+
+# Clear subtasks from all tasks
+task-master clear-subtasks --all
+\`\`\`
+
+### Analyze Task Complexity
+\`\`\`bash
+# Analyze complexity of all tasks
+task-master analyze-complexity
+
+# Save report to a custom location
+task-master analyze-complexity --output=my-report.json
+
+# Use a specific LLM model
+task-master analyze-complexity --model=claude-3-opus-20240229
+
+# Set a custom complexity threshold (1-10)
+task-master analyze-complexity --threshold=6
+
+# Use an alternative tasks file
+task-master analyze-complexity --file=custom-tasks.json
+
+# Use Perplexity AI for research-backed complexity analysis
+task-master analyze-complexity --research
+\`\`\`
+
+### View Complexity Report
+\`\`\`bash
+# Display the task complexity analysis report
+task-master complexity-report
+
+# View a report at a custom location
+task-master complexity-report --file=my-report.json
+\`\`\`
+
+### Managing Task Dependencies
+\`\`\`bash
+# Add a dependency to a task
+task-master add-dependency --id=<id> --depends-on=<id>
+
+# Remove a dependency from a task
+task-master remove-dependency --id=<id> --depends-on=<id>
+
+# Validate dependencies without fixing them
+task-master validate-dependencies
+
+# Find and fix invalid dependencies automatically
+task-master fix-dependencies
+\`\`\`
+
+### Add a New Task
+\`\`\`bash
+# Add a new task using AI
+task-master add-task --prompt="Description of the new task"
+
+# Add a task with dependencies
+task-master add-task --prompt="Description" --dependencies=1,2,3
+
+# Add a task with priority
+task-master add-task --prompt="Description" --priority=high
+\`\`\`
+
+## Feature Details
+
+### Analyzing Task Complexity
+
+The `analyze-complexity` command:
+- Analyzes each task using AI to assess its complexity on a scale of 1-10
+- Recommends optimal number of subtasks based on configured DEFAULT_SUBTASKS
+- Generates tailored prompts for expanding each task
+- Creates a comprehensive JSON report with ready-to-use commands
+- Saves the report to scripts/task-complexity-report.json by default
+
+The generated report contains:
+- Complexity analysis for each task (scored 1-10)
+- Recommended number of subtasks based on complexity
+- AI-generated expansion prompts customized for each task
+- Ready-to-run expansion commands directly within each task analysis
+
+### Viewing Complexity Report
+
+The `complexity-report` command:
+- Displays a formatted, easy-to-read version of the complexity analysis report
+- Shows tasks organized by complexity score (highest to lowest)
+- Provides complexity distribution statistics (low, medium, high)
+- Highlights tasks recommended for expansion based on threshold score
+- Includes ready-to-use expansion commands for each complex task
+- If no report exists, offers to generate one on the spot
+
+### Smart Task Expansion
+
+The `expand` command automatically checks for and uses the complexity report:
+
+When a complexity report exists:
+- Tasks are automatically expanded using the recommended subtask count and prompts
+- When expanding all tasks, they're processed in order of complexity (highest first)
+- Research-backed generation is preserved from the complexity analysis
+- You can still override recommendations with explicit command-line options
+
+Example workflow:
+\`\`\`bash
+# Generate the complexity analysis report with research capabilities
+task-master analyze-complexity --research
+
+# Review the report in a readable format
+task-master complexity-report
+
+# Expand tasks using the optimized recommendations
+task-master expand --id=8
+# or expand all tasks
+task-master expand --all
+\`\`\`
+
+### Finding the Next Task
+
+The `next` command:
+- Identifies tasks that are pending/in-progress and have all dependencies satisfied
+- Prioritizes tasks by priority level, dependency count, and task ID
+- Displays comprehensive information about the selected task:
+  - Basic task details (ID, title, priority, dependencies)
+  - Implementation details
+  - Subtasks (if they exist)
+- Provides contextual suggested actions:
+  - Command to mark the task as in-progress
+  - Command to mark the task as done
+  - Commands for working with subtasks
+
+### Viewing Specific Task Details
+
+The `show` command:
+- Displays comprehensive details about a specific task or subtask
+- Shows task status, priority, dependencies, and detailed implementation notes
+- For parent tasks, displays all subtasks and their status
+- For subtasks, shows parent task relationship
+- Provides contextual action suggestions based on the task's state
+- Works with both regular tasks and subtasks (using the format taskId.subtaskId)
+
+## Best Practices for AI-Driven Development
+
+1. **Start with a detailed PRD**: The more detailed your PRD, the better the generated tasks will be.
+
+2. **Review generated tasks**: After parsing the PRD, review the tasks to ensure they make sense and have appropriate dependencies.
+
+3. **Analyze task complexity**: Use the complexity analysis feature to identify which tasks should be broken down further.
+
+4. **Follow the dependency chain**: Always respect task dependencies - the Cursor agent will help with this.
+
+5. **Update as you go**: If your implementation diverges from the plan, use the update command to keep future tasks aligned with your current approach.
+
+6. **Break down complex tasks**: Use the expand command to break down complex tasks into manageable subtasks.
+
+7. **Regenerate task files**: After any updates to tasks.json, regenerate the task files to keep them in sync.
+
+8. **Communicate context to the agent**: When asking the Cursor agent to help with a task, provide context about what you're trying to achieve.
+
+9. **Validate dependencies**: Periodically run the validate-dependencies command to check for invalid or circular dependencies.
+
+## Example Cursor AI Interactions
+
+### Starting a new project
+\`\`\`
+I've just initialized a new project with Claude Task Master. I have a PRD at scripts/prd.txt. 
+Can you help me parse it and set up the initial tasks?
+\`\`\`
+
+### Working on tasks
+\`\`\`
+What's the next task I should work on? Please consider dependencies and priorities.
+\`\`\`
+
+### Implementing a specific task
+\`\`\`
+I'd like to implement task 4. Can you help me understand what needs to be done and how to approach it?
+\`\`\`
+
+### Managing subtasks
+\`\`\`
+I need to regenerate the subtasks for task 3 with a different approach. Can you help me clear and regenerate them?
+\`\`\`
+
+### Handling changes
+\`\`\`
+We've decided to use MongoDB instead of PostgreSQL. Can you update all future tasks to reflect this change?
+\`\`\`
+
+### Completing work
+\`\`\`
+I've finished implementing the authentication system described in task 2. All tests are passing. 
+Please mark it as complete and tell me what I should work on next.
+\`\`\`
+
+### Analyzing complexity
+\`\`\`
+Can you analyze the complexity of our tasks to help me understand which ones need to be broken down further?
+\`\`\`
+
+### Viewing complexity report
+\`\`\`
+Can you show me the complexity report in a more readable format?
+\`\`\`
+```
 
 # README.md
 
@@ -16215,55 +16798,1141 @@ Boards Klon is a web application that allows users to visually build web pages o
 
 ```
 
-# refactor_useDropArea.md
+# scripts/dev.js
+
+```js
+#!/usr/bin/env node
+
+/**
+ * dev.js
+ * Task Master CLI - AI-driven development task management
+ * 
+ * This is the refactored entry point that uses the modular architecture.
+ * It imports functionality from the modules directory and provides a CLI.
+ */
+
+// Add at the very beginning of the file
+if (process.env.DEBUG === '1') {
+  console.error('DEBUG - dev.js received args:', process.argv.slice(2));
+}
+
+import { runCLI } from './modules/commands.js';
+
+// Run the CLI with the process arguments
+runCLI(process.argv); 
+```
+
+# scripts/example_prd.txt
+
+```txt
+<context>
+# Overview  
+[Provide a high-level overview of your product here. Explain what problem it solves, who it's for, and why it's valuable.]
+
+# Core Features  
+[List and describe the main features of your product. For each feature, include:
+- What it does
+- Why it's important
+- How it works at a high level]
+
+# User Experience  
+[Describe the user journey and experience. Include:
+- User personas
+- Key user flows
+- UI/UX considerations]
+</context>
+<PRD>
+# Technical Architecture  
+[Outline the technical implementation details:
+- System components
+- Data models
+- APIs and integrations
+- Infrastructure requirements]
+
+# Development Roadmap  
+[Break down the development process into phases:
+- MVP requirements
+- Future enhancements
+- Do not think about timelines whatsoever -- all that matters is scope and detailing exactly what needs to be build in each phase so it can later be cut up into tasks]
+
+# Logical Dependency Chain
+[Define the logical order of development:
+- Which features need to be built first (foundation)
+- Getting as quickly as possible to something usable/visible front end that works
+- Properly pacing and scoping each feature so it is atomic but can also be built upon and improved as development approaches]
+
+# Risks and Mitigations  
+[Identify potential risks and how they'll be addressed:
+- Technical challenges
+- Figuring out the MVP that we can build upon
+- Resource constraints]
+
+# Appendix  
+[Include any additional information:
+- Research findings
+- Technical specifications]
+</PRD>
+```
+
+# scripts/prd.txt
+
+```txt
+**Product Requirements Document: Block Builder**
+
+**1. Introduction**
+
+The NextJS WebApp (i have no name yet) is a visual drag and drop development tool designed to empower users to create "board" page layouts through an intuitive drag-and-drop interface. It utilizes a component-based system where users can assemble predefined "blocks" (like headings, paragraphs, images) onto a canvas, configure their properties, and preview the result across different device sizes. The application leverages Next.js for the frontend framework and Supabase for backend services including authentication, database storage (for media items), and file storage (for project data and media files).
+
+**2. Goals**
+
+- **Intuitive Visual Building:** Provide a seamless drag-and-drop experience for constructing web layouts without requiring direct coding knowledge.
+- **Component-Based Design:** Enable users to build pages using reusable, configurable blocks.
+- **Responsive Previews:** Allow users to easily visualize how their creations will look on desktop, tablet, and mobile devices.
+- **User Project Management:** Offer secure user accounts for creating, saving, loading, and managing multiple web layout projects.
+- **Media Management:** Provide a central library for users to upload, view, and manage media assets (images, videos, audio, documents) for use within their projects.
+
+**3. Target Audience**
+
+- Users seeking a visual way to create board page layouts without extensive coding.
+- These users typically are sales persons who want to give their customers condensed information about a product or service they offer
+
+**4. Features & User Stories**
+
+**4.1. Authentication & User Management**
+
+- **As a new user, I can:**
+  - Sign up for an account using my email via a Magic Link (`signUp` action).
+  - Sign up using Google OAuth.
+  - Sign up using Apple OAuth.
+- **As a returning user, I can:**
+  - Sign in to my account using my email via a Magic Link (`signIn` action).
+  - Sign in using Google OAuth.
+  - Sign in using Apple OAuth.
+- **As an authenticated user, I can:**
+  - Be redirected to the appropriate page (e.g., dashboard) after successful authentication (`auth/callback/route.ts`).
+  - Sign out of my account (`signOut` action).
+  - Access protected routes like `/dashboard` and `/editor` (`middleware.ts`).
+  - Be redirected away from authentication pages (`/sign-in`, `/sign-up`) if already logged in.
+- **As any user, I can:**
+  - See clear feedback (success/error messages, loading states) during the authentication process (`sign-in/page.tsx`, `sign-up/page.tsx`).
+
+**4.2. Dashboard**
+
+- **As an authenticated user, I can:**
+  - Access a dashboard page (`/dashboard`).
+  - View a list of my saved projects, displayed as cards (`ProjectsView`, `ProjectCard`, `listProjectsFromStorage`).
+  - See basic project information on each card (title, last updated/created date) (`ProjectCard`, `formatDate`).
+  - Search for projects by title (`ProjectsView`, `Input`).
+  - Filter projects using tabs (All, Recent, Templates - functionality might be placeholder) (`ProjectsView`, `Tabs`).
+  - Click a "New Project" button to navigate to the editor (`ProjectsView`, `Button`).
+  - Click on a project card to open it in the editor (`ProjectsView`, `ProjectCard`, navigation to `/editor?projectId=...`).
+  - Delete a project, which includes a confirmation dialog (`ProjectCard`, `AlertDialog`, `deleteProjectFromStorage`, `deleteProjectFromDatabase`).
+  - Manually refresh the project list (`ProjectsView`, `Button`).
+  - Navigate between different dashboard sections (Projects, Mediathek, Analytics, Profile, Settings) using a persistent sidebar (`DashboardSidebar`, `dashboard/page.tsx`).
+  - View placeholder sections for Analytics, Profile, and Settings (`AnalyticsView`, `ProfileView`, `SettingsView`).
+  - See my user avatar and email in the sidebar (`DashboardSidebar`).
+
+**4.3. Editor - Core Interface**
+
+- **As a user, I can:**
+  - Access the main editor interface (`/editor`).
+  - View a layout consisting of a Left Sidebar (Blocks/Templates), a central Canvas, and a Right Sidebar (Properties/Media) (`editor/page.tsx`).
+  - Load a specific project by providing its `projectId` in the URL (`editor/page.tsx`, `useBlocksStore.loadProject`).
+  - Automatically have a new, unsaved project created if no `projectId` is provided (`editor/page.tsx`, `useBlocksStore.createNewProject`).
+  - See the current project's title in the Navbar (`Navbar`, `useBlocksStore.currentProjectTitle`).
+  - Click the project title in the Navbar to edit it inline (`Navbar`, `Input`, `useBlocksStore.setProjectTitle`).
+  - Switch the canvas preview between Desktop, Tablet, and Mobile viewports using selectors (`ViewportSelector`, `useViewport`).
+  - Toggle a Preview Mode to see a clean representation of the layout (`Canvas`, `Preview`, `useBlocksStore.setPreviewMode`).
+  - Navigate back to the Dashboard from the editor (`Navbar`).
+
+**4.4. Editor - Canvas & Blocks**
+
+- **As a user, I can:**
+  - See a library of available blocks (Heading, Paragraph, Image, Video, Audio, Document, Button, Form, Divider) in the Left Sidebar (`LeftSidebar`, `DraggableBlock`).
+  - Drag a block from the Left Sidebar onto the Canvas Drop Areas (`useDropArea`, `ItemTypes.BLOCK`).
+  - See blocks rendered visually on the canvas after dropping (`Canvas`, `DropArea`, `CanvasBlock`).
+  - Drag an existing block on the canvas to reorder it within its current Drop Area (`useBlockDrag`, `DropAreaContent` internal `useDrop`, `useBlocksStore.reorderBlocks`).
+  - Drag an existing block from one Drop Area and drop it into another Drop Area (`useBlockDrag`, `useDropArea`, `useBlocksStore.moveBlock`).
+  - See insertion indicators when dragging blocks between other blocks or into gaps between Drop Areas (`InsertionIndicator`, `Canvas` gap drop logic).
+  - See visual feedback (highlighting, opacity changes) when dragging blocks or hovering over drop zones (`useDropArea`, `useBlockDrag`, `DropAreaContent`).
+  - Click on a block on the canvas to select it (`CanvasBlock`, `useBlocksStore.selectBlock`), indicated by a border/ring.
+  - Hover over a block to see controls (Move handle, Delete button) (`CanvasBlock`).
+  - Delete a block using its delete button (only appears if it's not the only block in its area) (`CanvasBlock`, `useBlocksStore.deleteBlock`).
+  - Delete an entire Drop Area (if it contains blocks) using a delete button that appears on hover (`DropArea`, `DesktopDropArea`, etc., `useBlocksStore.deleteDropArea`).
+  - Split an _empty_ Drop Area horizontally by clicking a '+' indicator that appears on hover (behavior depends on viewport limits) (`DropArea`, `useBlocksStore.splitDropArea`, `canSplit`).
+  - Split a _populated_ Drop Area horizontally by clicking a '+' indicator (moves existing blocks to the first new area) (`DropArea`, `useBlocksStore.splitPopulatedDropArea`, `canSplit`).
+  - Merge two adjacent, compatible (e.g., one empty or both having same parent) Drop Areas by clicking a merge indicator in the gap between them (`DesktopDropArea`, `TabletDropArea`, `MobileDropArea`, `MergeGapIndicator`, `useBlocksStore.mergeDropAreas`, `canMerge`).
+
+**4.5. Editor - Block Content & Configuration**
+
+- **As a user, I can:**
+  - Edit the text content of Heading and Paragraph blocks directly on the canvas using a Tiptap-based rich text editor (`HeadingBlock`, `ParagraphBlock`, `useEditor`).
+  - Format text within Heading/Paragraph blocks using a toolbar (Bold, Italic, Underline, Link, Lists, Blockquote, Horizontal Rule, Emoji) (`HeadingBlock`, `ParagraphBlock`, `TiptapToolbar`).
+  - Change the level (H1-H6) of a Heading block using its toolbar (`HeadingBlock`).
+  - Change the text color of a Heading block using a color picker in its toolbar (`HeadingBlock`, `ColorPicker`).
+  - Add an image to an Image block by dropping an image file directly onto it (`ImageBlock`, `useDrop`, `NativeTypes.FILE`). The image is uploaded to Supabase Storage and added to the `media_items` table.
+  - (Implied) Drag an image from the Mediathek (Right Sidebar) onto an Image block (`ImageBlock`, `useDrop`, `ItemTypes.MEDIA_IMAGE`).
+  - See loading and error states within the Image block during upload/loading (`ImageBlock`).
+  - (Implied) Configure properties of the _selected_ block using the Right Sidebar (structure exists, URL/Alt text for Image block is conceptually shown in `image.md`).
+  - Directly drop a supported media file (Image, Video, Audio, Document) onto any DropArea (empty or between blocks) to automatically create the corresponding block (`useDropArea`, `DropAreaContent` - Requires implementation as requested).
+
+**4.6. Editor - Project Saving & Loading**
+
+- **As a user, I can:**
+  - Have my project automatically saved periodically if Auto-Save is enabled (`useBlocksStore.autoSaveEnabled`, `triggerAutoSave`, debounced save).
+  - Toggle the Auto-Save feature on/off (`Navbar`, `useBlocksStore.toggleAutoSave`).
+  - Manually save the current project using a "Save" button (`Navbar`, `useBlocksStore.saveProject`).
+  - See the status of the save operation (Idle, Saving, Saved, Error) (`Navbar`).
+  - See an indicator of when the project was last successfully saved (`Navbar`, `useBlocksStore.lastSaved`).
+  - Have my project data (title, description, block structure) persisted in Supabase Storage (`saveProjectToStorage`, `loadProjectFromStorage`).
+  - Delete the currently open project using a "Delete" button in the Navbar (`Navbar`, `deleteProjectFromStorage`, `deleteProjectFromDatabase`).
+
+**4.7. Mediathek (Standalone View)**
+
+- **As an authenticated user, I can:**
+  - Access a dedicated Mediathek page (`/mediathek` or via Dashboard sidebar).
+  - View all my uploaded media files, grouped by type (Images, Videos, Audio, Documents) (`MediathekView`).
+  - Search for media files by filename (`MediathekView`, `Input`).
+  - Upload new media files via drag-and-drop or a file selector (`MediathekView`, `handleFileUpload`). Uploaded files are stored in the appropriate Supabase bucket (`images`, `videos`, etc.) and recorded in the `media_items` table.
+  - See upload progress (`MediathekView`).
+  - Delete media items from the library (removes from storage and database) (`MediathekView`, `handleDelete`).
+
+**4.8. Mediathek (Editor Sidebar Tab)**
+
+- **As a user, I can:**
+  - Access a Mediathek tab within the Editor's Right Sidebar (`EditorRightSidebar`, `MediaLibraryContent`).
+  - View, search, upload, and delete media items similarly to the standalone Mediathek view, powered by Supabase (`MediaLibraryContent`).
+  - (Implied) Drag media items (specifically images currently) from this tab onto compatible blocks on the canvas (e.g., `ImageBlock`).
+
+**5. Design & UI/UX Considerations**
+
+- The UI should be clean, intuitive, and consistent, leveraging Tailwind CSS and shadcn/ui components.
+- Drag-and-drop interactions should feel smooth and provide clear visual feedback (hover states, insertion indicators, drag previews).
+- The application must be responsive, adapting the editor and preview correctly for desktop, tablet, and mobile viewports.
+- Loading states should be clearly indicated during data fetching (projects, media) and saving/uploading operations.
+- Error states should be handled gracefully with informative messages (e.g., using toasts via `sonner`).
+
+**6. MVP Release Criteria (Based on Current Implementation)**
+
+- Stable user authentication (Magic Link, OAuth).
+- Functional Dashboard: Project listing, creation, loading, deletion.
+- Core Editor: Load/Save projects, add/move/delete basic blocks (Heading, Paragraph, Image), viewport switching, preview mode.
+- Image Block: File drop upload to Supabase, rendering from URL.
+- other Media Blocks: File drop upload to Supabase, rendering from URL
+- Mediathek: View, upload, delete media items (syncing with Supabase).
+- Basic Drag-and-Drop functionality for blocks (within/between areas).
+- Basic Split/Merge functionality for Drop Areas.
+
+**7. Future Considerations / To be implemented (From Memory Bank / Code)**
+
+- Full implementation and configuration options for all planned block types (Button, Form, Divider, Video, Audio, Document).
+- Project share/export functionality => export to prerenderd and sharable HTML site (e.g. https://blockbuilder.com/board/u127sdf37832) or as an eMail Template.
+- Collaboration features.
+- Implementation of Analytics, Profile, and Settings dashboard views.
+- Formal testing suite (Unit, Integration, E2E).
+- Theme switching (Light/Dark/System - UI exists in SettingsView).
+- Internationalization/Language selection (UI exists in SettingsView).
+
+**8. Open Questions/Assumptions**
+
+- How should non-image blocks (Video, Audio, Document) be rendered and configured?
+- What specific properties are configurable for each block type beyond basic content?
+- What are the exact rules/limitations for splitting/merging Drop Areas across different viewports and nesting levels? (Current implementation has some viewport-specific limits).
+- How is project thumbnail generation/selection handled? (Functions exist but integration point isn't fully clear).
+- What is the intended functionality of the "Recent" and "Templates" tabs on the dashboard?
+
+```
+
+# scripts/README-task-master.md
 
 ```md
-Goal: Make useDropArea solely responsible for handling drops directly onto the area itself (especially when empty or receiving blocks from other areas) and providing basic drag state feedback for that area. Delegate complex indicator logic and internal reordering to components.
+# Meta-Development Script
 
-Refactoring Steps:
+This folder contains a **meta-development script** (`dev.js`) and related utilities that manage tasks for an AI-driven or traditional software development workflow. The script revolves around a `tasks.json` file, which holds an up-to-date list of development tasks.
 
-    Focus drop Handler:
+## Overview
 
-        Modify the drop handler to only execute addBlock or moveBlock logic if:
+In an AI-driven development process—particularly with tools like [Cursor](https://www.cursor.so/)—it's beneficial to have a **single source of truth** for tasks. This script allows you to:
 
-            The dropArea is currently empty (dropArea.blocks.length === 0).
+1. **Parse** a PRD or requirements document (`.txt`) to initialize a set of tasks (`tasks.json`).
+2. **List** all existing tasks (IDs, statuses, titles).
+3. **Update** tasks to accommodate new prompts or architecture changes (useful if you discover "implementation drift").
+4. **Generate** individual task files (e.g., `task_001.txt`) for easy reference or to feed into an AI coding workflow.
+5. **Set task status**—mark tasks as `done`, `pending`, or `deferred` based on progress.
+6. **Expand** tasks with subtasks—break down complex tasks into smaller, more manageable subtasks.
+7. **Research-backed subtask generation**—use Perplexity AI to generate more informed and contextually relevant subtasks.
+8. **Clear subtasks**—remove subtasks from specified tasks to allow regeneration or restructuring.
+9. **Show task details**—display detailed information about a specific task and its subtasks.
 
-            OR the dragged item is an EXISTING_BLOCK coming from a different sourceDropAreaId.
+## Configuration
 
-        In all other cases (e.g., populated area, internal reordering), the drop handler should immediately return undefined to allow nested drop targets (like in DropAreaContent) to handle the event.
+The script can be configured through environment variables in a `.env` file at the root of the project:
 
-        Ensure the monitor.didDrop() check and markDropHandled logic remain to prevent duplicate processing.
+### Required Configuration
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
 
-    Simplify hover Handler:
+### Optional Configuration
+- `MODEL`: Specify which Claude model to use (default: "claude-3-7-sonnet-20250219")
+- `MAX_TOKENS`: Maximum tokens for model responses (default: 4000)
+- `TEMPERATURE`: Temperature for model responses (default: 0.7)
+- `PERPLEXITY_API_KEY`: Your Perplexity API key for research-backed subtask generation
+- `PERPLEXITY_MODEL`: Specify which Perplexity model to use (default: "sonar-medium-online")
+- `DEBUG`: Enable debug logging (default: false)
+- `LOG_LEVEL`: Log level - debug, info, warn, error (default: info)
+- `DEFAULT_SUBTASKS`: Default number of subtasks when expanding (default: 3)
+- `DEFAULT_PRIORITY`: Default priority for generated tasks (default: medium)
+- `PROJECT_NAME`: Override default project name in tasks.json
+- `PROJECT_VERSION`: Override default version in tasks.json
 
-        Remove mouse position tracking (mousePosition state) and edge proximity detection logic (isNearEdge, mergeTarget state).
+## How It Works
 
-        The hover handler should primarily focus on monitor.isOver({ shallow: true }) to set the isHovering state used for direct visual feedback on the area itself (e.g., background highlight).
+1. **`tasks.json`**:  
+   - A JSON file at the project root containing an array of tasks (each with `id`, `title`, `description`, `status`, etc.).  
+   - The `meta` field can store additional info like the project's name, version, or reference to the PRD.  
+   - Tasks can have `subtasks` for more detailed implementation steps.
+   - Dependencies are displayed with status indicators (✅ for completed, ⏱️ for pending) to easily track progress.
 
-    Delegate Indicator Logic:
+2. **CLI Commands**  
+   You can run the commands via:
 
-        Remove shouldShowSplitIndicator and shouldShowMergeIndicator logic and related state (mergePosition) from the hook.
+   \`\`\`bash
+   # If installed globally
+   task-master [command] [options]
+   
+   # If using locally within the project
+   node scripts/dev.js [command] [options]
+   \`\`\`
 
-        Merge Indicators: Responsibility shifts entirely to parent layout components (DesktopDropArea, TabletDropArea, MobileDropArea) which manage the gaps between areas.
+   Available commands:
 
-        Split Indicator (Center Button): The DropArea component can decide to show this button based on props (showSplitIndicator) and state derived from the hook (isHovering, !isOver) combined with store checks (canSplit, area.blocks.length === 0).
+   - `init`: Initialize a new project
+   - `parse-prd`: Generate tasks from a PRD document
+   - `list`: Display all tasks with their status
+   - `update`: Update tasks based on new information
+   - `generate`: Create individual task files
+   - `set-status`: Change a task's status
+   - `expand`: Add subtasks to a task or all tasks
+   - `clear-subtasks`: Remove subtasks from specified tasks
+   - `next`: Determine the next task to work on based on dependencies
+   - `show`: Display detailed information about a specific task
+   - `analyze-complexity`: Analyze task complexity and generate recommendations
+   - `complexity-report`: Display the complexity analysis in a readable format
+   - `add-dependency`: Add a dependency between tasks
+   - `remove-dependency`: Remove a dependency from a task
+   - `validate-dependencies`: Check for invalid dependencies
+   - `fix-dependencies`: Fix invalid dependencies automatically
+   - `add-task`: Add a new task using AI
 
-    Streamline State & Return Value:
+   Run `task-master --help` or `node scripts/dev.js --help` to see detailed usage information.
 
-        Remove internal state related to mouse position and merging (mousePosition, mergeTarget, mergePosition).
+## Listing Tasks
 
-        Simplify getDropAreaStyles to only depend on isOver, canDrop, dropError, and potentially an isEmpty flag (derived from dropArea.blocks.length). Merge/split highlighting should be handled by components.
+The `list` command allows you to view all tasks and their status:
 
-        The hook should primarily return isOver, canDrop, the drop ref connector, and potentially isHovering (if needed by the component for the split button).
+\`\`\`bash
+# List all tasks
+task-master list
 
-    Update Consuming Components:
+# List tasks with a specific status
+task-master list --status=pending
 
-        Refactor DropArea, DesktopDropArea, TabletDropArea, and MobileDropArea to handle the display logic for split/merge indicators based on their layout context and the simplified state from the refactored hook.
+# List tasks and include their subtasks
+task-master list --with-subtasks
 
-        Ensure DropAreaContent correctly handles all drops within populated areas.
+# List tasks with a specific status and include their subtasks
+task-master list --status=pending --with-subtasks
+\`\`\`
 
-Outcome: A leaner useDropArea hook focused on its core drop target responsibilities, with clearer separation of concerns, making the overall D&D system easier to understand and maintain. Complex layout-dependent interactions (like merging) are managed at the appropriate component level.
+## Updating Tasks
 
+The `update` command allows you to update tasks based on new information or implementation changes:
+
+\`\`\`bash
+# Update tasks starting from ID 4 with a new prompt
+task-master update --from=4 --prompt="Refactor tasks from ID 4 onward to use Express instead of Fastify"
+
+# Update all tasks (default from=1)
+task-master update --prompt="Add authentication to all relevant tasks"
+
+# Specify a different tasks file
+task-master update --file=custom-tasks.json --from=5 --prompt="Change database from MongoDB to PostgreSQL"
+\`\`\`
+
+Notes:
+- The `--prompt` parameter is required and should explain the changes or new context
+- Only tasks that aren't marked as 'done' will be updated
+- Tasks with ID >= the specified --from value will be updated
+
+## Setting Task Status
+
+The `set-status` command allows you to change a task's status:
+
+\`\`\`bash
+# Mark a task as done
+task-master set-status --id=3 --status=done
+
+# Mark a task as pending
+task-master set-status --id=4 --status=pending
+
+# Mark a specific subtask as done
+task-master set-status --id=3.1 --status=done
+
+# Mark multiple tasks at once
+task-master set-status --id=1,2,3 --status=done
+\`\`\`
+
+Notes:
+- When marking a parent task as "done", all of its subtasks will automatically be marked as "done" as well
+- Common status values are 'done', 'pending', and 'deferred', but any string is accepted
+- You can specify multiple task IDs by separating them with commas
+- Subtask IDs are specified using the format `parentId.subtaskId` (e.g., `3.1`)
+- Dependencies are updated to show completion status (✅ for completed, ⏱️ for pending) throughout the system
+
+## Expanding Tasks
+
+The `expand` command allows you to break down tasks into subtasks for more detailed implementation:
+
+\`\`\`bash
+# Expand a specific task with 3 subtasks (default)
+task-master expand --id=3
+
+# Expand a specific task with 5 subtasks
+task-master expand --id=3 --num=5
+
+# Expand a task with additional context
+task-master expand --id=3 --prompt="Focus on security aspects"
+
+# Expand all pending tasks that don't have subtasks
+task-master expand --all
+
+# Force regeneration of subtasks for all pending tasks
+task-master expand --all --force
+
+# Use Perplexity AI for research-backed subtask generation
+task-master expand --id=3 --research
+
+# Use Perplexity AI for research-backed generation on all pending tasks
+task-master expand --all --research
+\`\`\`
+
+## Clearing Subtasks
+
+The `clear-subtasks` command allows you to remove subtasks from specified tasks:
+
+\`\`\`bash
+# Clear subtasks from a specific task
+task-master clear-subtasks --id=3
+
+# Clear subtasks from multiple tasks
+task-master clear-subtasks --id=1,2,3
+
+# Clear subtasks from all tasks
+task-master clear-subtasks --all
+\`\`\`
+
+Notes:
+- After clearing subtasks, task files are automatically regenerated
+- This is useful when you want to regenerate subtasks with a different approach
+- Can be combined with the `expand` command to immediately generate new subtasks
+- Works with both parent tasks and individual subtasks
+
+## AI Integration
+
+The script integrates with two AI services:
+
+1. **Anthropic Claude**: Used for parsing PRDs, generating tasks, and creating subtasks.
+2. **Perplexity AI**: Used for research-backed subtask generation when the `--research` flag is specified.
+
+The Perplexity integration uses the OpenAI client to connect to Perplexity's API, which provides enhanced research capabilities for generating more informed subtasks. If the Perplexity API is unavailable or encounters an error, the script will automatically fall back to using Anthropic's Claude.
+
+To use the Perplexity integration:
+1. Obtain a Perplexity API key
+2. Add `PERPLEXITY_API_KEY` to your `.env` file
+3. Optionally specify `PERPLEXITY_MODEL` in your `.env` file (default: "sonar-medium-online")
+4. Use the `--research` flag with the `expand` command
+
+## Logging
+
+The script supports different logging levels controlled by the `LOG_LEVEL` environment variable:
+- `debug`: Detailed information, typically useful for troubleshooting
+- `info`: Confirmation that things are working as expected (default)
+- `warn`: Warning messages that don't prevent execution
+- `error`: Error messages that might prevent execution
+
+When `DEBUG=true` is set, debug logs are also written to a `dev-debug.log` file in the project root.
+
+## Managing Task Dependencies
+
+The `add-dependency` and `remove-dependency` commands allow you to manage task dependencies:
+
+\`\`\`bash
+# Add a dependency to a task
+task-master add-dependency --id=<id> --depends-on=<id>
+
+# Remove a dependency from a task
+task-master remove-dependency --id=<id> --depends-on=<id>
+\`\`\`
+
+These commands:
+
+1. **Allow precise dependency management**:
+   - Add dependencies between tasks with automatic validation
+   - Remove dependencies when they're no longer needed
+   - Update task files automatically after changes
+
+2. **Include validation checks**:
+   - Prevent circular dependencies (a task depending on itself)
+   - Prevent duplicate dependencies
+   - Verify that both tasks exist before adding/removing dependencies
+   - Check if dependencies exist before attempting to remove them
+
+3. **Provide clear feedback**:
+   - Success messages confirm when dependencies are added/removed
+   - Error messages explain why operations failed (if applicable)
+
+4. **Automatically update task files**:
+   - Regenerates task files to reflect dependency changes
+   - Ensures tasks and their files stay synchronized
+
+## Dependency Validation and Fixing
+
+The script provides two specialized commands to ensure task dependencies remain valid and properly maintained:
+
+### Validating Dependencies
+
+The `validate-dependencies` command allows you to check for invalid dependencies without making changes:
+
+\`\`\`bash
+# Check for invalid dependencies in tasks.json
+task-master validate-dependencies
+
+# Specify a different tasks file
+task-master validate-dependencies --file=custom-tasks.json
+\`\`\`
+
+This command:
+- Scans all tasks and subtasks for non-existent dependencies
+- Identifies potential self-dependencies (tasks referencing themselves)
+- Reports all found issues without modifying files
+- Provides a comprehensive summary of dependency state
+- Gives detailed statistics on task dependencies
+
+Use this command to audit your task structure before applying fixes.
+
+### Fixing Dependencies
+
+The `fix-dependencies` command proactively finds and fixes all invalid dependencies:
+
+\`\`\`bash
+# Find and fix all invalid dependencies
+task-master fix-dependencies
+
+# Specify a different tasks file
+task-master fix-dependencies --file=custom-tasks.json
+\`\`\`
+
+This command:
+1. **Validates all dependencies** across tasks and subtasks
+2. **Automatically removes**:
+   - References to non-existent tasks and subtasks
+   - Self-dependencies (tasks depending on themselves)
+3. **Fixes issues in both**:
+   - The tasks.json data structure
+   - Individual task files during regeneration
+4. **Provides a detailed report**:
+   - Types of issues fixed (non-existent vs. self-dependencies)
+   - Number of tasks affected (tasks vs. subtasks)
+   - Where fixes were applied (tasks.json vs. task files)
+   - List of all individual fixes made
+
+This is especially useful when tasks have been deleted or IDs have changed, potentially breaking dependency chains.
+
+## Analyzing Task Complexity
+
+The `analyze-complexity` command allows you to automatically assess task complexity and generate expansion recommendations:
+
+\`\`\`bash
+# Analyze all tasks and generate expansion recommendations
+task-master analyze-complexity
+
+# Specify a custom output file
+task-master analyze-complexity --output=custom-report.json
+
+# Override the model used for analysis
+task-master analyze-complexity --model=claude-3-opus-20240229
+
+# Set a custom complexity threshold (1-10)
+task-master analyze-complexity --threshold=6
+
+# Use Perplexity AI for research-backed complexity analysis
+task-master analyze-complexity --research
+\`\`\`
+
+Notes:
+- The command uses Claude to analyze each task's complexity (or Perplexity with --research flag)
+- Tasks are scored on a scale of 1-10
+- Each task receives a recommended number of subtasks based on DEFAULT_SUBTASKS configuration
+- The default output path is `scripts/task-complexity-report.json`
+- Each task in the analysis includes a ready-to-use `expansionCommand` that can be copied directly to the terminal or executed programmatically
+- Tasks with complexity scores below the threshold (default: 5) may not need expansion
+- The research flag provides more contextual and informed complexity assessments
+
+### Integration with Expand Command
+
+The `expand` command automatically checks for and uses complexity analysis if available:
+
+\`\`\`bash
+# Expand a task, using complexity report recommendations if available
+task-master expand --id=8
+
+# Expand all tasks, prioritizing by complexity score if a report exists
+task-master expand --all
+
+# Override recommendations with explicit values
+task-master expand --id=8 --num=5 --prompt="Custom prompt"
+\`\`\`
+
+When a complexity report exists:
+- The `expand` command will use the recommended subtask count from the report (unless overridden)
+- It will use the tailored expansion prompt from the report (unless a custom prompt is provided)
+- When using `--all`, tasks are sorted by complexity score (highest first)
+- The `--research` flag is preserved from the complexity analysis to expansion
+
+The output report structure is:
+\`\`\`json
+{
+  "meta": {
+    "generatedAt": "2023-06-15T12:34:56.789Z",
+    "tasksAnalyzed": 20,
+    "thresholdScore": 5,
+    "projectName": "Your Project Name",
+    "usedResearch": true
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 8,
+      "taskTitle": "Develop Implementation Drift Handling",
+      "complexityScore": 9.5,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Create subtasks that handle detecting...",
+      "reasoning": "This task requires sophisticated logic...",
+      "expansionCommand": "task-master expand --id=8 --num=6 --prompt=\"Create subtasks...\" --research"
+    },
+    // More tasks sorted by complexity score (highest first)
+  ]
+}
+\`\`\`
+
+## Finding the Next Task
+
+The `next` command helps you determine which task to work on next based on dependencies and status:
+
+\`\`\`bash
+# Show the next task to work on
+task-master next
+
+# Specify a different tasks file
+task-master next --file=custom-tasks.json
+\`\`\`
+
+This command:
+
+1. Identifies all **eligible tasks** - pending or in-progress tasks whose dependencies are all satisfied (marked as done)
+2. **Prioritizes** these eligible tasks by:
+   - Priority level (high > medium > low)
+   - Number of dependencies (fewer dependencies first)
+   - Task ID (lower ID first)
+3. **Displays** comprehensive information about the selected task:
+   - Basic task details (ID, title, priority, dependencies)
+   - Detailed description and implementation details
+   - Subtasks if they exist
+4. Provides **contextual suggested actions**:
+   - Command to mark the task as in-progress
+   - Command to mark the task as done when completed
+   - Commands for working with subtasks (update status or expand)
+
+This feature ensures you're always working on the most appropriate task based on your project's current state and dependency structure.
+
+## Showing Task Details
+
+The `show` command allows you to view detailed information about a specific task:
+
+\`\`\`bash
+# Show details for a specific task
+task-master show 1
+
+# Alternative syntax with --id option
+task-master show --id=1
+
+# Show details for a subtask
+task-master show --id=1.2
+
+# Specify a different tasks file
+task-master show 3 --file=custom-tasks.json
+\`\`\`
+
+This command:
+
+1. **Displays comprehensive information** about the specified task:
+   - Basic task details (ID, title, priority, dependencies, status)
+   - Full description and implementation details
+   - Test strategy information
+   - Subtasks if they exist
+2. **Handles both regular tasks and subtasks**:
+   - For regular tasks, shows all subtasks and their status
+   - For subtasks, shows the parent task relationship
+3. **Provides contextual suggested actions**:
+   - Commands to update the task status
+   - Commands for working with subtasks
+   - For subtasks, provides a link to view the parent task
+
+This command is particularly useful when you need to examine a specific task in detail before implementing it or when you want to check the status and details of a particular task.
+```
+
+# scripts/README.md
+
+```md
+# Meta-Development Script
+
+This folder contains a **meta-development script** (`dev.js`) and related utilities that manage tasks for an AI-driven or traditional software development workflow. The script revolves around a `tasks.json` file, which holds an up-to-date list of development tasks.
+
+## Overview
+
+In an AI-driven development process—particularly with tools like [Cursor](https://www.cursor.so/)—it's beneficial to have a **single source of truth** for tasks. This script allows you to:
+
+1. **Parse** a PRD or requirements document (`.txt`) to initialize a set of tasks (`tasks.json`).
+2. **List** all existing tasks (IDs, statuses, titles).
+3. **Update** tasks to accommodate new prompts or architecture changes (useful if you discover "implementation drift").
+4. **Generate** individual task files (e.g., `task_001.txt`) for easy reference or to feed into an AI coding workflow.
+5. **Set task status**—mark tasks as `done`, `pending`, or `deferred` based on progress.
+6. **Expand** tasks with subtasks—break down complex tasks into smaller, more manageable subtasks.
+7. **Research-backed subtask generation**—use Perplexity AI to generate more informed and contextually relevant subtasks.
+8. **Clear subtasks**—remove subtasks from specified tasks to allow regeneration or restructuring.
+9. **Show task details**—display detailed information about a specific task and its subtasks.
+
+## Configuration
+
+The script can be configured through environment variables in a `.env` file at the root of the project:
+
+### Required Configuration
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
+
+### Optional Configuration
+- `MODEL`: Specify which Claude model to use (default: "claude-3-7-sonnet-20250219")
+- `MAX_TOKENS`: Maximum tokens for model responses (default: 4000)
+- `TEMPERATURE`: Temperature for model responses (default: 0.7)
+- `PERPLEXITY_API_KEY`: Your Perplexity API key for research-backed subtask generation
+- `PERPLEXITY_MODEL`: Specify which Perplexity model to use (default: "sonar-medium-online")
+- `DEBUG`: Enable debug logging (default: false)
+- `LOG_LEVEL`: Log level - debug, info, warn, error (default: info)
+- `DEFAULT_SUBTASKS`: Default number of subtasks when expanding (default: 3)
+- `DEFAULT_PRIORITY`: Default priority for generated tasks (default: medium)
+- `PROJECT_NAME`: Override default project name in tasks.json
+- `PROJECT_VERSION`: Override default version in tasks.json
+
+## How It Works
+
+1. **`tasks.json`**:  
+   - A JSON file at the project root containing an array of tasks (each with `id`, `title`, `description`, `status`, etc.).  
+   - The `meta` field can store additional info like the project's name, version, or reference to the PRD.  
+   - Tasks can have `subtasks` for more detailed implementation steps.
+   - Dependencies are displayed with status indicators (✅ for completed, ⏱️ for pending) to easily track progress.
+
+2. **CLI Commands**  
+   You can run the commands via:
+
+   \`\`\`bash
+   # If installed globally
+   task-master [command] [options]
+   
+   # If using locally within the project
+   node scripts/dev.js [command] [options]
+   \`\`\`
+
+   Available commands:
+
+   - `init`: Initialize a new project
+   - `parse-prd`: Generate tasks from a PRD document
+   - `list`: Display all tasks with their status
+   - `update`: Update tasks based on new information
+   - `generate`: Create individual task files
+   - `set-status`: Change a task's status
+   - `expand`: Add subtasks to a task or all tasks
+   - `clear-subtasks`: Remove subtasks from specified tasks
+   - `next`: Determine the next task to work on based on dependencies
+   - `show`: Display detailed information about a specific task
+   - `analyze-complexity`: Analyze task complexity and generate recommendations
+   - `complexity-report`: Display the complexity analysis in a readable format
+   - `add-dependency`: Add a dependency between tasks
+   - `remove-dependency`: Remove a dependency from a task
+   - `validate-dependencies`: Check for invalid dependencies
+   - `fix-dependencies`: Fix invalid dependencies automatically
+   - `add-task`: Add a new task using AI
+
+   Run `task-master --help` or `node scripts/dev.js --help` to see detailed usage information.
+
+## Listing Tasks
+
+The `list` command allows you to view all tasks and their status:
+
+\`\`\`bash
+# List all tasks
+task-master list
+
+# List tasks with a specific status
+task-master list --status=pending
+
+# List tasks and include their subtasks
+task-master list --with-subtasks
+
+# List tasks with a specific status and include their subtasks
+task-master list --status=pending --with-subtasks
+\`\`\`
+
+## Updating Tasks
+
+The `update` command allows you to update tasks based on new information or implementation changes:
+
+\`\`\`bash
+# Update tasks starting from ID 4 with a new prompt
+task-master update --from=4 --prompt="Refactor tasks from ID 4 onward to use Express instead of Fastify"
+
+# Update all tasks (default from=1)
+task-master update --prompt="Add authentication to all relevant tasks"
+
+# Specify a different tasks file
+task-master update --file=custom-tasks.json --from=5 --prompt="Change database from MongoDB to PostgreSQL"
+\`\`\`
+
+Notes:
+- The `--prompt` parameter is required and should explain the changes or new context
+- Only tasks that aren't marked as 'done' will be updated
+- Tasks with ID >= the specified --from value will be updated
+
+## Setting Task Status
+
+The `set-status` command allows you to change a task's status:
+
+\`\`\`bash
+# Mark a task as done
+task-master set-status --id=3 --status=done
+
+# Mark a task as pending
+task-master set-status --id=4 --status=pending
+
+# Mark a specific subtask as done
+task-master set-status --id=3.1 --status=done
+
+# Mark multiple tasks at once
+task-master set-status --id=1,2,3 --status=done
+\`\`\`
+
+Notes:
+- When marking a parent task as "done", all of its subtasks will automatically be marked as "done" as well
+- Common status values are 'done', 'pending', and 'deferred', but any string is accepted
+- You can specify multiple task IDs by separating them with commas
+- Subtask IDs are specified using the format `parentId.subtaskId` (e.g., `3.1`)
+- Dependencies are updated to show completion status (✅ for completed, ⏱️ for pending) throughout the system
+
+## Expanding Tasks
+
+The `expand` command allows you to break down tasks into subtasks for more detailed implementation:
+
+\`\`\`bash
+# Expand a specific task with 3 subtasks (default)
+task-master expand --id=3
+
+# Expand a specific task with 5 subtasks
+task-master expand --id=3 --num=5
+
+# Expand a task with additional context
+task-master expand --id=3 --prompt="Focus on security aspects"
+
+# Expand all pending tasks that don't have subtasks
+task-master expand --all
+
+# Force regeneration of subtasks for all pending tasks
+task-master expand --all --force
+
+# Use Perplexity AI for research-backed subtask generation
+task-master expand --id=3 --research
+
+# Use Perplexity AI for research-backed generation on all pending tasks
+task-master expand --all --research
+\`\`\`
+
+## Clearing Subtasks
+
+The `clear-subtasks` command allows you to remove subtasks from specified tasks:
+
+\`\`\`bash
+# Clear subtasks from a specific task
+task-master clear-subtasks --id=3
+
+# Clear subtasks from multiple tasks
+task-master clear-subtasks --id=1,2,3
+
+# Clear subtasks from all tasks
+task-master clear-subtasks --all
+\`\`\`
+
+Notes:
+- After clearing subtasks, task files are automatically regenerated
+- This is useful when you want to regenerate subtasks with a different approach
+- Can be combined with the `expand` command to immediately generate new subtasks
+- Works with both parent tasks and individual subtasks
+
+## AI Integration
+
+The script integrates with two AI services:
+
+1. **Anthropic Claude**: Used for parsing PRDs, generating tasks, and creating subtasks.
+2. **Perplexity AI**: Used for research-backed subtask generation when the `--research` flag is specified.
+
+The Perplexity integration uses the OpenAI client to connect to Perplexity's API, which provides enhanced research capabilities for generating more informed subtasks. If the Perplexity API is unavailable or encounters an error, the script will automatically fall back to using Anthropic's Claude.
+
+To use the Perplexity integration:
+1. Obtain a Perplexity API key
+2. Add `PERPLEXITY_API_KEY` to your `.env` file
+3. Optionally specify `PERPLEXITY_MODEL` in your `.env` file (default: "sonar-medium-online")
+4. Use the `--research` flag with the `expand` command
+
+## Logging
+
+The script supports different logging levels controlled by the `LOG_LEVEL` environment variable:
+- `debug`: Detailed information, typically useful for troubleshooting
+- `info`: Confirmation that things are working as expected (default)
+- `warn`: Warning messages that don't prevent execution
+- `error`: Error messages that might prevent execution
+
+When `DEBUG=true` is set, debug logs are also written to a `dev-debug.log` file in the project root.
+
+## Managing Task Dependencies
+
+The `add-dependency` and `remove-dependency` commands allow you to manage task dependencies:
+
+\`\`\`bash
+# Add a dependency to a task
+task-master add-dependency --id=<id> --depends-on=<id>
+
+# Remove a dependency from a task
+task-master remove-dependency --id=<id> --depends-on=<id>
+\`\`\`
+
+These commands:
+
+1. **Allow precise dependency management**:
+   - Add dependencies between tasks with automatic validation
+   - Remove dependencies when they're no longer needed
+   - Update task files automatically after changes
+
+2. **Include validation checks**:
+   - Prevent circular dependencies (a task depending on itself)
+   - Prevent duplicate dependencies
+   - Verify that both tasks exist before adding/removing dependencies
+   - Check if dependencies exist before attempting to remove them
+
+3. **Provide clear feedback**:
+   - Success messages confirm when dependencies are added/removed
+   - Error messages explain why operations failed (if applicable)
+
+4. **Automatically update task files**:
+   - Regenerates task files to reflect dependency changes
+   - Ensures tasks and their files stay synchronized
+
+## Dependency Validation and Fixing
+
+The script provides two specialized commands to ensure task dependencies remain valid and properly maintained:
+
+### Validating Dependencies
+
+The `validate-dependencies` command allows you to check for invalid dependencies without making changes:
+
+\`\`\`bash
+# Check for invalid dependencies in tasks.json
+task-master validate-dependencies
+
+# Specify a different tasks file
+task-master validate-dependencies --file=custom-tasks.json
+\`\`\`
+
+This command:
+- Scans all tasks and subtasks for non-existent dependencies
+- Identifies potential self-dependencies (tasks referencing themselves)
+- Reports all found issues without modifying files
+- Provides a comprehensive summary of dependency state
+- Gives detailed statistics on task dependencies
+
+Use this command to audit your task structure before applying fixes.
+
+### Fixing Dependencies
+
+The `fix-dependencies` command proactively finds and fixes all invalid dependencies:
+
+\`\`\`bash
+# Find and fix all invalid dependencies
+task-master fix-dependencies
+
+# Specify a different tasks file
+task-master fix-dependencies --file=custom-tasks.json
+\`\`\`
+
+This command:
+1. **Validates all dependencies** across tasks and subtasks
+2. **Automatically removes**:
+   - References to non-existent tasks and subtasks
+   - Self-dependencies (tasks depending on themselves)
+3. **Fixes issues in both**:
+   - The tasks.json data structure
+   - Individual task files during regeneration
+4. **Provides a detailed report**:
+   - Types of issues fixed (non-existent vs. self-dependencies)
+   - Number of tasks affected (tasks vs. subtasks)
+   - Where fixes were applied (tasks.json vs. task files)
+   - List of all individual fixes made
+
+This is especially useful when tasks have been deleted or IDs have changed, potentially breaking dependency chains.
+
+## Analyzing Task Complexity
+
+The `analyze-complexity` command allows you to automatically assess task complexity and generate expansion recommendations:
+
+\`\`\`bash
+# Analyze all tasks and generate expansion recommendations
+task-master analyze-complexity
+
+# Specify a custom output file
+task-master analyze-complexity --output=custom-report.json
+
+# Override the model used for analysis
+task-master analyze-complexity --model=claude-3-opus-20240229
+
+# Set a custom complexity threshold (1-10)
+task-master analyze-complexity --threshold=6
+
+# Use Perplexity AI for research-backed complexity analysis
+task-master analyze-complexity --research
+\`\`\`
+
+Notes:
+- The command uses Claude to analyze each task's complexity (or Perplexity with --research flag)
+- Tasks are scored on a scale of 1-10
+- Each task receives a recommended number of subtasks based on DEFAULT_SUBTASKS configuration
+- The default output path is `scripts/task-complexity-report.json`
+- Each task in the analysis includes a ready-to-use `expansionCommand` that can be copied directly to the terminal or executed programmatically
+- Tasks with complexity scores below the threshold (default: 5) may not need expansion
+- The research flag provides more contextual and informed complexity assessments
+
+### Integration with Expand Command
+
+The `expand` command automatically checks for and uses complexity analysis if available:
+
+\`\`\`bash
+# Expand a task, using complexity report recommendations if available
+task-master expand --id=8
+
+# Expand all tasks, prioritizing by complexity score if a report exists
+task-master expand --all
+
+# Override recommendations with explicit values
+task-master expand --id=8 --num=5 --prompt="Custom prompt"
+\`\`\`
+
+When a complexity report exists:
+- The `expand` command will use the recommended subtask count from the report (unless overridden)
+- It will use the tailored expansion prompt from the report (unless a custom prompt is provided)
+- When using `--all`, tasks are sorted by complexity score (highest first)
+- The `--research` flag is preserved from the complexity analysis to expansion
+
+The output report structure is:
+\`\`\`json
+{
+  "meta": {
+    "generatedAt": "2023-06-15T12:34:56.789Z",
+    "tasksAnalyzed": 20,
+    "thresholdScore": 5,
+    "projectName": "Your Project Name",
+    "usedResearch": true
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 8,
+      "taskTitle": "Develop Implementation Drift Handling",
+      "complexityScore": 9.5,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Create subtasks that handle detecting...",
+      "reasoning": "This task requires sophisticated logic...",
+      "expansionCommand": "task-master expand --id=8 --num=6 --prompt=\"Create subtasks...\" --research"
+    },
+    // More tasks sorted by complexity score (highest first)
+  ]
+}
+\`\`\`
+
+## Finding the Next Task
+
+The `next` command helps you determine which task to work on next based on dependencies and status:
+
+\`\`\`bash
+# Show the next task to work on
+task-master next
+
+# Specify a different tasks file
+task-master next --file=custom-tasks.json
+\`\`\`
+
+This command:
+
+1. Identifies all **eligible tasks** - pending or in-progress tasks whose dependencies are all satisfied (marked as done)
+2. **Prioritizes** these eligible tasks by:
+   - Priority level (high > medium > low)
+   - Number of dependencies (fewer dependencies first)
+   - Task ID (lower ID first)
+3. **Displays** comprehensive information about the selected task:
+   - Basic task details (ID, title, priority, dependencies)
+   - Detailed description and implementation details
+   - Subtasks if they exist
+4. Provides **contextual suggested actions**:
+   - Command to mark the task as in-progress
+   - Command to mark the task as done when completed
+   - Commands for working with subtasks (update status or expand)
+
+This feature ensures you're always working on the most appropriate task based on your project's current state and dependency structure.
+
+## Showing Task Details
+
+The `show` command allows you to view detailed information about a specific task:
+
+\`\`\`bash
+# Show details for a specific task
+task-master show 1
+
+# Alternative syntax with --id option
+task-master show --id=1
+
+# Show details for a subtask
+task-master show --id=1.2
+
+# Specify a different tasks file
+task-master show 3 --file=custom-tasks.json
+\`\`\`
+
+This command:
+
+1. **Displays comprehensive information** about the specified task:
+   - Basic task details (ID, title, priority, dependencies, status)
+   - Full description and implementation details
+   - Test strategy information
+   - Subtasks if they exist
+2. **Handles both regular tasks and subtasks**:
+   - For regular tasks, shows all subtasks and their status
+   - For subtasks, shows the parent task relationship
+3. **Provides contextual suggested actions**:
+   - Commands to update the task status
+   - Commands for working with subtasks
+   - For subtasks, provides a link to view the parent task
+
+This command is particularly useful when you need to examine a specific task in detail before implementing it or when you want to check the status and details of a particular task.
 ```
 
 # sql/rls_policies.sql
@@ -16462,6 +18131,8 @@ interface BlocksState {
   isSaving: boolean;
   autoSaveEnabled: boolean;
   lastSaved: Date | null;
+  projectJustDeleted: boolean;
+  deletedProjectTitle: string | null;
 
   // Block Actions
   addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => void;
@@ -16513,6 +18184,8 @@ interface BlocksState {
   togglePreviewMode: () => void;
   toggleAutoSave: (enabled: boolean) => void;
   triggerAutoSave: () => void;
+  setProjectJustDeleted: (deleted: boolean) => void;
+  setDeletedProjectTitle: (title: string | null) => void;
 }
 
 // Debounce helper function
@@ -16572,6 +18245,8 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     isSaving: false,
     autoSaveEnabled: true,
     lastSaved: null,
+    projectJustDeleted: false,
+    deletedProjectTitle: null,
 
     // Block Actions
     addBlock: (block, dropAreaId) => {
@@ -17326,6 +19001,10 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         get().triggerAutoSave();
       }, 0);
     },
+
+    // UI State Action Implementation
+    setProjectJustDeleted: (deleted) => set({ projectJustDeleted: deleted }),
+    setDeletedProjectTitle: (title) => set({ deletedProjectTitle: title }),
   };
 });
 

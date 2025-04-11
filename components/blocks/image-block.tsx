@@ -13,31 +13,8 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useRouter } from "next/navigation";
-import { SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
-
-// --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen (kopiert aus storage.ts) ---
-const sanitizeFilename = (filename: string): string => {
-  // Umlaute und ß ersetzen
-  const umlautMap: { [key: string]: string } = {
-    ä: "ae",
-    ö: "oe",
-    ü: "ue",
-    Ä: "Ae",
-    Ö: "Oe",
-    Ü: "Ue",
-    ß: "ss",
-  };
-  let sanitized = filename;
-  for (const key in umlautMap) {
-    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
-  }
-
-  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
-  return sanitized
-    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
-    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
-};
 
 // Special value to indicate an empty image block
 const EMPTY_IMAGE_BLOCK = "__EMPTY_IMAGE_BLOCK__";
@@ -48,53 +25,6 @@ interface MediaLibraryImageItem {
   url: string;
   alt?: string;
   file_type: string;
-}
-
-// Update uploadImageToStorage to use session
-async function uploadImageToStorage(
-  file: File,
-  supabaseClient: SupabaseClient,
-  userId: string
-): Promise<string> {
-  console.log(`Uploading file: ${file.name}`);
-  if (!supabaseClient) throw new Error("Supabase client not available");
-
-  // --- MODIFIZIERT: Dateinamen bereinigen ---
-  const sanitizedFileName = sanitizeFilename(file.name);
-  const filePath = `${userId}/${Date.now()}-${sanitizedFileName}`; // Bereinigten Namen verwenden
-
-  console.log(`Sanitized path for upload: ${filePath}`); // Logging hinzugefügt
-
-  try {
-    // Upload file to storage
-    const { error: uploadError } = await supabaseClient.storage
-      .from("images")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error("Supabase upload error:", uploadError);
-      throw uploadError;
-    }
-
-    // Get the public URL
-    const { data } = supabaseClient.storage
-      .from("images")
-      .getPublicUrl(filePath);
-
-    if (!data?.publicUrl) {
-      throw new Error("Could not get public URL after upload.");
-    }
-
-    console.log(`Upload successful. URL: ${data.publicUrl}`);
-    return data.publicUrl;
-  } catch (error) {
-    console.error("Error during image upload process:", error);
-    // Re-throw the error to be caught by the calling function
-    throw error;
-  }
 }
 
 // Helper function to get file dimensions (for images)
@@ -226,7 +156,7 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
       };
     }, []);
 
-    // Verbesserte Bildverarbeitung
+    // Verbesserte Bildverarbeitung mit API-Route
     const processDroppedFiles = useCallback(
       async (files: File[]) => {
         const imageFile = files.find((file) => file.type.startsWith("image/"));
@@ -240,6 +170,7 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
           return;
         }
 
+        // Keep user/session check for DB operation later
         if (!session || !user || !supabaseClient) {
           setState((prev) => ({
             ...prev,
@@ -254,29 +185,58 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
         setState((prev) => ({ ...prev, status: "uploading", error: null }));
 
         try {
-          // Get image dimensions before upload
+          // --- NEU: Verwende FormData für die API-Route ---
+          const formData = new FormData();
+          formData.append("file", imageFile);
+          console.log(`ImageBlock: Calling API route for ${imageFile.name}`);
+
+          // --- NEU: Rufe die API-Route auf ---
+          const response = await fetch("/api/tinify-upload", {
+            method: "POST",
+            body: formData,
+            credentials: "include", // Send cookies
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            console.error(
+              `ImageBlock: API Route Error (${response.status}):`,
+              result.error || "Unknown error from API"
+            );
+            throw new Error(
+              result.error ||
+                `Failed to upload ${imageFile.name} (Status: ${response.status})`
+            );
+          }
+
+          // --- Verwende die URL aus der API-Antwort ---
+          const uploadedUrl = result.publicUrl;
+          if (!uploadedUrl) {
+            console.error("ImageBlock: API Route did not return a publicUrl.");
+            throw new Error(
+              `Upload successful for ${imageFile.name}, but failed to get URL.`
+            );
+          }
+          console.log(`ImageBlock: API success. URL: ${uploadedUrl}`);
+
+          // Get image dimensions (client-side is fine)
           const dimensions = await getImageDimensions(imageFile);
 
-          // Upload the file
-          const uploadedUrl = await uploadImageToStorage(
-            imageFile,
-            supabaseClient,
-            user.id
-          );
-
-          // Add to media library
+          // Add to media library (still needs Supabase client)
           await addToMediaLibrary(
             imageFile,
             uploadedUrl,
             dimensions,
-            supabaseClient
+            supabaseClient // Pass the client
           );
 
-          // Update block content
+          // Update block content in Zustand store
           updateBlockContent(blockId, dropAreaId, uploadedUrl, {
             altText: altText || imageFile.name,
           });
 
+          // Update local component state
           setState((prev) => ({
             ...prev,
             status: "success",
@@ -299,6 +259,7 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
           toast.error(message);
         }
       },
+      // Ensure all dependencies are correctly listed
       [
         blockId,
         dropAreaId,
@@ -306,7 +267,7 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
         altText,
         session,
         user,
-        supabaseClient,
+        supabaseClient, // Add Supabase client as dependency
         router,
       ]
     );

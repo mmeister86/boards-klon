@@ -79,11 +79,45 @@ const config = {
           "75.1%, 95%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
+        // Bounce Circle Animation
+        bounceCircle: {
+          "0%": {
+            top: "60px",
+            height: "5px",
+            borderRadius: "50px 50px 25px 25px",
+            transform: "scaleX(1.7)",
+          },
+          "40%": {
+            height: "20px",
+            borderRadius: "50%",
+            transform: "scaleX(1)",
+          },
+          "100%": {
+            top: "0%",
+          },
+        },
+        // Shadow Shrink Animation
+        shrinkShadow: {
+          "0%": {
+            transform: "scaleX(1.5)",
+          },
+          "40%": {
+            transform: "scaleX(1)",
+            opacity: "0.7",
+          },
+          "100%": {
+            transform: "scaleX(0.2)",
+            opacity: "0.4",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "text-blink": "text-blink 1.2s infinite ease-in-out",
+        // New animations
+        "bounce-circle": "bounceCircle 0.5s alternate infinite ease",
+        "shrink-shadow": "shrinkShadow 0.5s alternate infinite ease",
       },
     },
   },

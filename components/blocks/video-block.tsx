@@ -91,6 +91,15 @@ export function VideoBlock({
     setError("Failed to load video");
   };
 
+  // --- POTENTIAL UPLOAD FUNCTIONALITY ---
+  // If you wanted to allow uploading/replacing the video directly within this block,
+  // you could add state for upload progress, an input element (perhaps hidden and triggered by a button),
+  // and a function similar to handleFileUpload in MediathekView to call the /api/optimize-video route.
+  // You would then need to update the block's content in the Zustand store upon successful upload.
+  // Example trigger:
+  // <button onClick={() => fileInputRef.current?.click()}>Replace Video</button>
+  // <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleDirectUpload} accept="video/*" />
+
   return (
     <div
       ref={dragRef}

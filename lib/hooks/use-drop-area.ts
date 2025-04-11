@@ -6,14 +6,15 @@ import { useState, useEffect, useRef } from "react";
 import { ItemTypes, markDropHandled } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
 // Removed duplicate imports
-import type { DropAreaType } from "@/lib/types";
+import type { DropAreaType, BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { findDropAreaById } from "@/lib/utils/drop-area-utils";
 import type { DropTargetMonitor } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { useSupabase } from "@/components/providers/supabase-provider";
-import { uploadMediaFile, addMediaItemToDatabase } from "@/lib/supabase/storage";
 import { toast } from "sonner";
+// Re-import storage helpers for direct uploads
+import { uploadMediaFile, addMediaItemToDatabase } from "@/lib/supabase/storage";
 
 interface DragItem {
   id?: string; // ID of the block being dragged (if existing)
@@ -120,7 +121,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
 
       // Handle file drops
       if (monitor.getItemType() === NativeTypes.FILE) {
-        if (!supabaseClient || !user) {
+        if (!user || !supabaseClient) {
           toast.error("Please sign in to upload files");
           return undefined;
         }
@@ -147,67 +148,136 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         }
 
         // Show loading state
-        const loadingToast = toast.loading("Uploading file...");
+        const loadingToast = toast.loading(`Processing ${supportedFile.name}...`);
 
-        // Handle file upload in the background
         (async () => {
+          let url: string | null = null;
+          let finalBlockType: BlockType['type'];
+          const fileType = supportedFile.type.toLowerCase();
+
           try {
-            // Upload file
-            const url = await uploadMediaFile(supportedFile, user.id, supabaseClient);
-            if (!url) {
-              toast.dismiss(loadingToast);
-              toast.error("Failed to upload file");
-              return;
+            // --- Corrected Routing Logic ---
+            if (fileType.startsWith('image/')) {
+              finalBlockType = 'image';
+              const formData = new FormData();
+              formData.append("file", supportedFile);
+              console.log(`useDropArea: Calling IMAGE optimize route for ${supportedFile.name}`);
+              const response = await fetch("/api/tinify-upload", {
+                method: "POST",
+                body: formData,
+                credentials: 'include',
+              });
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || `Image upload failed (Status: ${response.status})`);
+
+              // Validate and assign URL
+              const imageUrl = result.publicUrl;
+              if (!imageUrl) {
+                  throw new Error("Image upload succeeded but no URL returned.");
+              }
+              // Assign to the outer scope url *after* validation
+              url = imageUrl;
+              console.log(`useDropArea: Image API success. URL: ${url}`);
+              // Call DB add within the scope where imageUrl is known to be string
+              await addMediaItemToDatabase(supportedFile, imageUrl!, user.id, supabaseClient);
+
+            } else if (fileType.startsWith('video/')) {
+              finalBlockType = 'video';
+              const formData = new FormData();
+              formData.append("video", supportedFile);
+              if (user?.id) {
+                formData.append("userId", user.id);
+              } else {
+                throw new Error("Cannot upload video without User ID.");
+              }
+              console.log(`useDropArea: Calling VIDEO optimize route for ${supportedFile.name}`);
+              const response = await fetch("/api/optimize-video", {
+                method: "POST",
+                body: formData,
+                credentials: 'include',
+              });
+              console.log(`useDropArea: Video API response status: ${response.status}`); // Log status
+
+              const result = await response.json();
+              // Log the actual parsed result EXACTLY as the client sees it
+              console.log("useDropArea: Parsed JSON response from video API:", JSON.stringify(result, null, 2));
+
+              if (!response.ok) {
+                 const errorMessage = result?.error || `Video upload failed (Status: ${response.status})`;
+                 console.error("useDropArea: Video API fetch not ok.", errorMessage); // Log error before throwing
+                 throw new Error(errorMessage);
+              }
+
+              // Explicitly check the keys we expect from the API route
+              const receivedStorageUrl = result.storageUrl;
+              const receivedPublicUrl = result.publicUrl;
+
+              console.log(`useDropArea: Checking received URLs - storageUrl: ${receivedStorageUrl}, publicUrl: ${receivedPublicUrl}`); // Log values being checked
+
+              // Assign URL if either key exists
+              let videoUrl: string | null = null;
+              if (receivedStorageUrl) {
+                  videoUrl = receivedStorageUrl;
+              } else if (receivedPublicUrl) {
+                  videoUrl = receivedPublicUrl;
+              }
+
+              // Check if URL was successfully assigned before proceeding
+              if (!videoUrl) {
+                 console.error("useDropArea: Video API response missing BOTH storageUrl and publicUrl. Parsed Response:", result);
+                 throw new Error("Video upload succeeded but no URL returned.");
+              }
+              // Assign to the outer scope url *after* validation
+              url = videoUrl;
+              console.log(`useDropArea: Video API success. URL assigned: ${url}`);
+              // Call DB add within the scope where videoUrl is known to be string
+              await addMediaItemToDatabase(supportedFile, videoUrl!, user.id, supabaseClient);
+
+            } else { // Handle Audio and Documents directly
+              if (fileType.startsWith('audio/')) {
+                  finalBlockType = 'audio';
+              } else {
+                  finalBlockType = 'document';
+              }
+              console.log(`useDropArea: Uploading ${finalBlockType} directly for ${supportedFile.name}`);
+              url = await uploadMediaFile(supportedFile, user.id, supabaseClient);
+              if (!url) {
+                throw new Error("Direct file upload failed to return a URL.");
+              }
+              console.log(`useDropArea: Direct upload success. URL: ${url}`);
+              // Add directly uploaded files to DB as well
+              await addMediaItemToDatabase(supportedFile, url, user.id, supabaseClient);
             }
 
-            // Add to database
-            const mediaItem = await addMediaItemToDatabase(
-              supportedFile,
-              url,
-              user.id,
-              supabaseClient
-            );
-
-            if (!mediaItem) {
-              toast.dismiss(loadingToast);
-              toast.error("Failed to save file information");
-              return;
+            // --- Add block to store (common logic) ---
+            if (!url) { // Check url is now assigned
+              throw new Error("File processing completed without a valid URL.");
             }
 
-            // Determine block type based on file type
-            let blockType: string;
-            if (supportedFile.type.startsWith('image/')) {
-              blockType = 'image';
-            } else if (supportedFile.type.startsWith('video/')) {
-              blockType = 'video';
-            } else if (supportedFile.type.startsWith('audio/')) {
-              blockType = 'audio';
-            } else {
-              blockType = 'document';
-            }
-
-            // Add block to store
             addBlock(
               {
-                type: blockType,
-                content: url,
+                type: finalBlockType,
+                content: url, // url is now guaranteed string
                 dropAreaId: dropArea.id,
-                ...(blockType === 'image' && { altText: supportedFile.name }),
+                ...(finalBlockType === 'image' && { altText: supportedFile.name }),
+                ...(finalBlockType === 'document' && { fileName: supportedFile.name }),
               },
               dropArea.id
             );
 
             toast.dismiss(loadingToast);
             toast.success("File uploaded successfully");
+
           } catch (error) {
             console.error("Error handling file drop:", error);
             toast.dismiss(loadingToast);
-            toast.error("Failed to process file");
+            const message = error instanceof Error ? error.message : "Failed to process file";
+            toast.error(message);
           }
         })();
 
         return {
-          name: "Started file upload",
+          name: "Started file upload processing",
           handled: true,
           dropAreaId: dropArea.id,
         };
@@ -215,9 +285,8 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
 
       // --- Core Logic: Determine if this hook should handle the drop ---
       const isAreaEmpty = dropArea.blocks.length === 0;
-      const isExistingBlock = item.type === ItemTypes.EXISTING_BLOCK;
-      const isExternalBlock =
-        isExistingBlock && item.sourceDropAreaId !== dropArea.id && item.id;
+      const isExistingBlock = item.sourceDropAreaId !== undefined;
+      const isExternalBlock = isExistingBlock && item.sourceDropAreaId !== dropArea.id && item.id;
 
       // Handle drops only if:
       // 1. Area is empty (for both new and external blocks)
@@ -232,7 +301,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       }
 
       try {
-        // Handle new block into empty area
+        // Handle NEW block dropped into EMPTY area
         if (!isExistingBlock && isAreaEmpty) {
           const result = {
             name: `Added Block to ${dropArea.id}`,
@@ -240,36 +309,53 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
             dropAreaId: dropArea.id,
           };
 
+          // FIX: Validate the block type before adding
+          const validBlockTypesForNew: BlockType['type'][] = ['paragraph', 'image', 'video', 'audio', 'document', 'heading'];
+          let blockTypeToAdd: BlockType['type'];
+
+          if (item.type && validBlockTypesForNew.includes(item.type as BlockType['type'])) {
+              blockTypeToAdd = item.type as BlockType['type'];
+          } else {
+              // Default to paragraph if type is missing or invalid
+              console.warn(`Invalid or missing block type \"${item.type}\" dropped. Defaulting to paragraph.`);
+              blockTypeToAdd = 'paragraph';
+          }
+
+          // Use setTimeout to ensure drop operation completes before state update
           setTimeout(() => {
             addBlock(
               {
-                type: item.type,
-                content: item.content || "",
+                type: blockTypeToAdd, // Use the validated type
+                content: item.content || "", // Use provided content or empty string
                 dropAreaId: dropArea.id,
+                // Add specific props based on the validated type if necessary
+                ...(blockTypeToAdd === 'image' && { altText: 'New Image' }), // Example default
+                ...(blockTypeToAdd === 'document' && { fileName: 'New Document' }), // Example default
               },
               dropArea.id
             );
-          }, 0);
+          }, 0); // Execute after current event loop tick
 
+          console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Added new block ${blockTypeToAdd}`);
           return result;
         }
 
-        // Handle external block move (to either empty or populated area)
-        if (isExternalBlock) {
-          const result = {
-            name: `Moved Block to ${dropArea.id}`,
+        // Handle EXISTING block moved into this area (empty or populated)
+        if (isExistingBlock && item.id && item.sourceDropAreaId) {
+           const result = {
+            name: `Moved Block ${item.id} to ${dropArea.id}`,
             handled: true,
             dropAreaId: dropArea.id,
           };
-
+          // Use setTimeout for consistency
           setTimeout(() => {
-            moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
+             moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
           }, 0);
 
+          console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Moved existing block ${item.id}`);
           return result;
         }
 
-        return undefined;
       } catch (error) {
         console.error(
           `[${dropOpId}] DropAreaHook ${dropArea.id}: Error during drop:`,
@@ -286,7 +372,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       isOver: !!monitor.isOver({ shallow: true }),
       canDrop: !!monitor.canDrop(),
     }),
-  });
+  }, [dropArea.id, dropArea.blocks.length, moveBlock, addBlock, user, supabaseClient]);
 
   // Helper function to check mouse proximity to element edges
   const isNearEdge = (

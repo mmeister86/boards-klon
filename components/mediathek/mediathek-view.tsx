@@ -18,6 +18,19 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useRouter } from "next/navigation";
+import UpLoader from "@/components/uploading";
+
+// Define expected API response types
+interface OptimizeApiResponse {
+  message: string;
+  optimizedUrl?: string; // Optional for video API
+  publicUrl?: string; // Optional for other API
+  storageUrl?: string; // Optional for video API
+}
+
+interface ErrorApiResponse {
+  error: string;
+}
 
 // Updated MediaItem type to match our database schema exactly
 interface MediaItem {
@@ -39,9 +52,11 @@ export default function MediathekView() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const router = useRouter();
+  const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
 
   console.log("MediathekView rendered:", {
     hasUser: !!user,
@@ -125,7 +140,7 @@ export default function MediathekView() {
       <Button
         variant="destructive"
         size="icon"
-        className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-4 right-4 z-50 opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={() => handleDelete(item)}
         disabled={isDeleting}
       >
@@ -208,11 +223,11 @@ export default function MediathekView() {
           {displayItems.map((item) => (
             <div key={item.id} className="relative group">
               {renderMediaPreview(item)}
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-b-[30px]">
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-b-[30px]">
                 <p className="pl-4 text-sm truncate">{item.file_name}</p>
-                <p className="pl-4 text-xs opacity-75">
+                {/* <p className="pl-4 text-xs opacity-75">
                   {(item.size / 1024 / 1024).toFixed(1)} MB
-                </p>
+                </p> */}
               </div>
             </div>
           ))}
@@ -260,32 +275,12 @@ export default function MediathekView() {
     });
   };
 
-  // --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen ---
-  const sanitizeFilename = (filename: string): string => {
-    // Umlaute und ß ersetzen
-    const umlautMap: { [key: string]: string } = {
-      ä: "ae",
-      ö: "oe",
-      ü: "ue",
-      Ä: "Ae",
-      Ö: "Oe",
-      Ü: "Ue",
-      ß: "ss",
-    };
-    let sanitized = filename;
-    for (const key in umlautMap) {
-      sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
-    }
-
-    // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
-    return sanitized
-      .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
-      .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
-  };
-
-  // Handle file upload
+  // Handle file upload using the appropriate API route based on file type
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+
+    // Declare timeoutTimer outside the try block
+    let timeoutTimer: NodeJS.Timeout | null = null;
 
     try {
       if (!user || !session || !supabase) {
@@ -296,50 +291,173 @@ export default function MediathekView() {
 
       setIsUploading(true);
       setUploadProgress(0);
+      setShowTimeoutMessage(false); // Reset timeout message on new upload
+
+      const totalFiles = files.length;
+      let uploadedCount = 0;
+
+      // Start timeout for the message *if* any videos are being uploaded
+      const hasVideos = Array.from(files).some((file) =>
+        file.type.startsWith("video/")
+      );
+      if (hasVideos) {
+        timeoutTimer = setTimeout(() => {
+          // Only show if still uploading
+          if (isUploading) {
+            setShowTimeoutMessage(true);
+          }
+        }, 15000); // Show message after 15 seconds for videos
+      }
 
       for (const file of Array.from(files)) {
+        let publicUrl: string | null = null;
+        let apiEndpoint: string;
+        const formData = new FormData();
+        let isVideo = false;
+
         try {
-          // Check file size (50MB limit)
+          // Check file size (50MB limit) - Client-side check remains useful
           if (file.size > 50 * 1024 * 1024) {
             toast.error(`${file.name} ist zu groß (Max: 50MB)`);
+            uploadedCount++;
+            setUploadProgress((uploadedCount / totalFiles) * 100);
             continue;
           }
 
-          const bucket = getBucketForFile(file);
-          // --- MODIFIZIERT: Dateinamen bereinigen ---
-          const sanitizedFileName = sanitizeFilename(file.name);
-          const filePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
-
-          console.log(`Uploading to bucket: ${bucket}, path: ${filePath}`); // Logging hinzugefügt
-
-          // Upload file to storage with proper caching and content type
-          const { error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, file, {
-              cacheControl: "3600",
-              contentType: file.type,
-              upsert: true,
-            });
-
-          if (uploadError) {
-            console.error("Upload error:", uploadError);
-            throw uploadError;
+          // --- Determine API endpoint and FormData based on file type ---
+          if (file.type.startsWith("video/")) {
+            console.log(`Mediathek: Preparing video upload for ${file.name}`);
+            apiEndpoint = "/api/optimize-video";
+            formData.append("video", file); // Use 'video' key for the video API
+            if (user?.id) {
+              formData.append("userId", user.id);
+            } else {
+              console.error(
+                "Mediathek: User ID missing, cannot determine storage path."
+              );
+              throw new Error("Authentication error: User ID not found.");
+            }
+            isVideo = true;
+          } else {
+            // Assuming non-video files go to tinify/other optimization
+            console.log(
+              `Mediathek: Preparing non-video upload for ${file.name}`
+            );
+            apiEndpoint = "/api/tinify-upload";
+            formData.append("file", file); // Use 'file' key for the tinify API
           }
 
-          // Get the public URL
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          console.log(
+            `Mediathek: Calling API route ${apiEndpoint} for ${file.name}`
+          );
+
+          // --- Call the determined API route ---
+          const response = await fetch(apiEndpoint, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+          });
+
+          // --- Robust Response Handling ---
+          let result: OptimizeApiResponse | ErrorApiResponse;
+
+          if (response.ok) {
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              result = await response.json();
+            } else {
+              console.error(
+                `Mediathek: API (${apiEndpoint}) returned OK status but non-JSON response. Content-Type: ${contentType}`
+              );
+              const responseText = await response.text();
+              console.error(`Mediathek: API Response Text: ${responseText}`);
+              throw new Error(
+                `Server returned unexpected response format for ${file.name}.`
+              );
+            }
+          } else {
+            console.error(
+              `Mediathek: API Route Error (${response.status}) at ${apiEndpoint}.`
+            );
+            let errorDetail = `Request failed with status ${response.status}`;
+            try {
+              // Try to parse error response as JSON
+              const errorResult: ErrorApiResponse = await response.json();
+              errorDetail = errorResult.error || JSON.stringify(errorResult);
+            } catch (jsonError) {
+              // Log the JSON parsing error
+              console.warn(
+                "Mediathek: Failed to parse error response as JSON:",
+                jsonError
+              );
+              try {
+                // Fallback to reading raw text response
+                errorDetail = await response.text();
+              } catch (textError) {
+                // Log the text reading error
+                console.warn(
+                  "Mediathek: Failed to read error response text:",
+                  textError
+                );
+              }
+            }
+            console.error(`Mediathek: API Error Detail: ${errorDetail}`);
+            throw new Error(`Failed to process ${file.name}: ${errorDetail}`);
+          }
+
+          // --- Logic using the parsed 'result' (now typed) ---
+          // Check if the result indicates an error even with a 2xx status
+          if ("error" in result) {
+            console.error(
+              `Mediathek: API returned success status but error message: ${result.error}`
+            );
+            throw new Error(
+              `API reported an error for ${file.name}: ${result.error}`
+            );
+          }
+
+          // Proceed assuming a successful response structure (OptimizeApiResponse)
+          if (isVideo) {
+            // Expect 'storageUrl' from the API response now
+            publicUrl = (result as OptimizeApiResponse).storageUrl ?? null;
+            if (!publicUrl) {
+              console.error(
+                "Mediathek: Video optimize API response missing storageUrl."
+              );
+              throw new Error(
+                `Video optimization successful for ${file.name}, but response lacked Supabase URL.`
+              );
+            }
+            console.log(
+              `Mediathek: Video API success (Supabase URL): ${publicUrl}`
+            );
+          } else {
+            // Expect 'publicUrl' from the other API (e.g., tinify)
+            publicUrl = (result as OptimizeApiResponse).publicUrl ?? null;
+            if (!publicUrl) {
+              console.error(
+                "Mediathek: Non-video API response missing publicUrl."
+              );
+              throw new Error(
+                `Upload successful for ${file.name}, but response lacked URL.`
+              );
+            }
+            console.log(
+              `Mediathek: Non-video API success for ${file.name}. URL: ${publicUrl}`
+            );
+          }
 
           // Get dimensions if it's an image
           const dimensions = await getImageDimensions(file);
 
-          // Prepare the media item data (use original file.name for display)
-          const mediaItem: MediaItem = {
+          // Prepare the media item data (using the correct publicUrl from Supabase or other source)
+          const mediaItemData: Omit<MediaItem, "uploaded_at"> & {
+            uploaded_at: string;
+          } = {
             id: uuidv4(),
-            file_name: file.name, // Originalnamen für die DB/Anzeige beibehalten
+            file_name: file.name,
             file_type: file.type,
-            url: publicUrl,
+            url: publicUrl, // This will now be the Supabase URL for videos
             size: file.size,
             width: dimensions.width || null,
             height: dimensions.height || null,
@@ -348,34 +466,50 @@ export default function MediathekView() {
           };
 
           // Insert into media_items table
-          const { error: dbError } = await supabase
+          const { data: insertedData, error: dbError } = await supabase
             .from("media_items")
-            .insert(mediaItem)
+            .insert(mediaItemData)
             .select()
             .single();
 
           if (dbError) {
             console.error("Database error:", dbError);
-            // Clean up the uploaded file if database insert fails
-            await supabase.storage.from(bucket).remove([filePath]);
+            // Consider adding cleanup logic here if needed (e.g., delete from storage)
             throw dbError;
           }
 
           // Update local state
-          setMediaItems((prev) => [mediaItem, ...prev]);
-          toast.success(`${file.name} erfolgreich hochgeladen`);
-          setUploadProgress((prev) => prev + 100 / files.length);
+          setMediaItems((prev) => [insertedData as MediaItem, ...prev]);
+          toast.success(
+            `${file.name} erfolgreich ${
+              isVideo ? "optimiert und" : ""
+            } hochgeladen`
+          );
         } catch (error) {
-          console.error(`File processing error for ${file.name}:`, error);
-          toast.error(`Fehler beim Hochladen von ${file.name}`);
+          console.error(
+            `Mediathek: File processing error for ${file.name}:`,
+            error
+          );
+          const message =
+            error instanceof Error ? error.message : "Unbekannter Fehler";
+          toast.error(`Fehler bei ${file.name}: ${message}`);
+        } finally {
+          // Update progress after each file attempt
+          uploadedCount++;
+          setUploadProgress((uploadedCount / totalFiles) * 100);
         }
       }
     } catch (error) {
-      console.error("Upload process error:", error);
+      console.error("Mediathek: Upload process error:", error);
       toast.error("Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.");
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
+      // Ensure progress hits 100% and clear timeout
+      setUploadProgress(100);
+      if (timeoutTimer) clearTimeout(timeoutTimer); // Now accessible here
+      setShowTimeoutMessage(false); // Hide message when done
+      // Optional: Reset progress after a short delay
+      setTimeout(() => setUploadProgress(0), 1000);
     }
   };
 
@@ -490,15 +624,24 @@ export default function MediathekView() {
     </div>
   );
 
+  // Reset timeout message when upload starts/ends - This useEffect is replaced by logic within handleFileUpload
+  // useEffect(() => { ... }, [isUploading]);
+
   const UploadingIndicator = () => (
     <>
       {isUploading && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg z-20">
+          {" "}
+          {/* Ensure indicator is on top */}
           <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">
-              {Math.round(uploadProgress)}%
-            </p>
+            <div className="flex justify-center">
+              <UpLoader />
+            </div>
+            {showTimeoutMessage && ( // Show message based on state
+              <p className="text-sm text-muted-foreground mt-4">
+                Das Optimieren deiner Videodatei kann etwas dauern.
+              </p>
+            )}
           </div>
         </div>
       )}
