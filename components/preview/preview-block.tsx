@@ -91,12 +91,14 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         />
       ) : // --- NEU: Spezifische Behandlung für Dokument-Blöcke ---
       block.type === "document" ? (
-        block.thumbnailUrl ? (
-          // Wenn ein Vorschaubild vorhanden ist, zeige es an und verlinke es
+        block.previewUrl ? (
+          // Wenn eine Vorschau-URL vorhanden ist, zeige sie als Bild an und verlinke auf die eigentliche PDF
           <a href={block.content} target="_blank" rel="noopener noreferrer">
             <img
-              src={block.thumbnailUrl}
-              alt={`Preview of ${block.fileName || "document"}`}
+              // Verwende previewUrl als Bildquelle
+              src={block.previewUrl}
+              // Aktualisierter Alt-Text
+              alt={`Vorschau von ${block.fileName || "Dokument"}`}
               className="block w-full h-auto rounded-lg object-contain border border-gray-200" // object-contain, damit ganze Seite sichtbar ist
               loading="lazy"
             />

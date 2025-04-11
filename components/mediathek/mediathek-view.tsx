@@ -25,7 +25,8 @@ interface OptimizeApiResponse {
   message: string;
   optimizedUrl?: string; // Optional for video API
   publicUrl?: string; // Optional for other API
-  storageUrl?: string; // Optional for video API
+  storageUrl?: string; // Optional for video/audio/pdf API
+  previewUrl?: string; // Optional for PDF API
 }
 
 interface ErrorApiResponse {
@@ -43,6 +44,7 @@ interface MediaItem {
   width: number | null;
   height: number | null;
   user_id: string | null; // UUID stored as string in TypeScript
+  preview_url?: string | null; // Optional: URL zur PDF-Vorschau
 }
 
 export default function MediathekView() {
@@ -187,9 +189,19 @@ export default function MediathekView() {
       case "document":
         return (
           <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
-            <div className="w-full h-full flex items-center justify-center">
-              <FileText className="h-8 w-8 text-muted-foreground" />
-            </div>
+            {item.preview_url ? (
+              <Image
+                src={item.preview_url}
+                alt={`Vorschau von ${item.file_name}`}
+                className="object-contain w-full h-full"
+                fill
+                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
             <DeleteButton />
           </div>
         );
@@ -296,17 +308,18 @@ export default function MediathekView() {
       const totalFiles = files.length;
       let uploadedCount = 0;
 
-      // Start timeout for the message *if* any videos are being uploaded
-      const hasVideos = Array.from(files).some((file) =>
-        file.type.startsWith("video/")
+      // Start timeout for the message *if* any videos or audio are being uploaded
+      const hasSlowUploads = Array.from(files).some(
+        (file) =>
+          file.type.startsWith("video/") || file.type.startsWith("audio/")
       );
-      if (hasVideos) {
+      if (hasSlowUploads) {
         timeoutTimer = setTimeout(() => {
           // Only show if still uploading
           if (isUploading) {
             setShowTimeoutMessage(true);
           }
-        }, 15000); // Show message after 15 seconds for videos
+        }, 15000); // Show message after 15 seconds for videos or audio
       }
 
       for (const file of Array.from(files)) {
@@ -314,6 +327,9 @@ export default function MediathekView() {
         let apiEndpoint: string;
         const formData = new FormData();
         let isVideo = false;
+        let isAudio = false;
+        let isPdf = false;
+        let previewUrl: string | null = null; // Deklariere previewUrl hier
 
         try {
           // Check file size (50MB limit) - Client-side check remains useful
@@ -338,10 +354,36 @@ export default function MediathekView() {
               throw new Error("Authentication error: User ID not found.");
             }
             isVideo = true;
+          } else if (file.type.startsWith("audio/")) {
+            console.log(`Mediathek: Preparing audio upload for ${file.name}`);
+            apiEndpoint = "/api/optimize-audio";
+            formData.append("audio", file);
+            if (user?.id) {
+              formData.append("userId", user.id);
+            } else {
+              console.error(
+                "Mediathek: User ID missing, cannot determine storage path."
+              );
+              throw new Error("Authentication error: User ID not found.");
+            }
+            isAudio = true;
+          } else if (file.type === "application/pdf") {
+            console.log(`Mediathek: Preparing PDF upload for ${file.name}`);
+            apiEndpoint = "/api/optimize-pdf";
+            formData.append("pdf", file);
+            if (user?.id) {
+              formData.append("userId", user.id);
+            } else {
+              console.error(
+                "Mediathek: User ID missing, cannot determine storage path."
+              );
+              throw new Error("Authentication error: User ID not found.");
+            }
+            isPdf = true;
           } else {
-            // Assuming non-video files go to tinify/other optimization
+            // Assuming non-video/non-audio files go to tinify/other optimization
             console.log(
-              `Mediathek: Preparing non-video upload for ${file.name}`
+              `Mediathek: Preparing non-video/non-audio upload for ${file.name}`
             );
             apiEndpoint = "/api/tinify-upload";
             formData.append("file", file); // Use 'file' key for the tinify API
@@ -417,33 +459,45 @@ export default function MediathekView() {
           }
 
           // Proceed assuming a successful response structure (OptimizeApiResponse)
-          if (isVideo) {
-            // Expect 'storageUrl' from the API response now
+          if (isVideo || isAudio || isPdf) {
+            // Expect 'storageUrl' from the video, audio or pdf API response now
             publicUrl = (result as OptimizeApiResponse).storageUrl ?? null;
+            // HINZUGEFÜGT: Hole die previewUrl für PDFs und weise sie der äußeren Variable zu
+            if (isPdf) {
+              previewUrl = (result as OptimizeApiResponse).previewUrl ?? null;
+            }
+
             if (!publicUrl) {
+              const fileTypeName = isVideo
+                ? "Video"
+                : isAudio
+                ? "Audio"
+                : "PDF";
               console.error(
-                "Mediathek: Video optimize API response missing storageUrl."
+                `Mediathek: ${fileTypeName} optimize API response missing storageUrl.`
               );
               throw new Error(
-                `Video optimization successful for ${file.name}, but response lacked Supabase URL.`
+                `${fileTypeName} optimization successful for ${file.name}, but response lacked Supabase URL.`
               );
             }
             console.log(
-              `Mediathek: Video API success (Supabase URL): ${publicUrl}`
+              `Mediathek: ${
+                isVideo ? "Video" : isAudio ? "Audio" : "PDF"
+              } API success (Supabase URL): ${publicUrl}`
             );
           } else {
             // Expect 'publicUrl' from the other API (e.g., tinify)
             publicUrl = (result as OptimizeApiResponse).publicUrl ?? null;
             if (!publicUrl) {
               console.error(
-                "Mediathek: Non-video API response missing publicUrl."
+                "Mediathek: Non-video/non-audio API response missing publicUrl."
               );
               throw new Error(
                 `Upload successful for ${file.name}, but response lacked URL.`
               );
             }
             console.log(
-              `Mediathek: Non-video API success for ${file.name}. URL: ${publicUrl}`
+              `Mediathek: Non-video/non-audio API success for ${file.name}. URL: ${publicUrl}`
             );
           }
 
@@ -463,6 +517,8 @@ export default function MediathekView() {
             height: dimensions.height || null,
             user_id: user.id,
             uploaded_at: new Date().toISOString(),
+            // HINZUGEFÜGT: Füge preview_url für PDFs hinzu (verwende die äußere Variable)
+            ...(isPdf && { preview_url: previewUrl }), // previewUrl ist hier entweder string oder null
           };
 
           // Insert into media_items table
@@ -482,7 +538,7 @@ export default function MediathekView() {
           setMediaItems((prev) => [insertedData as MediaItem, ...prev]);
           toast.success(
             `${file.name} erfolgreich ${
-              isVideo ? "optimiert und" : ""
+              isVideo || isAudio || isPdf ? "optimiert und" : ""
             } hochgeladen`
           );
         } catch (error) {
@@ -586,6 +642,35 @@ export default function MediathekView() {
         "Successfully deleted from storage, now deleting from database..."
       );
 
+      // NEU: Lösche die Vorschau, wenn es sich um eine PDF handelt und eine Vorschau existiert
+      if (item.file_type === "application/pdf" && item.preview_url) {
+        try {
+          const previewFilePath = getFilePathFromUrl(item.preview_url);
+          console.log("Attempting to delete preview file:", {
+            bucket: "previews",
+            previewFilePath,
+          });
+          const { error: previewStorageError } = await supabase.storage
+            .from("previews") // Stelle sicher, dass der Bucket-Name korrekt ist
+            .remove([previewFilePath]);
+          if (previewStorageError) {
+            // Logge den Fehler, aber halte den Prozess nicht an
+            console.error(
+              "Preview delete error (non-fatal):",
+              previewStorageError
+            );
+          } else {
+            console.log("Successfully deleted preview file from storage.");
+          }
+        } catch (previewPathError) {
+          // Fehler beim Parsen der URL oder anderer Fehler beim Löschen der Vorschau
+          console.error(
+            "Error parsing preview URL or deleting preview file:",
+            previewPathError
+          );
+        }
+      }
+
       // Delete from database with user_id check for security
       const { error: dbError } = await supabase
         .from("media_items")
@@ -624,9 +709,6 @@ export default function MediathekView() {
     </div>
   );
 
-  // Reset timeout message when upload starts/ends - This useEffect is replaced by logic within handleFileUpload
-  // useEffect(() => { ... }, [isUploading]);
-
   const UploadingIndicator = () => (
     <>
       {isUploading && (
@@ -656,7 +738,7 @@ export default function MediathekView() {
       multiple
       className="hidden"
       onChange={handleFileInputChange}
-      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+      accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt"
     />
   );
 

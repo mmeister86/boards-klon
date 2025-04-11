@@ -8,6 +8,7 @@ export interface BlockType {
   altText?: string; // For images
   fileName?: string; // For documents
   thumbnailUrl?: string; // NEU: For document previews
+  previewUrl?: string; // Added preview URL
   // Add more properties for other block types as needed
 }
 

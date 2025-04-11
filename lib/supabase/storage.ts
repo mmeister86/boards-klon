@@ -3,6 +3,7 @@ import type { DropAreaType } from "@/lib/types";
 import type { ProjectData } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "./database.types";
+import { v4 as uuidv4 } from 'uuid';
 
 // Define the Project type for UI display
 interface Project {
@@ -382,9 +383,9 @@ const BUCKET_MAPPING = {
   document: 'documents'
 } as const;
 
-// --- NEU: Hilfsfunktion zum Bereinigen von Dateinamen (kopiert aus mediathek-view) ---
+// --- Hilfsfunktion zum Bereinigen von Dateinamen ---
+// (Kopiert aus optimize-pdf API Route, da sie hier auch benötigt wird)
 const sanitizeFilename = (filename: string): string => {
-  // Umlaute und ß ersetzen
   const umlautMap: { [key: string]: string } = {
     ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss",
   };
@@ -392,11 +393,9 @@ const sanitizeFilename = (filename: string): string => {
   for (const key in umlautMap) {
     sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
   }
-
-  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
   return sanitized
-    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
-    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "");
 };
 
 /**
@@ -442,9 +441,9 @@ export async function uploadMediaFile(
 
   const bucket = BUCKET_MAPPING[category];
 
-  // --- MODIFIZIERT: Dateinamen bereinigen ---
+  // Bereinige den Dateinamen
   const sanitizedFileName = sanitizeFilename(file.name);
-  const filePath = `${userId}/${Date.now()}-${sanitizedFileName}`;
+  const filePath = `${userId}/${uuidv4()}-${sanitizedFileName}`;
 
   try {
     console.log(
@@ -485,39 +484,48 @@ export async function uploadMediaFile(
  * @param url The public URL of the uploaded file
  * @param userId The ID of the user
  * @param supabaseClient The Supabase client instance
+ * @param previewUrl The optional preview URL
  * @returns The created media item record or null if operation fails
  */
 export async function addMediaItemToDatabase(
   file: File,
   url: string,
   userId: string,
-  supabaseClient: SupabaseClient<Database>
+  supabaseClient: SupabaseClient<Database>,
+  previewUrl?: string | null
 ): Promise<Database['public']['Tables']['media_items']['Row'] | null> {
+  // Generate a unique ID for the media item
+  const id = uuidv4();
+
+  // Get image dimensions if it's an image file
+  let dimensions: { width: number | null; height: number | null } = {
+    width: null,
+    height: null,
+  };
+  if (file.type.startsWith("image/")) {
+    const dims = await getImageDimensions(file);
+    if (dims) {
+      dimensions = dims;
+    }
+  }
+
+  // Prepare the data for insertion, using the original filename
+  const mediaItemData: Database['public']['Tables']['media_items']['Insert'] = {
+    id: id, // Use the generated UUID
+    file_name: file.name, // Store the original filename
+    file_type: file.type,
+    url: url, // The public URL from storage
+    size: file.size,
+    width: dimensions.width ?? 0,
+    height: dimensions.height ?? 0,
+    user_id: userId,
+    preview_url: previewUrl || null,
+  };
+
   try {
-    const mediaCategory = getMediaCategory(file.type);
-    if (!mediaCategory) {
-      return null;
-    }
-
-    let dimensions = undefined;
-    if (mediaCategory === 'image') {
-      dimensions = await getImageDimensions(file);
-    }
-
-    const mediaItem = {
-      file_name: file.name,
-      file_type: file.type,
-      url: url,
-      size: file.size,
-      user_id: userId,
-      uploaded_at: new Date().toISOString(),
-      width: dimensions?.width ?? 0,
-      height: dimensions?.height ?? 0
-    };
-
-    const { data, error } = await supabaseClient
+    const { data: insertedData, error } = await supabaseClient
       .from('media_items')
-      .insert(mediaItem)
+      .insert(mediaItemData)
       .select()
       .single();
 
@@ -526,7 +534,7 @@ export async function addMediaItemToDatabase(
       return null;
     }
 
-    return data;
+    return insertedData;
   } catch (error) {
     console.error('Error in addMediaItemToDatabase:', error);
     return null;

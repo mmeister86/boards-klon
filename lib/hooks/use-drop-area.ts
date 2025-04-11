@@ -122,7 +122,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       // Handle file drops
       if (monitor.getItemType() === NativeTypes.FILE) {
         if (!user || !supabaseClient) {
-          toast.error("Please sign in to upload files");
+          toast.error("Du musst dich einloggen, um Dateien hochzuladen");
           return undefined;
         }
 
@@ -143,16 +143,17 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         });
 
         if (!supportedFile) {
-          toast.error("No supported file types found");
+          toast.error("Diese Datei-Typen werden nicht unterstützt");
           return undefined;
         }
 
         // Show loading state
-        const loadingToast = toast.loading(`Processing ${supportedFile.name}...`);
+        const loadingToast = toast.loading(`Optimiere ${supportedFile.name}...`);
 
         (async () => {
           let url: string | null = null;
           let finalBlockType: BlockType['type'];
+          let blockPreviewUrl: string | undefined = undefined;
           const fileType = supportedFile.type.toLowerCase();
 
           try {
@@ -233,14 +234,102 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               // Call DB add within the scope where videoUrl is known to be string
               await addMediaItemToDatabase(supportedFile, videoUrl!, user.id, supabaseClient);
 
-            } else { // Handle Audio and Documents directly
-              if (fileType.startsWith('audio/')) {
-                  finalBlockType = 'audio';
+            } else if (fileType.startsWith('audio/')) {
+              finalBlockType = 'audio';
+              // Erstellt FormData für die Audio-API.
+              const formData = new FormData();
+              formData.append("audio", supportedFile); // Korrekter Schlüssel 'audio'
+              if (user?.id) {
+                formData.append("userId", user.id); // userId hinzufügen
               } else {
-                  finalBlockType = 'document';
+                throw new Error("Cannot upload audio without User ID.");
               }
-              console.log(`useDropArea: Uploading ${finalBlockType} directly for ${supportedFile.name}`);
-              url = await uploadMediaFile(supportedFile, user.id, supabaseClient);
+              console.log(`useDropArea: Calling AUDIO optimize route for ${supportedFile.name}`);
+              // Ruft die Audio-Optimierungs-API auf.
+              const response = await fetch("/api/optimize-audio", {
+                method: "POST",
+                body: formData,
+                credentials: 'include',
+              });
+              console.log(`useDropArea: Audio API response status: ${response.status}`);
+
+              const result = await response.json();
+              console.log("useDropArea: Parsed JSON response from audio API:", JSON.stringify(result, null, 2));
+
+              if (!response.ok) {
+                 const errorMessage = result?.error || `Audio upload failed (Status: ${response.status})`;
+                 console.error("useDropArea: Audio API fetch not ok.", errorMessage);
+                 throw new Error(errorMessage);
+              }
+
+              // Erwartet 'storageUrl' von der Audio-API.
+              const audioUrl = result.storageUrl;
+              if (!audioUrl) {
+                 console.error("useDropArea: Audio API response missing storageUrl. Parsed Response:", result);
+                 throw new Error("Audio upload succeeded but no URL returned.");
+              }
+              // Weist die URL der äußeren Variable zu.
+              url = audioUrl;
+              console.log(`useDropArea: Audio API success. URL assigned: ${url}`);
+              // Ruft DB add mit der korrekten URL auf.
+              await addMediaItemToDatabase(supportedFile, audioUrl!, user.id, supabaseClient);
+
+            } else if (fileType === 'application/pdf') { // PDF-Logik hinzugefügt
+              finalBlockType = 'document'; // PDF wird als Dokument behandelt
+              const formData = new FormData();
+              formData.append("pdf", supportedFile); // 'pdf'-Schlüssel verwenden
+              if (user?.id) {
+                formData.append("userId", user.id);
+              } else {
+                throw new Error("Cannot upload PDF without User ID.");
+              }
+              console.log(`useDropArea: Calling PDF optimize route for ${supportedFile.name}`);
+              const response = await fetch("/api/optimize-pdf", { // PDF-API-Route aufrufen
+                method: "POST",
+                body: formData,
+                credentials: 'include',
+              });
+              console.log(`useDropArea: PDF API response status: ${response.status}`);
+
+              const result = await response.json();
+              console.log("useDropArea: Parsed JSON response from PDF API:", JSON.stringify(result, null, 2));
+
+              if (!response.ok) {
+                 const errorMessage = result?.error || `PDF upload failed (Status: ${response.status})`;
+                 console.error("useDropArea: PDF API fetch not ok.", errorMessage);
+                 throw new Error(errorMessage);
+              }
+
+              // Erwartet 'storageUrl' UND 'previewUrl' von der PDF-API.
+              const pdfUrl = result.storageUrl;
+              const previewUrl = result.previewUrl; // Hole die previewUrl
+              if (!pdfUrl) { // Haupt-URL ist entscheidend
+                 console.error("useDropArea: PDF API response missing storageUrl. Parsed Response:", result);
+                 throw new Error("PDF optimization succeeded but main URL (storageUrl) is missing.");
+              }
+              url = pdfUrl; // Haupt-URL für den Block-Content
+
+              // *** BEGINN DER WICHTIGEN ÄNDERUNGEN ***
+              // Angepasstes Log: Zeige beide URLs explizit
+              console.log(`useDropArea: PDF API Result - storageUrl: ${pdfUrl}, previewUrl: ${previewUrl}`);
+              // ADD Log: Überprüfe die Werte direkt vor dem DB-Aufruf
+              console.log(`Calling addMediaItemToDatabase with pdfUrl: ${pdfUrl}, previewUrl: ${previewUrl}`);
+              // FIX: Übergib die previewUrl als fünftes Argument
+              await addMediaItemToDatabase(supportedFile, pdfUrl!, user.id, supabaseClient, previewUrl);
+              // ADD Log: Nach dem DB-Aufruf
+              console.log('Finished addMediaItemToDatabase call.');
+              // *** ENDE DER WICHTIGEN ÄNDERUNGEN ***
+
+              // Speichere die previewUrl im Block
+              if (previewUrl) {
+                blockPreviewUrl = previewUrl; // Speichere die Vorschau-URL für den Block
+              }
+
+            } else { // Handle OTHER Documents directly (remaining file types)
+              // Stellt sicher, dass dies nur für Dokumente gilt.
+              finalBlockType = 'document';
+              console.log(`useDropArea: Uploading other document directly for ${supportedFile.name}`);
+              url = await uploadMediaFile(supportedFile, user.id, supabaseClient); // Direkter Upload
               if (!url) {
                 throw new Error("Direct file upload failed to return a URL.");
               }
@@ -257,27 +346,32 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
             addBlock(
               {
                 type: finalBlockType,
-                content: url, // url is now guaranteed string
+                content: url, // Haupt-URL (PDF, Video, Audio, Bild)
                 dropAreaId: dropArea.id,
+                // Spezifische Felder für Blocktypen
                 ...(finalBlockType === 'image' && { altText: supportedFile.name }),
-                ...(finalBlockType === 'document' && { fileName: supportedFile.name }),
+                ...(finalBlockType === 'document' && {
+                    fileName: supportedFile.name,
+                    previewUrl: blockPreviewUrl // Füge die previewUrl hinzu (ist undefined wenn nicht vorhanden)
+                }),
+                // Füge hier ggf. weitere typspezifische Felder hinzu
               },
               dropArea.id
             );
 
             toast.dismiss(loadingToast);
-            toast.success("File uploaded successfully");
+            toast.success("Datei erfolgreich hochgeladen");
 
           } catch (error) {
             console.error("Error handling file drop:", error);
             toast.dismiss(loadingToast);
-            const message = error instanceof Error ? error.message : "Failed to process file";
+            const message = error instanceof Error ? error.message : "Fehler beim Verarbeiten der Datei";
             toast.error(message);
           }
         })();
 
         return {
-          name: "Started file upload processing",
+            name: "Datei-Upload gestartet",
           handled: true,
           dropAreaId: dropArea.id,
         };

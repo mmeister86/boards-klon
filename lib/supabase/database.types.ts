@@ -53,7 +53,8 @@ export interface Database {
           width: number
           height: number
           user_id: string
-          uploaded_at: string
+              uploaded_at: string
+          preview_url: string | null
         }
         Insert: {
           id?: string
@@ -64,7 +65,8 @@ export interface Database {
           width: number
           height: number
           user_id: string
-          uploaded_at?: string
+            uploaded_at?: string
+          preview_url?: string | null
         }
         Update: {
           id?: string
@@ -75,7 +77,8 @@ export interface Database {
           width?: number
           height?: number
           user_id?: string
-          uploaded_at?: string
+            uploaded_at?: string
+          preview_url?: string | null
         }
       }
       // Add other tables as needed
