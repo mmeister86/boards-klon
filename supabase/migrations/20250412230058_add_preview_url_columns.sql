@@ -1,0 +1,1 @@
+ALTER TABLE media_items ADD COLUMN IF NOT EXISTS preview_url_128 TEXT; ALTER TABLE media_items ADD COLUMN IF NOT EXISTS preview_url_512 TEXT;

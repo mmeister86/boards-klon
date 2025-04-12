@@ -492,7 +492,9 @@ export async function addMediaItemToDatabase(
   url: string,
   userId: string,
   supabaseClient: SupabaseClient<Database>,
-  previewUrl?: string | null
+  previewUrl?: string | null,
+  previewUrl512?: string | null,
+  previewUrl128?: string | null
 ): Promise<Database['public']['Tables']['media_items']['Row'] | null> {
   // Generate a unique ID for the media item
   const id = uuidv4();
@@ -520,6 +522,8 @@ export async function addMediaItemToDatabase(
     height: dimensions.height ?? 0,
     user_id: userId,
     preview_url: previewUrl || null,
+    preview_url_512: previewUrl512 || null,
+    preview_url_128: previewUrl128 || null
   };
 
   try {

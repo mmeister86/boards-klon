@@ -49,36 +49,42 @@ export interface Database {
           file_name: string
           file_type: string
           url: string
+          uploaded_at: string | null
           size: number
-          width: number
-          height: number
-          user_id: string
-              uploaded_at: string
+          width: number | null
+          height: number | null
+          user_id: string | null
           preview_url: string | null
+          preview_url_512: string | null
+          preview_url_128: string | null
         }
         Insert: {
           id?: string
           file_name: string
           file_type: string
           url: string
+          uploaded_at?: string | null
           size: number
-          width: number
-          height: number
-          user_id: string
-            uploaded_at?: string
+          width?: number | null
+          height?: number | null
+          user_id?: string | null
           preview_url?: string | null
+          preview_url_512?: string | null
+          preview_url_128?: string | null
         }
         Update: {
           id?: string
           file_name?: string
           file_type?: string
           url?: string
+          uploaded_at?: string | null
           size?: number
-          width?: number
-          height?: number
-          user_id?: string
-            uploaded_at?: string
+          width?: number | null
+          height?: number | null
+          user_id?: string | null
           preview_url?: string | null
+          preview_url_512?: string | null
+          preview_url_128?: string | null
         }
       }
       published_boards: {

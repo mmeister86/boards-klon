@@ -27,6 +27,8 @@ interface OptimizeApiResponse {
   publicUrl?: string; // Optional for other API
   storageUrl?: string; // Optional for video/audio/pdf API
   previewUrl?: string; // Optional for PDF API
+  previewUrl512?: string | null; // Optional for image API
+  previewUrl128?: string | null; // Optional for image API
 }
 
 interface ErrorApiResponse {
@@ -45,6 +47,8 @@ interface MediaItem {
   height: number | null;
   user_id: string | null; // UUID stored as string in TypeScript
   preview_url?: string | null; // Optional: URL zur PDF-Vorschau
+  preview_url_512?: string | null;
+  preview_url_128?: string | null;
 }
 
 export default function MediathekView() {
@@ -159,7 +163,7 @@ export default function MediathekView() {
         return (
           <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
             <Image
-              src={item.url}
+              src={item.preview_url_512 ?? item.url}
               alt={item.file_name}
               className="object-cover"
               fill
@@ -381,12 +385,11 @@ export default function MediathekView() {
             }
             isPdf = true;
           } else {
-            // Assuming non-video/non-audio files go to tinify/other optimization
-            console.log(
-              `Mediathek: Preparing non-video/non-audio upload for ${file.name}`
-            );
-            apiEndpoint = "/api/tinify-upload";
-            formData.append("file", file); // Use 'file' key for the tinify API
+            // Assuming non-video/non-audio/non-pdf files are images
+            console.log(`Mediathek: Preparing image upload for ${file.name}`);
+            // ÄNDERUNG: Verwende die neue API-Route für Bilder
+            apiEndpoint = "/api/optimize-image";
+            formData.append("file", file); // Verwende weiterhin den Schlüssel 'file' für diese Route
           }
 
           console.log(
@@ -448,7 +451,6 @@ export default function MediathekView() {
           }
 
           // --- Logic using the parsed 'result' (now typed) ---
-          // Check if the result indicates an error even with a 2xx status
           if ("error" in result) {
             console.error(
               `Mediathek: API returned success status but error message: ${result.error}`
@@ -457,6 +459,12 @@ export default function MediathekView() {
               `API reported an error for ${file.name}: ${result.error}`
             );
           }
+
+          // Extract preview URLs from the API response (können null sein)
+          const previewUrl512 =
+            (result as OptimizeApiResponse).previewUrl512 ?? null;
+          const previewUrl128 =
+            (result as OptimizeApiResponse).previewUrl128 ?? null;
 
           // Proceed assuming a successful response structure (OptimizeApiResponse)
           if (isVideo || isAudio || isPdf) {
@@ -486,39 +494,41 @@ export default function MediathekView() {
               } API success (Supabase URL): ${publicUrl}`
             );
           } else {
-            // Expect 'publicUrl' from the other API (e.g., tinify)
+            // Image handling - Expect 'publicUrl' from the optimize-image API
             publicUrl = (result as OptimizeApiResponse).publicUrl ?? null;
             if (!publicUrl) {
               console.error(
-                "Mediathek: Non-video/non-audio API response missing publicUrl."
+                "Mediathek: Image API response missing publicUrl." // Nachricht angepasst
               );
               throw new Error(
                 `Upload successful for ${file.name}, but response lacked URL.`
               );
             }
             console.log(
-              `Mediathek: Non-video/non-audio API success for ${file.name}. URL: ${publicUrl}`
+              `Mediathek: Image API success for ${file.name}. URL: ${publicUrl}, Preview512: ${previewUrl512}, Preview128: ${previewUrl128}`
             );
           }
 
           // Get dimensions if it's an image
           const dimensions = await getImageDimensions(file);
 
-          // Prepare the media item data (using the correct publicUrl from Supabase or other source)
+          // Prepare the media item data (include preview URLs)
           const mediaItemData: Omit<MediaItem, "uploaded_at"> & {
             uploaded_at: string;
           } = {
             id: uuidv4(),
             file_name: file.name,
             file_type: file.type,
-            url: publicUrl, // This will now be the Supabase URL for videos
+            url: publicUrl!, // Assert non-null as we check above
             size: file.size,
             width: dimensions.width || null,
             height: dimensions.height || null,
             user_id: user.id,
             uploaded_at: new Date().toISOString(),
-            // HINZUGEFÜGT: Füge preview_url für PDFs hinzu (verwende die äußere Variable)
-            ...(isPdf && { preview_url: previewUrl }), // previewUrl ist hier entweder string oder null
+            ...(isPdf && { preview_url: previewUrl }), // PDF preview
+            // NEU: Füge die neuen Vorschau-URLs hinzu
+            preview_url_512: previewUrl512,
+            preview_url_128: previewUrl128,
           };
 
           // Insert into media_items table

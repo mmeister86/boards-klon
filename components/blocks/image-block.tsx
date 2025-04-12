@@ -55,7 +55,9 @@ const addToMediaLibrary = async (
   file: File,
   url: string,
   dimensions: { width: number; height: number },
-  supabaseClient: SupabaseClient
+  supabaseClient: SupabaseClient,
+  previewUrl512: string | null,
+  previewUrl128: string | null
 ) => {
   if (!supabaseClient) throw new Error("Supabase client not available");
 
@@ -73,6 +75,8 @@ const addToMediaLibrary = async (
     height: dimensions.height,
     user_id: userData.user.id,
     uploaded_at: new Date().toISOString(),
+    preview_url_512: previewUrl512,
+    preview_url_128: previewUrl128,
   });
 
   if (dbError) {
@@ -191,7 +195,7 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
           console.log(`ImageBlock: Calling API route for ${imageFile.name}`);
 
           // --- NEU: Rufe die API-Route auf ---
-          const response = await fetch("/api/tinify-upload", {
+          const response = await fetch("/api/optimize-image", {
             method: "POST",
             body: formData,
             credentials: "include", // Send cookies
@@ -212,13 +216,18 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
 
           // --- Verwende die URL aus der API-Antwort ---
           const uploadedUrl = result.publicUrl;
+          const previewUrl512 = result.previewUrl512 ?? null;
+          const previewUrl128 = result.previewUrl128 ?? null;
+
           if (!uploadedUrl) {
             console.error("ImageBlock: API Route did not return a publicUrl.");
             throw new Error(
               `Upload successful for ${imageFile.name}, but failed to get URL.`
             );
           }
-          console.log(`ImageBlock: API success. URL: ${uploadedUrl}`);
+          console.log(
+            `ImageBlock: API success. URL: ${uploadedUrl}, Preview512: ${previewUrl512}, Preview128: ${previewUrl128}`
+          );
 
           // Get image dimensions (client-side is fine)
           const dimensions = await getImageDimensions(imageFile);
@@ -228,7 +237,9 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
             imageFile,
             uploadedUrl,
             dimensions,
-            supabaseClient // Pass the client
+            supabaseClient,
+            previewUrl512,
+            previewUrl128
           );
 
           // Update block content in Zustand store

@@ -29,6 +29,8 @@ interface MediaItem {
   size: number;
   width?: number;
   height?: number;
+  preview_url_512?: string | null;
+  preview_url_128?: string | null;
 }
 
 interface MediaCategoryProps {

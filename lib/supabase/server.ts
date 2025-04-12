@@ -1,6 +1,6 @@
-import { createServerClient as createSupaServerClient } from "@supabase/ssr"
+import { createServerClient as createSupaServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import type { Database } from "@/lib/supabase/types"
+// import type { Database } from "@/lib/supabase/types" // TODO: Generate/populate types.ts
 
 /**
  * Creates a Supabase client for server components with cookie handling
@@ -8,7 +8,7 @@ import type { Database } from "@/lib/supabase/types"
 export function createServerClient() {
   const cookieStore = cookies()
 
-  return createSupaServerClient<Database>(
+  return createSupaServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -16,32 +16,18 @@ export function createServerClient() {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(
-          name: string,
-          value: string,
-          options: {
-            path?: string
-            maxAge?: number
-            domain?: string
-            secure?: boolean
-            sameSite?: "strict" | "lax" | "none"
-          },
-        ) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
-            cookieStore.set(name, value, options)
-          } catch (err) {
-            // This will throw in middleware or when cookies are read-only
-            // We can safely ignore this error since it's handled by the middleware
-            console.debug('Cookie set error:', err);
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            console.debug('Server Component cookie set error:', error);
           }
         },
-        remove(name: string, options: { path?: string; domain?: string }) {
+        remove(name: string, options: CookieOptions) {
           try {
-            cookieStore.set(name, "", { ...options, maxAge: 0 })
-          } catch (err) {
-            // This will throw in middleware or when cookies are read-only
-            // We can safely ignore this error since it's handled by the middleware
-            console.debug('Cookie remove error:', err);
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            console.debug('Server Component cookie remove error:', error);
           }
         },
       },

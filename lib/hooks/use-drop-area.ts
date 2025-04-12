@@ -163,7 +163,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               const formData = new FormData();
               formData.append("file", supportedFile);
               console.log(`useDropArea: Calling IMAGE optimize route for ${supportedFile.name}`);
-              const response = await fetch("/api/tinify-upload", {
+              const response = await fetch("/api/optimize-image", {
                 method: "POST",
                 body: formData,
                 credentials: 'include',
@@ -171,16 +171,28 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               const result = await response.json();
               if (!response.ok) throw new Error(result.error || `Image upload failed (Status: ${response.status})`);
 
-              // Validate and assign URL
               const imageUrl = result.publicUrl;
+              // NEU: Extrahiere Vorschau-URLs
+              const previewUrl512 = result.previewUrl512 ?? null;
+              const previewUrl128 = result.previewUrl128 ?? null;
+
               if (!imageUrl) {
                   throw new Error("Image upload succeeded but no URL returned.");
               }
-              // Assign to the outer scope url *after* validation
               url = imageUrl;
-              console.log(`useDropArea: Image API success. URL: ${url}`);
-              // Call DB add within the scope where imageUrl is known to be string
-              await addMediaItemToDatabase(supportedFile, imageUrl!, user.id, supabaseClient);
+              console.log(`useDropArea: Image API success. URL: ${url}, Preview512: ${previewUrl512}, Preview128: ${previewUrl128}`);
+
+              // ÄNDERUNG: Übergib Vorschau-URLs an addMediaItemToDatabase (Annahme: Funktion wurde angepasst)
+              // Note: You need to modify the actual definition of addMediaItemToDatabase as well
+              await addMediaItemToDatabase(
+                supportedFile,
+                imageUrl,
+                user.id,
+                supabaseClient,
+                null,
+                previewUrl512,
+                previewUrl128
+              );
 
             } else if (fileType.startsWith('video/')) {
               finalBlockType = 'video';
@@ -231,8 +243,15 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               // Assign to the outer scope url *after* validation
               url = videoUrl;
               console.log(`useDropArea: Video API success. URL assigned: ${url}`);
-              // Call DB add within the scope where videoUrl is known to be string
-              await addMediaItemToDatabase(supportedFile, videoUrl!, user.id, supabaseClient);
+              // We need to ensure addMediaItemToDatabase handles null for preview URLs here
+              await addMediaItemToDatabase(
+                supportedFile,
+                videoUrl!,
+                user.id,
+                supabaseClient,
+                null,
+                null
+              );
 
             } else if (fileType.startsWith('audio/')) {
               finalBlockType = 'audio';
@@ -271,10 +290,17 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               // Weist die URL der äußeren Variable zu.
               url = audioUrl;
               console.log(`useDropArea: Audio API success. URL assigned: ${url}`);
-              // Ruft DB add mit der korrekten URL auf.
-              await addMediaItemToDatabase(supportedFile, audioUrl!, user.id, supabaseClient);
+              // We need to ensure addMediaItemToDatabase handles null for preview URLs here
+              await addMediaItemToDatabase(
+                supportedFile,
+                audioUrl!,
+                user.id,
+                supabaseClient,
+                null,
+                null
+              );
 
-            } else if (fileType === 'application/pdf') { // PDF-Logik hinzugefügt
+            } else if (fileType === 'application/pdf') {
               finalBlockType = 'document'; // PDF wird als Dokument behandelt
               const formData = new FormData();
               formData.append("pdf", supportedFile); // 'pdf'-Schlüssel verwenden
@@ -309,16 +335,17 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               }
               url = pdfUrl; // Haupt-URL für den Block-Content
 
-              // *** BEGINN DER WICHTIGEN ÄNDERUNGEN ***
-              // Angepasstes Log: Zeige beide URLs explizit
-              console.log(`useDropArea: PDF API Result - storageUrl: ${pdfUrl}, previewUrl: ${previewUrl}`);
-              // ADD Log: Überprüfe die Werte direkt vor dem DB-Aufruf
-              console.log(`Calling addMediaItemToDatabase with pdfUrl: ${pdfUrl}, previewUrl: ${previewUrl}`);
-              // FIX: Übergib die previewUrl als fünftes Argument
-              await addMediaItemToDatabase(supportedFile, pdfUrl!, user.id, supabaseClient, previewUrl);
-              // ADD Log: Nach dem DB-Aufruf
-              console.log('Finished addMediaItemToDatabase call.');
-              // *** ENDE DER WICHTIGEN ÄNDERUNGEN ***
+              // FIX: Übergib die previewUrl als fünftes Argument (PDF Vorschau, nicht 512px)
+              // We need to ensure addMediaItemToDatabase handles null for the 128px preview URL here
+              await addMediaItemToDatabase(
+                supportedFile,
+                pdfUrl!,
+                user.id,
+                supabaseClient,
+                previewUrl,
+                null,
+                null
+              );
 
               // Speichere die previewUrl im Block
               if (previewUrl) {
@@ -334,8 +361,15 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
                 throw new Error("Direct file upload failed to return a URL.");
               }
               console.log(`useDropArea: Direct upload success. URL: ${url}`);
-              // Add directly uploaded files to DB as well
-              await addMediaItemToDatabase(supportedFile, url, user.id, supabaseClient);
+              // We need to ensure addMediaItemToDatabase handles null for preview URLs here
+              await addMediaItemToDatabase(
+                supportedFile,
+                url!,
+                user.id,
+                supabaseClient,
+                null,
+                null
+              );
             }
 
             // --- Add block to store (common logic) ---
