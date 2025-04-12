@@ -48,20 +48,49 @@ export const updateDropAreaById = (
   id: string,
   updater: (area: DropAreaType) => DropAreaType
 ): DropAreaType[] => {
-  return areas.map((area) => {
-    if (area.id === id) {
-      return updater(area);
-    }
+  // Variable, um zu verfolgen, ob sich überhaupt etwas geändert hat
+  let hasAnyChange = false;
 
+  const updatedAreas = areas.map((area) => {
+    // Start mit der aktuellen Area
+    let processedArea = area;
+
+    // 1. Rekursiv Kinder aktualisieren (falls vorhanden)
     if (area.isSplit && area.splitAreas.length > 0) {
-      return {
-        ...area,
-        splitAreas: updateDropAreaById(area.splitAreas, id, updater),
-      };
+      const originalSplitAreas = area.splitAreas;
+      const newSplitAreas = updateDropAreaById(originalSplitAreas, id, updater);
+
+      // Prüfen, ob sich die Kind-Areas geändert haben (Referenzvergleich)
+      if (newSplitAreas !== originalSplitAreas) {
+        // Wenn ja, erstelle eine neue Eltern-Area mit den aktualisierten Kindern
+        processedArea = {
+          ...area, // Kopiere die ursprünglichen Eigenschaften
+          splitAreas: newSplitAreas, // Setze die aktualisierten Kinder ein
+        };
+        hasAnyChange = true;
+      }
     }
 
-    return area;
+    // 2. Die aktuelle Area aktualisieren (falls sie die gesuchte ist)
+    // Wichtig: Dies geschieht *nachdem* potenzielle Änderungen von Kindern verarbeitet wurden
+    if (processedArea.id === id) {
+      const originalAreaBeforeUpdate = processedArea; // Speichere die Referenz vor dem Update
+      const updatedDirectly = updater(processedArea); // Wende den Updater an
+
+      // Prüfen, ob der Updater die Area tatsächlich geändert hat
+      if (updatedDirectly !== originalAreaBeforeUpdate) {
+         processedArea = updatedDirectly; // Aktualisiere die Referenz
+         hasAnyChange = true;
+      }
+    }
+
+    // Gib die verarbeitete Area zurück (entweder das Original oder die aktualisierte Version)
+    return processedArea;
   });
+
+  // Optimierung: Wenn sich absolut nichts geändert hat, gib die ursprüngliche Array-Referenz zurück,
+  // um unnötige Re-Renders in React zu vermeiden.
+  return hasAnyChange ? updatedAreas : areas;
 };
 
 // Helper function to check if a drop area is empty (no blocks and not split)

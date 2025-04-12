@@ -1,17 +1,13 @@
 -- Create published_boards table
 CREATE TABLE IF NOT EXISTS public.published_boards (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    project_id UUID NOT NULL,
+    project_id TEXT NOT NULL,
     title TEXT NOT NULL,
     author_name TEXT NOT NULL,
     user_id UUID NOT NULL,
     published_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     is_published BOOLEAN DEFAULT true NOT NULL,
-    CONSTRAINT fk_project
-        FOREIGN KEY (project_id)
-        REFERENCES public.projects(id)
-        ON DELETE CASCADE,
     CONSTRAINT fk_user
         FOREIGN KEY (user_id)
         REFERENCES auth.users(id)

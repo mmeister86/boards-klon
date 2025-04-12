@@ -2,7 +2,15 @@
 
 import React from "react"; // Removed useState import
 import { useRouter } from "next/navigation";
-import { Home, Library, BarChart3, User, Settings, LogOut } from "lucide-react";
+import {
+  Home,
+  Library,
+  BarChart3,
+  User,
+  Settings,
+  LogOut,
+  Globe2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSupabase } from "@/components/providers/supabase-provider";
@@ -10,14 +18,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 // Removed DropdownMenu*, ProfileSheet, SettingsSheet imports
 
 // Define the type for the view state setter function including new views
-type SetActiveView = React.Dispatch<
-  React.SetStateAction<
-    "projects" | "mediathek" | "analytics" | "profile" | "settings"
-  >
->;
+type ViewType =
+  | "projects"
+  | "mediathek"
+  | "analytics"
+  | "profile"
+  | "settings"
+  | "published";
+type SetActiveView = React.Dispatch<React.SetStateAction<ViewType>>;
 
 interface DashboardSidebarProps {
-  activeView: "projects" | "mediathek" | "analytics" | "profile" | "settings"; // Updated activeView type
+  activeView: ViewType;
   setActiveView: SetActiveView;
 }
 
@@ -32,12 +43,13 @@ export default function DashboardSidebar({
   // Explicitly type the navItems array
   const navItems: {
     name: string;
-    view: "projects" | "mediathek" | "analytics";
+    view: ViewType;
     icon: React.ElementType;
   }[] = [
     { name: "Projekte", view: "projects", icon: Home },
-    { name: "Mediathek", view: "mediathek", icon: Library },
+    { name: "Boards", view: "published", icon: Globe2 },
     { name: "Analytics", view: "analytics", icon: BarChart3 },
+    { name: "Mediathek", view: "mediathek", icon: Library },
   ];
 
   const handleSignOut = async () => {

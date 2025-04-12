@@ -43,7 +43,7 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
 
     return (
       <div
-        className={`preview-content ${textSizeClass}`}
+        className={`preview-content ${textSizeClass} whitespace-normal break-words`}
         dangerouslySetInnerHTML={{ __html: block.content }}
       />
     );

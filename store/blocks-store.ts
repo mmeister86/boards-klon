@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
 import type { BlockType, DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
@@ -20,6 +21,11 @@ import {
   unpublishBoard,
   getPublishedBoard,
 } from "@/lib/supabase/database";
+
+// Add type guard function at the top level, after the imports
+const isValidBlockType = (type: string): type is BlockType['type'] => {
+  return ['heading', 'paragraph', 'image', 'video', 'audio', 'document'].includes(type);
+};
 
 // Types for the store
 interface DragItem {
@@ -903,7 +909,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         } else {
           blockToInsert = {
             id: `block-${Date.now()}`,
-            type: item.type,
+            type: isValidBlockType(item.type) ? item.type : 'paragraph', // Default to paragraph if invalid type
             content: item.content,
             dropAreaId: newAreaId,
             ...(item.type === "heading" && { headingLevel: 1 }),
@@ -936,7 +942,17 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     publishBoard: async () => {
       const { currentProjectId, currentProjectTitle, isPublishing } = get();
 
+      console.log("[publishBoard] Starting publish process", {
+        currentProjectId,
+        currentProjectTitle,
+        isPublishing
+      });
+
       if (!currentProjectId || isPublishing) {
+        console.log("[publishBoard] Aborting - invalid state", {
+          currentProjectId,
+          isPublishing
+        });
         return false;
       }
 
@@ -944,21 +960,32 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
       try {
         // First save the current state
+        console.log("[publishBoard] Saving current project state");
         const saveSuccess = await get().saveProject(currentProjectTitle);
         if (!saveSuccess) {
+          console.error("[publishBoard] Failed to save project before publishing");
           throw new Error("Failed to save project before publishing");
         }
 
         // Get the user info from Supabase
         const supabase = getSupabase();
         if (!supabase) {
+          console.error("[publishBoard] Supabase client not available");
           throw new Error("Supabase client not available");
         }
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+          console.error("[publishBoard] User not authenticated");
           throw new Error("User not authenticated");
         }
+
+        console.log("[publishBoard] Publishing board", {
+          projectId: currentProjectId,
+          title: currentProjectTitle,
+          authorName: user.user_metadata?.full_name || "Anonymous",
+          userId: user.id
+        });
 
         // Publish the board
         const success = await publishBoard(
@@ -969,15 +996,19 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         );
 
         if (success) {
+          console.log("[publishBoard] Successfully published board");
           set({
             isPublished: true,
             publishedUrl: `/boards/${currentProjectId}`,
           });
+        } else {
+          console.error("[publishBoard] Failed to publish board");
+          throw new Error("Failed to publish board");
         }
 
         return success;
       } catch (error) {
-        console.error("Error publishing board:", error);
+        console.error("[publishBoard] Error publishing board:", error);
         return false;
       } finally {
         set({ isPublishing: false });

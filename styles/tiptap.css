@@ -114,11 +114,11 @@
 
 /* Preview Styles */
 .preview-content {
-  @apply prose max-w-none;
+  @apply prose max-w-none whitespace-normal break-words;
 }
 
 .preview-content p {
-  @apply my-2;
+  @apply my-2 whitespace-normal break-words;
 }
 
 .preview-content h1 {

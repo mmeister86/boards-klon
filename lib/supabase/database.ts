@@ -303,23 +303,37 @@ export async function publishBoard(
   authorName: string,
   userId: string
 ): Promise<boolean> {
-  const supabase = getSupabase()
+  console.log("[DB:publishBoard] Starting", {
+    projectId,
+    title,
+    authorName,
+    userId
+  });
+
+  const supabase = getSupabase();
   if (!supabase) {
-    console.error("Supabase client not available")
-    return false
+    console.error("[DB:publishBoard] Supabase client not available");
+    return false;
   }
 
   try {
-    const now = new Date().toISOString()
+    const now = new Date().toISOString();
 
     // Check if board is already published
-    const { data: existingBoard } = await supabase
+    console.log("[DB:publishBoard] Checking if board exists");
+    const { data: existingBoard, error: checkError } = await supabase
       .from("published_boards")
-      .select("id")
+      .select("*")
       .eq("project_id", projectId)
-      .single()
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("[DB:publishBoard] Error checking published board:", checkError);
+      return false;
+    }
 
     if (existingBoard) {
+      console.log("[DB:publishBoard] Updating existing board", existingBoard);
       // Update existing published board
       const { error: updateError } = await supabase
         .from("published_boards")
@@ -329,13 +343,14 @@ export async function publishBoard(
           updated_at: now,
           is_published: true
         })
-        .eq("project_id", projectId)
+        .eq("project_id", projectId);
 
       if (updateError) {
-        console.error("Error updating published board:", updateError)
-        return false
+        console.error("[DB:publishBoard] Error updating published board:", updateError);
+        return false;
       }
     } else {
+      console.log("[DB:publishBoard] Creating new board entry");
       // Create new published board
       const { error: insertError } = await supabase
         .from("published_boards")
@@ -347,18 +362,19 @@ export async function publishBoard(
           published_at: now,
           updated_at: now,
           is_published: true
-        })
+        });
 
       if (insertError) {
-        console.error("Error publishing board:", insertError)
-        return false
+        console.error("[DB:publishBoard] Error publishing board:", insertError);
+        return false;
       }
     }
 
-    return true
+    console.log("[DB:publishBoard] Successfully published board");
+    return true;
   } catch (error) {
-    console.error("Error publishing board:", error)
-    return false
+    console.error("[DB:publishBoard] Error publishing board:", error);
+    return false;
   }
 }
 
@@ -406,7 +422,7 @@ export async function getPublishedBoard(projectId: string) {
       .select("*")
       .eq("project_id", projectId)
       .eq("is_published", true)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error("Error getting published board:", error)
@@ -446,5 +462,33 @@ export async function listPublishedBoards(userId: string) {
   } catch (error) {
     console.error("Error listing published boards:", error)
     return []
+  }
+}
+
+/**
+ * Delete a published board
+ */
+export async function deletePublishedBoard(boardId: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error("[DB:deletePublishedBoard] Supabase client not available");
+    return false;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("published_boards")
+      .delete()
+      .eq("id", boardId);
+
+    if (error) {
+      console.error("[DB:deletePublishedBoard] Error deleting board:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[DB:deletePublishedBoard] Error deleting board:", error);
+    return false;
   }
 }

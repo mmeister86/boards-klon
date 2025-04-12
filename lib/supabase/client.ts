@@ -1,39 +1,30 @@
 import { createBrowserClient } from "@supabase/ssr"
-import type { Database } from "@/lib/supabase/types"
+import { createClient as createServerClient } from "@supabase/supabase-js"
+import { Database } from "./database.types"
 
 /**
- * Creates a Supabase client for browser environments with refresh support
- * This approach creates a fresh client when needed rather than using a static singleton
+ * Creates a Supabase client that works in both browser and server environments
  */
 export function createClient() {
+  // Check if environment variables are available
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error("Supabase URL or Anon Key not found")
+  }
+
+  // Create client based on environment
   if (typeof window === "undefined") {
-    console.warn("createClient should only be called in browser environments")
-    return undefined
-  }
-
-  try {
-    // Check if environment variables are available
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      console.warn("Supabase URL or Anon Key not found. Using fallback values.")
-      // Continue with fallback values
-    }
-
-    // Create a fresh client instance each time to ensure latest auth state
-    const client = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || "https://your-project.supabase.co",
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "your-anon-key",
+    // Server-side: Use regular client
+    return createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     )
-
-    // Ensure the client is properly initialized
-    if (!client) {
-      throw new Error("Failed to create Supabase client")
-    }
-
-    return client
-  } catch (error) {
-    console.error("Error creating Supabase client:", error)
-    return undefined
   }
+
+  // Browser-side: Use browser client
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
 }
 
 // Note: We're removing the singleton pattern to avoid stale auth state

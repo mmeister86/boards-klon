@@ -10,6 +10,7 @@ import AnalyticsView from "@/components/analytics/analytics-view";
 import ProjectsView from "@/components/dashboard/projects-view";
 import ProfileView from "@/components/profile/profile-view"; // Added
 import SettingsView from "@/components/settings/settings-view"; // Added
+import PublishedBoardsView from "@/components/dashboard/published-boards-view";
 import Navbar from "@/components/layout/navbar";
 
 export default function DashboardPage() {
@@ -17,7 +18,12 @@ export default function DashboardPage() {
   // const router = useRouter();
 
   const [activeView, setActiveView] = useState<
-    "projects" | "mediathek" | "analytics" | "profile" | "settings" // Added profile and settings
+    | "projects"
+    | "mediathek"
+    | "analytics"
+    | "profile"
+    | "settings"
+    | "published"
   >("projects");
 
   // Helper function to render the content based on activeView
@@ -33,6 +39,8 @@ export default function DashboardPage() {
         return <ProfileView />;
       case "settings": // Added case
         return <SettingsView />;
+      case "published":
+        return <PublishedBoardsView />;
       default:
         return null;
     }

@@ -104,7 +104,13 @@ export default function EditorPage() {
     }
 
     init();
-  }, [projectId, loadProject, createNewProject, initializing]);
+  }, [
+    projectId,
+    loadProject,
+    createNewProject,
+    initializing,
+    checkPublishStatus,
+  ]);
 
   // Show loading state
   if (initializing || isLoading) {
