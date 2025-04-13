@@ -67,9 +67,11 @@ function MediaCategory({
             <Image
               src={item.url}
               alt={item.file_name}
-              width={item.width || 100}
-              height={item.height || 100}
+              width={128}
+              height={128}
               className="w-full h-full object-cover"
+              loading="lazy"
+              sizes="(max-width: 300px) 128px"
             />
           </div>
           <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
@@ -82,6 +84,23 @@ function MediaCategory({
     // For non-image files, determine the icon based on file type
     const icon = (() => {
       if (item.file_type.startsWith("video/")) {
+        if (item.preview_url_128) {
+          return (
+            <div className="relative w-8 h-8">
+              <Image
+                src={item.preview_url_128}
+                alt={item.file_name}
+                width={32}
+                height={32}
+                className="w-full h-full object-cover rounded"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded">
+                <Film className="w-4 h-4 text-white" />
+              </div>
+            </div>
+          );
+        }
         return <Film className="w-6 h-6" />;
       } else if (item.file_type.startsWith("audio/")) {
         return <Music className="w-6 h-6" />;
@@ -309,6 +328,26 @@ export function MediaLibraryContent() {
         const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
         if (!data?.publicUrl) throw new Error("Could not get public URL");
 
+        let previewUrls = null;
+        if (file.type.startsWith("video/")) {
+          // Upload video for optimization and preview generation
+          const formData = new FormData();
+          formData.append("video", file);
+          formData.append("userId", user.id);
+
+          const response = await fetch("/api/optimize-video", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to optimize video");
+          }
+
+          const result = await response.json();
+          previewUrls = result.previews;
+        }
+
         // Get dimensions if it's an image
         const dimensions = await new Promise<{ width: number; height: number }>(
           (resolve) => {
@@ -337,6 +376,8 @@ export function MediaLibraryContent() {
           height: dimensions.height,
           user_id: user.id,
           uploaded_at: new Date().toISOString(),
+          preview_url_512: previewUrls?.large || null,
+          preview_url_128: previewUrls?.small || null,
         });
 
         if (dbError) throw dbError;

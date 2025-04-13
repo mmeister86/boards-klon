@@ -24,6 +24,57 @@ interface DragItem {
   files?: File[]; // Add files for NativeTypes.FILE
 }
 
+/**
+ * Helper function to handle optimized file uploads via API endpoints.
+ * @param file - The file to upload.
+ * @param userId - The ID of the user uploading the file.
+ * @param apiEndpoint - The API route for optimization (e.g., "/api/optimize-image").
+ * @param formDataKey - The key to use when appending the file to FormData (e.g., "file", "video").
+ * @returns An object containing the processed URLs or throws an error.
+ */
+async function uploadAndOptimizeFile(
+  file: File,
+  userId: string,
+  apiEndpoint: string,
+  formDataKey: string
+): Promise<{
+  storageUrl?: string; // Main URL (might be storage or public)
+  publicUrl?: string; // Public URL (specifically for images)
+  previewUrl?: string; // General preview (e.g., PDF)
+  previewUrl512?: string; // 512px image preview
+  previewUrl128?: string; // 128px image preview
+}> {
+  const formData = new FormData();
+  formData.append(formDataKey, file);
+  formData.append("userId", userId); // Add userId consistently
+
+  console.log(`useDropArea (Helper): Calling ${apiEndpoint} for ${file.name}`);
+  const response = await fetch(apiEndpoint, {
+    method: "POST",
+    body: formData,
+    credentials: 'include',
+  });
+
+  console.log(`useDropArea (Helper): ${apiEndpoint} response status: ${response.status}`);
+  const result = await response.json();
+  console.log(`useDropArea (Helper): Parsed JSON response from ${apiEndpoint}:`, JSON.stringify(result, null, 2));
+
+  if (!response.ok) {
+    const errorMessage = result?.error || `Upload failed (Status: ${response.status}) via ${apiEndpoint}`;
+    console.error(`useDropArea (Helper): API fetch not ok for ${apiEndpoint}.`, errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  // Return the relevant fields from the result. Specific handling happens in the caller.
+  return {
+      storageUrl: result.storageUrl,
+      publicUrl: result.publicUrl,
+      previewUrl: result.previewUrl,
+      previewUrl512: result.previewUrl512,
+      previewUrl128: result.previewUrl128,
+  };
+}
+
 export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   const dropTargetRef = useRef<HTMLDivElement | null>(null);
   const { supabase: supabaseClient, user } = useSupabase();
@@ -154,244 +205,102 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
           let url: string | null = null;
           let finalBlockType: BlockType['type'];
           let blockPreviewUrl: string | undefined = undefined;
+          let dbPreviewUrl: string | null = null;
+          let dbPreviewUrl512: string | null = null;
+          let dbPreviewUrl128: string | null = null;
+
           const fileType = supportedFile.type.toLowerCase();
 
           try {
-            // --- Corrected Routing Logic ---
+            // --- Refactored Upload Logic ---
             if (fileType.startsWith('image/')) {
               finalBlockType = 'image';
-              const formData = new FormData();
-              formData.append("file", supportedFile);
-              console.log(`useDropArea: Calling IMAGE optimize route for ${supportedFile.name}`);
-              const response = await fetch("/api/optimize-image", {
-                method: "POST",
-                body: formData,
-                credentials: 'include',
-              });
-              const result = await response.json();
-              if (!response.ok) throw new Error(result.error || `Image upload failed (Status: ${response.status})`);
-
-              const imageUrl = result.publicUrl;
-              // NEU: Extrahiere Vorschau-URLs
-              const previewUrl512 = result.previewUrl512 ?? null;
-              const previewUrl128 = result.previewUrl128 ?? null;
-
-              if (!imageUrl) {
-                  throw new Error("Image upload succeeded but no URL returned.");
-              }
-              url = imageUrl;
-              console.log(`useDropArea: Image API success. URL: ${url}, Preview512: ${previewUrl512}, Preview128: ${previewUrl128}`);
-
-              // ÄNDERUNG: Übergib Vorschau-URLs an addMediaItemToDatabase (Annahme: Funktion wurde angepasst)
-              // Note: You need to modify the actual definition of addMediaItemToDatabase as well
-              await addMediaItemToDatabase(
-                supportedFile,
-                imageUrl,
-                user.id,
-                supabaseClient,
-                null,
-                previewUrl512,
-                previewUrl128
-              );
+              const result = await uploadAndOptimizeFile(supportedFile, user.id, "/api/optimize-image", "file");
+              // Images primarily use publicUrl
+              url = result.publicUrl ?? null;
+              if (!url) throw new Error("Image upload succeeded but no publicUrl returned.");
+              dbPreviewUrl512 = result.previewUrl512 ?? null; // Specific image previews
+              dbPreviewUrl128 = result.previewUrl128 ?? null;
 
             } else if (fileType.startsWith('video/')) {
               finalBlockType = 'video';
-              const formData = new FormData();
-              formData.append("video", supportedFile);
-              if (user?.id) {
-                formData.append("userId", user.id);
-              } else {
-                throw new Error("Cannot upload video without User ID.");
-              }
-              console.log(`useDropArea: Calling VIDEO optimize route for ${supportedFile.name}`);
-              const response = await fetch("/api/optimize-video", {
-                method: "POST",
-                body: formData,
-                credentials: 'include',
-              });
-              console.log(`useDropArea: Video API response status: ${response.status}`); // Log status
-
-              const result = await response.json();
-              // Log the actual parsed result EXACTLY as the client sees it
-              console.log("useDropArea: Parsed JSON response from video API:", JSON.stringify(result, null, 2));
-
-              if (!response.ok) {
-                 const errorMessage = result?.error || `Video upload failed (Status: ${response.status})`;
-                 console.error("useDropArea: Video API fetch not ok.", errorMessage); // Log error before throwing
-                 throw new Error(errorMessage);
-              }
-
-              // Explicitly check the keys we expect from the API route
-              const receivedStorageUrl = result.storageUrl;
-              const receivedPublicUrl = result.publicUrl;
-
-              console.log(`useDropArea: Checking received URLs - storageUrl: ${receivedStorageUrl}, publicUrl: ${receivedPublicUrl}`); // Log values being checked
-
-              // Assign URL if either key exists
-              let videoUrl: string | null = null;
-              if (receivedStorageUrl) {
-                  videoUrl = receivedStorageUrl;
-              } else if (receivedPublicUrl) {
-                  videoUrl = receivedPublicUrl;
-              }
-
-              // Check if URL was successfully assigned before proceeding
-              if (!videoUrl) {
-                 console.error("useDropArea: Video API response missing BOTH storageUrl and publicUrl. Parsed Response:", result);
-                 throw new Error("Video upload succeeded but no URL returned.");
-              }
-              // Assign to the outer scope url *after* validation
-              url = videoUrl;
-              console.log(`useDropArea: Video API success. URL assigned: ${url}`);
-              // We need to ensure addMediaItemToDatabase handles null for preview URLs here
-              await addMediaItemToDatabase(
-                supportedFile,
-                videoUrl!,
-                user.id,
-                supabaseClient,
-                null,
-                null
-              );
+              const result = await uploadAndOptimizeFile(supportedFile, user.id, "/api/optimize-video", "video");
+              // Videos might return storageUrl or publicUrl, prioritize storageUrl
+              url = result.storageUrl ?? result.publicUrl ?? null;
+              if (!url) throw new Error("Video upload succeeded but no URL returned.");
+              dbPreviewUrl512 = result.previewUrl512 ?? null; // Assign previews
+              dbPreviewUrl128 = result.previewUrl128 ?? null;
 
             } else if (fileType.startsWith('audio/')) {
               finalBlockType = 'audio';
-              // Erstellt FormData für die Audio-API.
-              const formData = new FormData();
-              formData.append("audio", supportedFile); // Korrekter Schlüssel 'audio'
-              if (user?.id) {
-                formData.append("userId", user.id); // userId hinzufügen
-              } else {
-                throw new Error("Cannot upload audio without User ID.");
-              }
-              console.log(`useDropArea: Calling AUDIO optimize route for ${supportedFile.name}`);
-              // Ruft die Audio-Optimierungs-API auf.
-              const response = await fetch("/api/optimize-audio", {
-                method: "POST",
-                body: formData,
-                credentials: 'include',
-              });
-              console.log(`useDropArea: Audio API response status: ${response.status}`);
-
-              const result = await response.json();
-              console.log("useDropArea: Parsed JSON response from audio API:", JSON.stringify(result, null, 2));
-
-              if (!response.ok) {
-                 const errorMessage = result?.error || `Audio upload failed (Status: ${response.status})`;
-                 console.error("useDropArea: Audio API fetch not ok.", errorMessage);
-                 throw new Error(errorMessage);
-              }
-
-              // Erwartet 'storageUrl' von der Audio-API.
-              const audioUrl = result.storageUrl;
-              if (!audioUrl) {
-                 console.error("useDropArea: Audio API response missing storageUrl. Parsed Response:", result);
-                 throw new Error("Audio upload succeeded but no URL returned.");
-              }
-              // Weist die URL der äußeren Variable zu.
-              url = audioUrl;
-              console.log(`useDropArea: Audio API success. URL assigned: ${url}`);
-              // We need to ensure addMediaItemToDatabase handles null for preview URLs here
-              await addMediaItemToDatabase(
-                supportedFile,
-                audioUrl!,
-                user.id,
-                supabaseClient,
-                null,
-                null
-              );
+              const result = await uploadAndOptimizeFile(supportedFile, user.id, "/api/optimize-audio", "audio");
+              // Audio primarily uses storageUrl
+              url = result.storageUrl ?? null;
+              if (!url) throw new Error("Audio upload succeeded but no storageUrl returned.");
 
             } else if (fileType === 'application/pdf') {
-              finalBlockType = 'document'; // PDF wird als Dokument behandelt
-              const formData = new FormData();
-              formData.append("pdf", supportedFile); // 'pdf'-Schlüssel verwenden
-              if (user?.id) {
-                formData.append("userId", user.id);
-              } else {
-                throw new Error("Cannot upload PDF without User ID.");
-              }
-              console.log(`useDropArea: Calling PDF optimize route for ${supportedFile.name}`);
-              const response = await fetch("/api/optimize-pdf", { // PDF-API-Route aufrufen
-                method: "POST",
-                body: formData,
-                credentials: 'include',
-              });
-              console.log(`useDropArea: PDF API response status: ${response.status}`);
-
-              const result = await response.json();
-              console.log("useDropArea: Parsed JSON response from PDF API:", JSON.stringify(result, null, 2));
-
-              if (!response.ok) {
-                 const errorMessage = result?.error || `PDF upload failed (Status: ${response.status})`;
-                 console.error("useDropArea: PDF API fetch not ok.", errorMessage);
-                 throw new Error(errorMessage);
-              }
-
-              // Erwartet 'storageUrl' UND 'previewUrl' von der PDF-API.
-              const pdfUrl = result.storageUrl;
-              const previewUrl = result.previewUrl; // Hole die previewUrl
-              if (!pdfUrl) { // Haupt-URL ist entscheidend
-                 console.error("useDropArea: PDF API response missing storageUrl. Parsed Response:", result);
-                 throw new Error("PDF optimization succeeded but main URL (storageUrl) is missing.");
-              }
-              url = pdfUrl; // Haupt-URL für den Block-Content
-
-              // FIX: Übergib die previewUrl als fünftes Argument (PDF Vorschau, nicht 512px)
-              // We need to ensure addMediaItemToDatabase handles null for the 128px preview URL here
-              await addMediaItemToDatabase(
-                supportedFile,
-                pdfUrl!,
-                user.id,
-                supabaseClient,
-                previewUrl,
-                null,
-                null
-              );
-
-              // Speichere die previewUrl im Block
-              if (previewUrl) {
-                blockPreviewUrl = previewUrl; // Speichere die Vorschau-URL für den Block
-              }
+              finalBlockType = 'document';
+              const result = await uploadAndOptimizeFile(supportedFile, user.id, "/api/optimize-pdf", "pdf");
+              // PDFs use storageUrl and have a specific previewUrl
+              url = result.storageUrl ?? null;
+              if (!url) throw new Error("PDF optimization succeeded but storageUrl is missing.");
+              // Save preview for both DB and Block specific props
+              dbPreviewUrl = result.previewUrl ?? null;
+              blockPreviewUrl = result.previewUrl ?? undefined;
 
             } else { // Handle OTHER Documents directly (remaining file types)
-              // Stellt sicher, dass dies nur für Dokumente gilt.
               finalBlockType = 'document';
               console.log(`useDropArea: Uploading other document directly for ${supportedFile.name}`);
-              url = await uploadMediaFile(supportedFile, user.id, supabaseClient); // Direkter Upload
+              url = await uploadMediaFile(supportedFile, user.id, supabaseClient); // Direct Upload
               if (!url) {
                 throw new Error("Direct file upload failed to return a URL.");
               }
               console.log(`useDropArea: Direct upload success. URL: ${url}`);
-              // We need to ensure addMediaItemToDatabase handles null for preview URLs here
-              await addMediaItemToDatabase(
-                supportedFile,
-                url!,
-                user.id,
-                supabaseClient,
-                null,
-                null
-              );
+              // No specific previews for direct uploads currently
             }
 
-            // --- Add block to store (common logic) ---
-            if (!url) { // Check url is now assigned
+            // --- Add to Database (common logic) ---
+            if (!url) { // Should not happen if error handling above is correct, but check anyway
               throw new Error("File processing completed without a valid URL.");
             }
-
-            addBlock(
-              {
-                type: finalBlockType,
-                content: url, // Haupt-URL (PDF, Video, Audio, Bild)
-                dropAreaId: dropArea.id,
-                // Spezifische Felder für Blocktypen
-                ...(finalBlockType === 'image' && { altText: supportedFile.name }),
-                ...(finalBlockType === 'document' && {
-                    fileName: supportedFile.name,
-                    previewUrl: blockPreviewUrl // Füge die previewUrl hinzu (ist undefined wenn nicht vorhanden)
-                }),
-                // Füge hier ggf. weitere typspezifische Felder hinzu
-              },
-              dropArea.id
+            await addMediaItemToDatabase(
+              supportedFile,
+              url,
+              user.id,
+              supabaseClient,
+              dbPreviewUrl, // Pass general preview (for PDF)
+              dbPreviewUrl512, // Pass 512px preview (for Image/Video) - Corrected comment
+              dbPreviewUrl128 // Pass 128px preview (for Image/Video) - Corrected comment
             );
+
+            // --- Add block to store (common logic) ---
+            const blockConfig = {
+              type: finalBlockType,
+              content: url,
+              dropAreaId: dropArea.id,
+            };
+
+            // Add type-specific properties
+            if (finalBlockType === 'image') {
+              Object.assign(blockConfig, {
+                altText: supportedFile.name,
+                previewUrl512: dbPreviewUrl512,
+                previewUrl128: dbPreviewUrl128
+              });
+            } else if (finalBlockType === 'video') {
+              Object.assign(blockConfig, {
+                previewUrl512: dbPreviewUrl512,
+                previewUrl128: dbPreviewUrl128
+              });
+            } else if (finalBlockType === 'document') {
+              Object.assign(blockConfig, {
+                fileName: supportedFile.name,
+                previewUrl: blockPreviewUrl
+              });
+            }
+
+            // Add the block with all configured properties
+            addBlock(blockConfig, dropArea.id);
 
             toast.dismiss(loadingToast);
             toast.success("Datei erfolgreich hochgeladen");
@@ -402,7 +311,7 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
             const message = error instanceof Error ? error.message : "Fehler beim Verarbeiten der Datei";
             toast.error(message);
           }
-        })();
+        })(); // End of async IIFE
 
         return {
             name: "Datei-Upload gestartet",

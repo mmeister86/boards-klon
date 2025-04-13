@@ -2,7 +2,7 @@
 
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { PublicDropAreaRenderer } from "@/components/public/public-drop-area-renderer";
+import { PublicDropAreaRenderer } from "@/components/public/export-renderer";
 import type { DropAreaType } from "@/lib/types";
 import { useState, useEffect } from "react";
 
