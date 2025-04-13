@@ -59,9 +59,7 @@ export function PublicDropAreaRenderer({
         )}`}
       >
         {renderableSubAreas.map((subArea) => (
-          <div key={subArea.id}>
-            <PublicDropAreaRenderer dropArea={subArea} />
-          </div>
+          <PublicDropAreaRenderer key={subArea.id} dropArea={subArea} />
         ))}
       </div>
     </div>
@@ -77,7 +75,7 @@ function RenderBlock({ block }: { block: BlockType }) {
       const Tag = `h${block.headingLevel || 1}` as keyof JSX.IntrinsicElements;
       return (
         <Tag
-          className="preview-content"
+          className="preview-content not-prose" // Added not-prose
           dangerouslySetInnerHTML={{ __html: content }}
         />
       );
@@ -86,20 +84,21 @@ function RenderBlock({ block }: { block: BlockType }) {
     case "paragraph":
       return (
         <div
-          className="preview-content text-base lg:text-xl font-sans"
+          className="preview-content text-base lg:text-xl font-sans not-prose" // Added not-prose
           dangerouslySetInnerHTML={{ __html: content }}
         />
       );
 
     case "image":
+      // Use width=0, height=0, sizes, and style for responsive auto-height image
       return (
         <Image
           src={block.content}
           alt={block.altText || ""}
-          width={0}
-          height={0}
-          sizes="100vw"
-          style={{ width: "100%", height: "auto" }}
+          width={0} // Required for Next.js, but overridden by style
+          height={0} // Required for Next.js, but overridden by style
+          sizes="100vw" // Inform optimizer about expected size
+          style={{ width: "100%", height: "auto" }} // Let browser determine height
           priority={false}
           className="rounded-lg shadow-md shadow-slate-500/70"
         />

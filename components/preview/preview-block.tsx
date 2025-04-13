@@ -26,7 +26,7 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
 
     return (
       <HeadingTag
-        className={`m-0 preview-content ${textSizeClass}`}
+        className={`m-0 preview-content ${textSizeClass} not-prose`} // Added not-prose
         dangerouslySetInnerHTML={{ __html: block.content }}
       />
     );
@@ -43,7 +43,7 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
 
     return (
       <div
-        className={`preview-content ${textSizeClass} whitespace-normal break-words`}
+        className={`preview-content ${textSizeClass} whitespace-normal break-words not-prose`} // Added not-prose
         dangerouslySetInnerHTML={{ __html: block.content }}
       />
     );

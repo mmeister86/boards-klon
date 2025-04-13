@@ -5,6 +5,10 @@ import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
+import TextStyle from "@tiptap/extension-text-style"; // Added
+import Color from "@tiptap/extension-color"; // Added back
+import type { Level } from "@tiptap/extension-heading"; // Added
+import { HexColorPicker } from "react-colorful"; // Added
 import { useBlocksStore } from "@/store/blocks-store";
 import { useEditorStore } from "@/store/editor-store";
 import EmojiExtension, {
@@ -20,6 +24,84 @@ interface ParagraphBlockProps {
   readOnly?: boolean; // Add readOnly prop
 }
 
+// Color picker component (Copied from heading-block.tsx)
+const ColorPicker = ({ editor }: { editor: Editor }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [color, setColor] = React.useState(
+    () => editor?.getAttributes("textStyle").color || "#000000"
+  );
+  const pickerRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+  // Handle clicks outside the color picker
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        pickerRef.current &&
+        !pickerRef.current.contains(event.target as Node) &&
+        !buttonRef.current?.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleColorChange = (newColor: string) => {
+    setColor(newColor);
+    if (editor) {
+      // Reverted: Use setColor from the Color extension
+      editor.chain().focus().setColor(newColor).run();
+    }
+  };
+
+  const togglePicker = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={togglePicker}
+        onMouseDown={(e) => e.preventDefault()}
+        className="px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 flex items-center gap-2"
+        aria-label="Text color"
+        aria-expanded={isOpen}
+      >
+        <span
+          className="w-4 h-4 border border-gray-300 rounded"
+          style={{
+            backgroundColor: color,
+          }}
+        />
+        <span>Farbe</span>
+      </button>
+      {isOpen && (
+        <div
+          ref={pickerRef}
+          className="absolute z-50 top-full left-0 mt-1 p-3 bg-white rounded-lg shadow-lg border border-gray-200"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <HexColorPicker color={color} onChange={handleColorChange} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const TiptapToolbar = ({ editor }: { editor: Editor }) => {
   const { activeFormats, updateActiveFormats } = useEditorStore();
 
@@ -34,6 +116,13 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
         orderedList: editor.isActive("orderedList"),
         blockquote: editor.isActive("blockquote"),
         link: editor.isActive("link"),
+        // Added heading tracking
+        heading1: editor.isActive("heading", { level: 1 }),
+        heading2: editor.isActive("heading", { level: 2 }),
+        heading3: editor.isActive("heading", { level: 3 }),
+        heading4: editor.isActive("heading", { level: 4 }),
+        heading5: editor.isActive("heading", { level: 5 }),
+        heading6: editor.isActive("heading", { level: 6 }),
       });
     };
 
@@ -70,6 +159,21 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       role="toolbar"
       aria-label="Text formatting"
     >
+      {/* Heading Buttons First */}
+      {([1, 2, 3, 4, 5, 6] as Level[]).map((level) => (
+        <button
+          key={level}
+          onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
+          className={`px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 ${
+            editor.isActive("heading", { level }) ? "bg-gray-300" : ""
+          }`}
+          aria-label={`Heading ${level}`}
+          aria-pressed={editor.isActive("heading", { level })}
+        >
+          H{level}
+        </button>
+      ))}
+      {/* Bold */}
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         disabled={!editor.can().chain().focus().toggleBold().run()}
@@ -81,6 +185,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Fett
       </button>
+      {/* Italic */}
       <button
         onClick={() => editor.chain().focus().toggleItalic().run()}
         disabled={!editor.can().chain().focus().toggleItalic().run()}
@@ -92,6 +197,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Kursiv
       </button>
+      {/* Underline */}
       <button
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         disabled={!editor.can().chain().focus().toggleUnderline().run()}
@@ -103,6 +209,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Unterstrichen
       </button>
+      {/* Link */}
       <button
         onClick={setLink}
         className={`px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 ${
@@ -113,6 +220,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Link
       </button>
+      {/* Bullet List */}
       <button
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         className={`px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 ${
@@ -124,6 +232,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Aufzählung
       </button>
+      {/* Ordered List */}
       <button
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={`px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 ${
@@ -135,6 +244,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Nummerierung
       </button>
+      {/* Blockquote */}
       <button
         onClick={() => {
           editor.chain().focus().toggleBlockquote().run();
@@ -157,6 +267,7 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Zitat
       </button>
+      {/* Horizontal Rule */}
       <button
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
         disabled={!editor.can().chain().focus().setHorizontalRule().run()}
@@ -165,6 +276,9 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
       >
         Trennlinie
       </button>
+      {/* Color Picker */}
+      <ColorPicker editor={editor} />
+      {/* Emoji Picker */}
       <EmojiPickerButton editor={editor} />
     </div>
   );
@@ -191,6 +305,9 @@ export function ParagraphBlock({
     editable: !readOnly, // Control editability based on readOnly prop
     immediatelyRender: false, // Add this line to prevent SSR hydration mismatch
     extensions: [
+      // Load TextStyle and Color first
+      TextStyle,
+      Color,
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         blockquote: {
@@ -198,6 +315,8 @@ export function ParagraphBlock({
             class: "blockquote",
           },
         },
+        // Ensure StarterKit doesn't overwrite TextStyle attributes if possible
+        // (Note: StarterKit's bold/italic etc. might still interfere)
       }),
       Underline,
       Link.configure({
@@ -318,7 +437,7 @@ export function ParagraphBlock({
           editor={editor}
           className={`h-full overflow-y-auto ${
             !readOnly ? "border border-gray-300" : "" // Only add border if editable
-          } rounded p-2 mt-2 tiptap-paragraph-editor ${textSizeClass}`}
+          } rounded p-2 mt-2 tiptap-paragraph-editor ${textSizeClass} not-prose`} // Added not-prose
         />
       ) : (
         // Fallback for initial render or if editor fails (shouldn't happen with editable prop)
