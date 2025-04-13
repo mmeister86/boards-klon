@@ -100,7 +100,7 @@ function RenderBlock({ block }: { block: BlockType }) {
           sizes="100vw" // Inform optimizer about expected size
           style={{ width: "100%", height: "auto" }} // Let browser determine height
           priority={false}
-          className="rounded-lg shadow-md shadow-slate-500/70"
+          className="rounded-lg shadow-sm md:shadow-md shadow-slate-500/70"
         />
       );
 
@@ -141,7 +141,7 @@ function RenderBlock({ block }: { block: BlockType }) {
                 border: "1px solid #eee",
               }}
               priority={false}
-              className="rounded-lg shadow-md shadow-slate-500/70"
+              className="rounded-lg shadow-sm md:shadow-md shadow-slate-500/70"
             />
           </a>
         );
