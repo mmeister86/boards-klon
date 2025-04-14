@@ -8,6 +8,7 @@ import {
   BoxIcon as ButtonIcon,
   FormInput,
   SeparatorHorizontal,
+  Film as VideoIcon,
 } from "lucide-react";
 
 // Define the available block types with icons
@@ -47,6 +48,12 @@ const blockTypes = [
     content: "Trennlinie",
     icon: SeparatorHorizontal,
     description: "Füge eine horizontale Trennlinie hinzu",
+  },
+  {
+    type: "video",
+    content: null,
+    icon: VideoIcon,
+    description: "Füge ein Video hinzu (Upload oder URL)",
   },
 ];
 

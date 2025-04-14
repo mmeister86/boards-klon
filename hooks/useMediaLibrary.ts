@@ -2,16 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { useSupabase } from "@/components/providers/supabase-provider";
 
-interface MediaItem {
+// Typdefinition für ein Medienelement, jetzt exportiert
+export interface MediaItem {
   id: string;
   file_name: string;
   file_type: string;
   url: string;
   size: number;
-  preview_url_512?: string | null;
-  preview_url_128?: string | null;
+  preview_url?: string | null; // Generische Vorschau-URL (z.B. für PDFs)
+  preview_url_512?: string | null; // Spezifische Vorschau-URL für größere Bilder/Videos
+  preview_url_128?: string | null; // Spezifische Vorschau-URL für kleinere Bilder/Videos
   user_id: string;
   uploaded_at: string;
+  width?: number | null; // Breite (optional)
+  height?: number | null; // Höhe (optional)
 }
 
 export const useMediaLibrary = () => {

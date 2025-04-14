@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react"; // Removed useState import
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import React from "react";
 import {
   Home,
   Library,
@@ -15,42 +16,25 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-// Removed DropdownMenu*, ProfileSheet, SettingsSheet imports
 
-// Define the type for the view state setter function including new views
-type ViewType =
-  | "projects"
-  | "mediathek"
-  | "analytics"
-  | "profile"
-  | "settings"
-  | "published";
-type SetActiveView = React.Dispatch<React.SetStateAction<ViewType>>;
-
-interface DashboardSidebarProps {
-  activeView: ViewType;
-  setActiveView: SetActiveView;
-}
-
-export default function DashboardSidebar({
-  activeView,
-  setActiveView,
-}: DashboardSidebarProps) {
+export default function DashboardSidebar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, supabase } = useSupabase();
-  // Removed isProfileOpen, isSettingsOpen state
 
-  // Explicitly type the navItems array
   const navItems: {
     name: string;
-    view: ViewType;
+    href: string;
     icon: React.ElementType;
   }[] = [
-    { name: "Projekte", view: "projects", icon: Home },
-    { name: "Boards", view: "published", icon: Globe2 },
-    { name: "Analytics", view: "analytics", icon: BarChart3 },
-    { name: "Mediathek", view: "mediathek", icon: Library },
+    { name: "Projekte", href: "/dashboard/projekte", icon: Home },
+    { name: "Boards", href: "/dashboard/boards", icon: Globe2 },
+    { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+    { name: "Mediathek", href: "/dashboard/mediathek", icon: Library },
   ];
+
+  const profileHref = "/dashboard/profil";
+  const settingsHref = "/dashboard/einstellungen";
 
   const handleSignOut = async () => {
     if (!supabase) return;
@@ -62,39 +46,62 @@ export default function DashboardSidebar({
   return (
     <aside className="w-64 h-screen flex flex-col border-r bg-background fixed left-0 top-0 pt-[73px] z-40">
       <nav className="flex-1 px-4 py-8 space-y-2">
-        {navItems.map((item) => (
-          <Button
-            key={item.name}
-            variant={activeView === item.view ? "secondary" : "ghost"}
-            className={cn(
-              "w-full justify-start",
-              activeView === item.view && "font-semibold"
-            )}
-            onClick={() => setActiveView(item.view)}
-          >
-            <item.icon className="mr-2 h-4 w-4" />
-            {item.name}
-          </Button>
-        ))}
+        {navItems.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Button
+              asChild
+              key={item.name}
+              variant={isActive ? "secondary" : "ghost"}
+            >
+              <Link
+                href={item.href}
+                className={cn(
+                  "w-full !justify-start",
+                  isActive && "font-semibold"
+                )}
+              >
+                <item.icon className="mr-2 h-4 w-4" />
+                {item.name}
+              </Link>
+            </Button>
+          );
+        })}
       </nav>
       <div className="mt-auto p-4 border-t space-y-2">
         {user ? (
           <>
             <Button
-              variant={activeView === "profile" ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setActiveView("profile")}
+              asChild
+              variant={pathname.startsWith(profileHref) ? "secondary" : "ghost"}
             >
-              <User className="mr-2 h-4 w-4" />
-              Profil
+              <Link
+                href={profileHref}
+                className={cn(
+                  "w-full !justify-start",
+                  pathname.startsWith(profileHref) && "font-semibold"
+                )}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profil
+              </Link>
             </Button>
             <Button
-              variant={activeView === "settings" ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setActiveView("settings")}
+              asChild
+              variant={
+                pathname.startsWith(settingsHref) ? "secondary" : "ghost"
+              }
             >
-              <Settings className="mr-2 h-4 w-4" />
-              Einstellungen
+              <Link
+                href={settingsHref}
+                className={cn(
+                  "w-full !justify-start",
+                  pathname.startsWith(settingsHref) && "font-semibold"
+                )}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Einstellungen
+              </Link>
             </Button>
             <Button
               variant="ghost"

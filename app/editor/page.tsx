@@ -116,7 +116,7 @@ export default function EditorPage() {
   if (initializing || isLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <Navbar currentView="editor" projectTitle="Loading..." />
+        <Navbar context="editor" projectTitle="Loading..." />
         <div className="flex-1 flex items-center justify-center bg-muted">
           <div className="flex flex-col items-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -131,7 +131,7 @@ export default function EditorPage() {
   if (error) {
     return (
       <div className="flex flex-col h-screen">
-        <Navbar currentView="editor" projectTitle="Error" />
+        <Navbar context="editor" projectTitle="Error" />
         <div className="flex-1 flex items-center justify-center bg-muted">
           <div className="bg-card p-8 rounded-lg shadow-lg max-w-md">
             <h2 className="text-xl font-bold text-destructive mb-4">
@@ -153,7 +153,7 @@ export default function EditorPage() {
     <ViewportProvider>
       <div className="flex flex-col h-screen">
         <Navbar
-          currentView="editor"
+          context="editor"
           projectTitle={currentProjectTitle}
           onTitleChange={setProjectTitle}
         />

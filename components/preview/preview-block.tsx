@@ -3,6 +3,8 @@
 
 import type { BlockType } from "@/lib/types";
 import { getBlockStyle } from "@/lib/utils/block-utils";
+import ReactPlayer from "react-player/lazy";
+import Image from "next/image";
 
 interface PreviewBlockProps {
   block: BlockType;
@@ -83,12 +85,24 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         />
       ) : // --- NEU: Spezifische Behandlung für Video-Blöcke ---
       block.type === "video" ? (
-        <video
-          src={block.content}
-          controls
-          className="w-full rounded-md" // rounded-md für Konsistenz mit VideoBlock
-          preload="metadata"
-        />
+        <div className="player-wrapper relative pt-[56.25%] rounded-md overflow-hidden">
+          <ReactPlayer
+            className="absolute top-0 left-0"
+            url={block.content}
+            width="100%"
+            height="100%"
+            controls={true}
+            light={(block.type === "video" && block.thumbnailUrl) || true}
+            config={{
+              youtube: {
+                playerVars: {
+                  origin:
+                    typeof window !== "undefined" ? window.location.origin : "",
+                },
+              },
+            }}
+          />
+        </div>
       ) : // --- NEU: Spezifische Behandlung für Dokument-Blöcke ---
       block.type === "document" ? (
         block.previewUrl ? (

@@ -97,7 +97,7 @@ export default function UploadZone({
           className={`
             relative border-2 border-dashed rounded-lg p-8
             flex flex-col items-center justify-center gap-4
-            transition-colors duration-200 h-[75vH] bg-gray-50/80
+            transition-colors duration-200 h-[70vH] bg-gray-50/80
             ${isDragging ? "border-primary bg-primary/5" : "border-border"}
           `}
           onDragOver={handleDragOver}

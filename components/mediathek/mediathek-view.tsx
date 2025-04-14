@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
-import { useMediaLibrary } from "@/hooks/useMediaLibrary";
+import { useMediaLibrary, type MediaItem } from "@/hooks/useMediaLibrary";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import MediaSearch from "./MediaSearch";
 import MediaCategory from "./categories/MediaCategory";
@@ -16,7 +16,7 @@ export default function MediathekView() {
 
   const {
     mediaItems,
-    filteredMedia,
+    groupedMedia,
     isLoading,
     searchQuery,
     setSearchQuery,
@@ -40,6 +40,28 @@ export default function MediathekView() {
     }
   }, [session, isLoading, router]);
 
+  // Filtere die gruppierten Medien basierend auf der Suchanfrage
+  const filterGroupedMedia = (
+    grouped: Record<string, MediaItem[]>,
+    query: string
+  ): Record<string, MediaItem[]> => {
+    if (!query) {
+      return grouped; // Wenn keine Suche, gib die ursprüngliche Gruppierung zurück
+    }
+    const lowerCaseQuery = query.toLowerCase();
+    const filteredGrouped: Record<string, MediaItem[]> = {};
+    for (const type in grouped) {
+      filteredGrouped[type] = grouped[type].filter((item) =>
+        item.file_name.toLowerCase().includes(lowerCaseQuery)
+      );
+    }
+    return filteredGrouped;
+  };
+
+  const displayMedia = filterGroupedMedia(groupedMedia, searchQuery);
+
+  const hasAnyMedia = Object.values(displayMedia).some((arr) => arr.length > 0);
+
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -54,39 +76,46 @@ export default function MediathekView() {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <div className="space-y-8">
-              {mediaItems.length > 0 && (
+            <div className="space-y-6 mt-10">
+              {mediaItems.length > 0 ? (
                 <>
                   <MediaCategory
                     type="image"
-                    items={filteredMedia}
+                    items={displayMedia.image || []}
                     onDelete={handleDelete}
                     deletingItemId={deletingItemId}
                   />
                   <MediaCategory
                     type="video"
-                    items={filteredMedia}
+                    items={displayMedia.video || []}
                     onDelete={handleDelete}
                     deletingItemId={deletingItemId}
                   />
                   <MediaCategory
                     type="audio"
-                    items={filteredMedia}
+                    items={displayMedia.audio || []}
                     onDelete={handleDelete}
                     deletingItemId={deletingItemId}
                   />
                   <MediaCategory
                     type="document"
-                    items={filteredMedia}
+                    items={displayMedia.document || []}
                     onDelete={handleDelete}
                     deletingItemId={deletingItemId}
                   />
-                  {filteredMedia.length === 0 && !isLoading && (
+                  {searchQuery && !hasAnyMedia && !isLoading && (
                     <p className="text-muted-foreground text-center py-4">
-                      Keine Medien für Ihre Suche gefunden.
+                      Keine Medien für Deine Suche gefunden.
                     </p>
                   )}
                 </>
+              ) : (
+                !isUploading && (
+                  <p className="text-muted-foreground text-center py-4">
+                    Deine Mediathek ist leer. Du kannst hier Bilder, Videos,
+                    Audios und Dokumente hochladen.
+                  </p>
+                )
               )}
             </div>
           )}
@@ -98,7 +127,7 @@ export default function MediathekView() {
         isUploading={isUploading}
         progress={uploadProgress}
         showTimeoutMessage={showTimeoutMessage}
-        isEmpty={mediaItems.length === 0}
+        isEmpty={mediaItems.length === 0 && !isLoading}
         processingProgress={processingProgress}
       />
     </>

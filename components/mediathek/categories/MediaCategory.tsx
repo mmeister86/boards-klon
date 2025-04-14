@@ -1,16 +1,6 @@
 import Image from "next/image";
-
-interface MediaItem {
-  id: string;
-  file_name: string;
-  file_type: string;
-  url: string;
-  size: number;
-  preview_url_512?: string | null;
-  preview_url_128?: string | null;
-  user_id: string;
-  uploaded_at: string;
-}
+import { FileText } from "lucide-react";
+import type { MediaItem } from "@/hooks/useMediaLibrary";
 
 type CategoryType = "image" | "video" | "audio" | "document";
 
@@ -27,8 +17,10 @@ export default function MediaCategory({
   onDelete,
   deletingItemId,
 }: CategoryProps) {
-  // Filter items by type
-  const filteredItems = items.filter((item) => item.file_type.startsWith(type));
+  // Filter items by type - DIESE ZEILE ENTFERNEN/ANPASSEN
+  // const filteredItems = items.filter((item) => item.file_type.startsWith(type));
+  // Direkt die übergebenen 'items' verwenden, da sie bereits gefiltert sind.
+  const filteredItems = items; // Einfach die übergebene Liste verwenden
 
   if (filteredItems.length === 0) return null;
 
@@ -43,9 +35,8 @@ export default function MediaCategory({
             key={item.id}
             className="aspect-square bg-muted rounded-lg p-2 hover:bg-muted/80 cursor-pointer group relative"
           >
-            <div className="w-full h-full bg-background rounded overflow-hidden">
-              {type === "video" ? (
-                // Video preview with play button overlay
+            <div className="w-full h-full bg-background rounded overflow-hidden flex items-center justify-center">
+              {type === "video" && (
                 <div className="relative w-full h-full">
                   {item.preview_url_512 || item.preview_url_128 ? (
                     <Image
@@ -91,7 +82,9 @@ export default function MediaCategory({
                     </div>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {type === "image" && (
                 <Image
                   src={item.url}
                   alt={item.file_name}
@@ -101,6 +94,40 @@ export default function MediaCategory({
                   loading="lazy"
                 />
               )}
+
+              {type === "audio" && (
+                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                  <svg
+                    className="w-12 h-12"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+                    ></path>
+                  </svg>
+                </div>
+              )}
+
+              {type === "document" &&
+                (item.preview_url ? (
+                  <Image
+                    src={item.preview_url}
+                    alt={`${item.file_name} Vorschau`}
+                    width={512}
+                    height={512}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <FileText className="w-12 h-12" />
+                  </div>
+                ))}
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
               <p className="text-sm text-white truncate">{item.file_name}</p>
