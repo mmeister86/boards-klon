@@ -5,29 +5,29 @@ import os from 'os';             // To get temporary directory
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid'; // For unique temporary filenames
 // Import Supabase client
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from "@/lib/supabase/server"; // Hinzugefügt: Server Client
 import { updateProgress } from './progress/route';
 
 // --- Supabase Client Setup ---
 // Ensure env variables are loaded (Next.js does this automatically in API routes)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL; // Nicht mehr direkt benötigt
+// const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY; // Nicht mehr direkt benötigt
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables');
-  // Optional: throw an error to prevent the route from running without config
-  // throw new Error('Supabase configuration missing');
-}
+// if (!supabaseUrl || !supabaseServiceKey) { // Prüfung nicht mehr hier nötig
+//   console.error('Missing Supabase environment variables');
+//   // Optional: throw an error to prevent the route from running without config
+//   // throw new Error('Supabase configuration missing');
+// }
 
 // Create a single Supabase client instance for the route
 // Use service key for elevated privileges (e.g., bypassing RLS for uploads)
-const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
-  auth: {
-    // Required for service role client
-    persistSession: false,
-    autoRefreshToken: false,
-  }
-});
+// const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, { // Entfernt: Server Client verwenden
+//   auth: {
+//     // Required for service role client
+//     persistSession: false,
+//     autoRefreshToken: false,
+//   }
+// });
 // --- End Supabase Setup ---
 
 // Define the output directories
@@ -44,7 +44,8 @@ Promise.all([
 async function generateAndUploadPreviews(
   inputPath: string,
   userId: string,
-  baseFilename: string
+  baseFilename: string,
+  supabase: ReturnType<typeof createServerClient>
 ): Promise<{ preview512: string; preview128: string }> {
   // Create preview paths with the original filename pattern
   const preview512StoragePath = `${userId}/${baseFilename}_512.jpg`;
@@ -101,13 +102,13 @@ async function generateAndUploadPreviews(
 
   // Upload both previews to the previews bucket with the new naming pattern
   const [preview512Upload, preview128Upload] = await Promise.all([
-    supabaseAdmin.storage
+    supabase.storage
       .from('previews')
       .upload(preview512StoragePath, preview512Buffer, {
         contentType: 'image/jpeg',
         upsert: false,
       }),
-    supabaseAdmin.storage
+    supabase.storage
       .from('previews')
       .upload(preview128StoragePath, preview128Buffer, {
         contentType: 'image/jpeg',
@@ -119,8 +120,8 @@ async function generateAndUploadPreviews(
   if (preview128Upload.error) throw new Error(`Failed to upload 128x128 preview: ${preview128Upload.error.message}`);
 
   // Get public URLs from the previews bucket
-  const preview512Url = supabaseAdmin.storage.from('previews').getPublicUrl(preview512StoragePath).data.publicUrl;
-  const preview128Url = supabaseAdmin.storage.from('previews').getPublicUrl(preview128StoragePath).data.publicUrl;
+  const preview512Url = supabase.storage.from('previews').getPublicUrl(preview512StoragePath).data.publicUrl;
+  const preview128Url = supabase.storage.from('previews').getPublicUrl(preview128StoragePath).data.publicUrl;
 
   // Cleanup local preview files
   await Promise.all([
@@ -138,12 +139,29 @@ async function generateAndUploadPreviews(
 export async function POST(request: Request) {
   let tempInputPath: string | null = null;
   let localOutputPath: string | null = null;
+  const supabase = createServerClient(); // Hinzugefügt: Server Client Instanz
 
   try {
+    // +++ Hinzugefügt: Authentifizierung prüfen +++
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("API Route (Video): Authentication failed.", authError);
+      return NextResponse.json(
+        { error: "Nicht autorisiert. Bitte melden Sie sich an." },
+        { status: 401 }
+      );
+    }
+    const userId = user.id; // Hinzugefügt: userId aus der Session holen
+    // +++ Ende Authentifizierung +++
+
     const formData = await request.formData();
     const file = formData.get('video');
-    // --- Get userId from FormData ---
-    const userId = formData.get('userId');
+    // --- Get userId from FormData --- // Entfernt
+    // const userId = formData.get('userId'); // Entfernt
 
     // Validate the file
     if (!file || typeof file === 'string' || !(file instanceof File) || file.size === 0) {
@@ -152,13 +170,22 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    // --- Validate userId ---
-    if (!userId || typeof userId !== 'string') {
+    // --- Validate userId --- // Entfernt
+    // if (!userId || typeof userId !== 'string') { // Entfernt
+    //   return NextResponse.json( // Entfernt
+    //     { error: 'User ID missing or invalid.' }, // Entfernt
+    //     { status: 400 } // Bad Request // Entfernt
+    //   ); // Entfernt
+    // } // Entfernt
+
+    // +++ Hinzugefügt: MIME-Typ-Validierung +++
+    if (!file.type.startsWith('video/')) {
       return NextResponse.json(
-        { error: 'User ID missing or invalid.' },
-        { status: 400 } // Bad Request
+        { error: 'Ungültiger Dateityp. Nur Videodateien werden akzeptiert.' },
+        { status: 400 }
       );
     }
+    // +++ Ende MIME-Typ-Validierung +++
 
     // Get file content as ArrayBuffer, then convert to Node Buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -223,7 +250,8 @@ export async function POST(request: Request) {
       previewUrls = await generateAndUploadPreviews(
         tempInputPath,
         userId,
-        fileNameWithoutExt
+        fileNameWithoutExt,
+        supabase
       );
       console.log('Preview images generated and uploaded successfully');
     } catch (previewError) {
@@ -239,10 +267,11 @@ export async function POST(request: Request) {
     const optimizedFileBuffer = await fs.readFile(localOutputPath);
 
     // --- Use userId in storage path ---
-    const storagePath = `${userId}/${outputFilename}`;
+    const storagePath = `${userId}/${outputFilename}`; // userId aus Session verwenden
     console.log(`Uploading compressed file to Supabase Storage at: videos/${storagePath}`);
 
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+    // Verwende den Server Client
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('videos')
       .upload(storagePath, optimizedFileBuffer, {
         contentType: file.type,
@@ -258,7 +287,8 @@ export async function POST(request: Request) {
 
     // --- Get Public URL from Supabase ---
     console.log(`Attempting to get public URL for path: ${storagePath}`);
-    const { data: urlData } = supabaseAdmin.storage
+    // Verwende den Server Client
+    const { data: urlData } = supabase.storage
       .from('videos')
       .getPublicUrl(storagePath);
     console.log("getPublicUrl data:", JSON.stringify(urlData, null, 2));

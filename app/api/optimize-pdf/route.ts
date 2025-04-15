@@ -5,28 +5,29 @@ import os from 'os';             // To get temporary directory
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid'; // For unique temporary filenames
 // Import Supabase client
-import { createClient } from '@supabase/supabase-js';
+// import { createClient } from '@supabase/supabase-js'; // Entfernt: Server Client verwenden
+import { createServerClient } from "@/lib/supabase/server"; // Hinzugefügt: Server Client
 
 // --- Supabase Client Setup ---
 // Stellt sicher, dass Umgebungsvariablen geladen sind
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL; // Nicht mehr direkt benötigt
+// const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY; // Nicht mehr direkt benötigt
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Fehlende Supabase-Umgebungsvariablen');
-  // Optional: Fehler auslösen, um zu verhindern, dass die Route ohne Konfiguration ausgeführt wird
-  // throw new Error('Supabase-Konfiguration fehlt');
-}
+// if (!supabaseUrl || !supabaseServiceKey) { // Prüfung nicht mehr hier nötig
+//   console.error('Fehlende Supabase-Umgebungsvariablen');
+//   // Optional: Fehler auslösen, um zu verhindern, dass die Route ohne Konfiguration ausgeführt wird
+//   // throw new Error('Supabase-Konfiguration fehlt');
+// }
 
 // Erstellt eine einzelne Supabase-Client-Instanz für die Route
 // Verwendet den Service Key für erhöhte Berechtigungen (z. B. Umgehung von RLS für Uploads)
-const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
-  auth: {
-    // Erforderlich für den Service Role Client
-    persistSession: false,
-    autoRefreshToken: false,
-  }
-});
+// const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, { // Entfernt: Server Client verwenden
+//   auth: {
+//     // Erforderlich für den Service Role Client
+//     persistSession: false,
+//     autoRefreshToken: false,
+//   }
+// });
 // --- Ende Supabase Setup ---
 
 // Definiert das Ausgabeverzeichnis für optimierte PDFs
@@ -64,14 +65,31 @@ const sanitizeFilename = (filename: string): string => {
 export async function POST(request: Request) {
   let tempInputPath: string | null = null;
   let localOutputPath: string | null = null; // Define local output path variable
-  let tempGsOutputPath: string | null = null; // Deklariere tempGsOutputPath außerhalb des try-Blocks
+  let tempGsOutputPath: string | null = null; // Deklariere tempGsOutputPath außerhalb des try-blocks
   let tempPngOutputPath: string | null = null; // Hinzugefügt: Pfad für temporäre PNG-Vorschau
+  const supabase = createServerClient(); // Hinzugefügt: Server Client Instanz
 
   try {
+    // +++ Hinzugefügt: Authentifizierung prüfen +++
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("API Route (PDF): Authentication failed.", authError);
+      return NextResponse.json(
+        { error: "Nicht autorisiert. Bitte melden Sie sich an." },
+        { status: 401 }
+      );
+    }
+    const userId = user.id; // Hinzugefügt: userId aus der Session holen
+    // +++ Ende Authentifizierung +++
+
     const formData = await request.formData();
     const file = formData.get('pdf'); // Erwartet ein 'pdf'-Feld
-    // --- Holt die userId aus FormData ---
-    const userId = formData.get('userId');
+    // --- Holt die userId aus FormData --- // Entfernt
+    // const userId = formData.get('userId'); // Entfernt
 
     // Validiert die Datei
     // Überprüft, ob eine gültige PDF-Datei hochgeladen wurde.
@@ -81,14 +99,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    // --- Validiert die userId ---
+    // --- Validiert die userId --- // Entfernt
     // Überprüft, ob eine gültige Benutzer-ID angegeben wurde.
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json(
-        { error: 'Benutzer-ID fehlt oder ist ungültig.' },
-        { status: 400 } // Bad Request
-      );
-    }
+    // if (!userId || typeof userId !== 'string') { // Entfernt
+    //   return NextResponse.json( // Entfernt
+    //     { error: 'Benutzer-ID fehlt oder ist ungültig.' }, // Entfernt
+    //     { status: 400 } // Bad Request // Entfernt
+    //   ); // Entfernt
+    // } // Entfernt
 
     // Grundlegende PDF-Typ-Überprüfung
     // Führt eine Überprüfung des MIME-Typs durch, um sicherzustellen, dass es sich um eine PDF-Datei handelt.
@@ -134,7 +152,7 @@ export async function POST(request: Request) {
     // --- PDF-Komprimierung mit Ghostscript direkt über child_process ---
     // Da compress-pdf die Optionen nicht zuverlässig übernimmt, rufen wir gs direkt auf.
     const { spawn } = await import('child_process');
-    // Weise den Wert innerhalb des try-Blocks zu
+    // Weise den Wert innerhalb des try-blocks zu
     tempGsOutputPath = path.join(os.tmpdir(), `${uuidv4()}_gsoutput.pdf`); // Temporäre Ausgabedatei für Ghostscript
 
     console.log(`Komprimiere PDF direkt mit Ghostscript: Input=${tempInputPath}, Output=${tempGsOutputPath}`);
@@ -241,12 +259,13 @@ export async function POST(request: Request) {
         try {
             const previewBuffer = await fs.readFile(tempPngOutputPath);
             const previewFilename = `${path.basename(outputFilename, '.pdf')}_preview.png`; // z.B. uuid-basename_optimized_preview.png
-            const previewStoragePath = `${userId}/${previewFilename}`;
+            const previewStoragePath = `${userId}/${previewFilename}`; // userId aus Session verwenden
 
             console.log(`Lade PNG-Vorschau hoch nach: previews/${previewStoragePath}`);
 
             // Lade Vorschau hoch, ignoriere das zurückgegebene Datenobjekt
-            const { error: previewUploadError } = await supabaseAdmin.storage
+            // Verwende den Server Client (kein Admin Client mehr)
+            const { error: previewUploadError } = await supabase.storage // Geändert: supabase statt supabaseAdmin
                 .from('previews') // Annahme: 'previews' Bucket existiert!
                 .upload(previewStoragePath, previewBuffer, {
                     contentType: 'image/png',
@@ -258,7 +277,8 @@ export async function POST(request: Request) {
             }
 
             // Hole öffentliche URL für die Vorschau
-            const { data: previewUrlData } = supabaseAdmin.storage
+            // Verwende den Server Client
+            const { data: previewUrlData } = supabase.storage // Geändert: supabase statt supabaseAdmin
                 .from('previews')
                 .getPublicUrl(previewStoragePath);
 
@@ -291,11 +311,12 @@ export async function POST(request: Request) {
 
     // --- Verwendet userId im Speicherpfad ---
     // Definiert den Speicherpfad in Supabase Storage, einschließlich der Benutzer-ID.
-    const storagePath = `${userId}/${outputFilename}`; // Speichert im Ordner mit dem Namen der userId
+    const storagePath = `${userId}/${outputFilename}`; // Speichert im Ordner mit dem Namen der userId (aus Session)
     console.log(`Lade komprimierte PDF-Datei in Supabase Storage hoch unter: documents/${storagePath}`); // Bucket auf 'documents' geändert
 
     // Lädt die komprimierte PDF-Datei in den 'documents'-Bucket von Supabase Storage hoch.
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+    // Verwende den Server Client
+    const { data: uploadData, error: uploadError } = await supabase.storage // Geändert: supabase statt supabaseAdmin
       .from('documents') // Bucket-Name auf 'documents' geändert
       .upload(storagePath, optimizedFileBuffer, {
         contentType: 'application/pdf', // Inhaltstyp explizit für PDF festlegen
@@ -312,7 +333,8 @@ export async function POST(request: Request) {
     // --- Holt die öffentliche URL von Supabase ---
     // Ruft die öffentliche URL der hochgeladenen PDF-Datei von Supabase ab.
     console.log(`Versuche, öffentliche URL für Pfad abzurufen: ${storagePath}`);
-    const { data: urlData } = supabaseAdmin.storage
+    // Verwende den Server Client
+    const { data: urlData } = supabase.storage // Geändert: supabase statt supabaseAdmin
       .from('documents') // Bucket-Name auf 'documents' geändert
       .getPublicUrl(storagePath);
     console.log("getPublicUrl Daten:", JSON.stringify(urlData, null, 2));

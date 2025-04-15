@@ -34,7 +34,7 @@ export async function saveProjectToDatabase(
       user_id: string;
       title: string;
       description?: string;
-      project_data: DropAreaType[]; // Use the imported type
+      project_data: string; // CHANGED: Expect a JSON string now
       updated_at: string;
       id?: string; // Optional ID
       created_at?: string; // Optional createdAt
@@ -44,7 +44,7 @@ export async function saveProjectToDatabase(
       user_id: userId,
       title: projectData.title,
       description: projectData.description,
-      project_data: projectData.dropAreas,
+      project_data: JSON.stringify(projectData.dropAreas), // CHANGED: Explicitly stringify the data
       updated_at: new Date().toISOString(), // Keep updated_at for both insert/update
     }
 
@@ -104,29 +104,72 @@ export async function loadProjectFromDatabase(projectId: string): Promise<Projec
   }
 
   try {
-    const { data, error } = await supabase.from("projects").select("project_data").eq("id", projectId).single()
+    // Select the specific columns needed
+    const { data, error } = await supabase
+      .from("projects")
+      .select(
+        "id, title, description, created_at, updated_at, project_data" // Select all relevant fields
+      )
+      .eq("id", projectId)
+      .single();
 
     if (error) {
-      console.error("Error loading project:", error)
-      return null
+      // Log specific Supabase error if available
+      console.error(
+        "Error loading project from database:",
+        error.message || error
+      );
+      return null;
     }
 
-    if (!data || !data.project_data) {
-      console.error("No project data found")
-      return null
+    if (!data) {
+      console.warn(`No project found with ID: ${projectId}`);
+      return null;
+    }
+
+    // Check if project_data exists and is a string before parsing
+    if (typeof data.project_data !== "string" || !data.project_data) {
+      console.error(
+        `Invalid or missing project_data for project ID: ${projectId}`
+      );
+      // Optionally, return partial data or handle differently
+      // For now, returning null as the core structure is missing/invalid
+      return null;
     }
 
     // Parse the JSON data
     try {
-      const projectData = JSON.parse(data.project_data) as ProjectData
-      return projectData
+      const parsedDropAreas = JSON.parse(data.project_data) as DropAreaType[];
+
+      // Construct the full ProjectData object
+      const projectData: ProjectData = {
+        id: data.id,
+        title: data.title,
+        description: data.description ?? "", // Handle potentially null description
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        dropAreas: parsedDropAreas,
+      };
+
+      return projectData;
     } catch (parseError) {
-      console.error("Error parsing project data:", parseError)
-      return null
+      console.error(
+        `Error parsing project_data JSON for project ID: ${projectId}:`,
+        parseError
+      );
+      // Log the problematic data if possible (be careful with large data)
+      if (data.project_data.length < 500) {
+        console.error("Problematic project_data:", data.project_data);
+      } else {
+        console.error(
+          "Problematic project_data is too long to log completely."
+        );
+      }
+      return null;
     }
   } catch (error) {
-    console.error("Error loading project from database:", error)
-    return null
+    console.error("Unexpected error loading project from database:", error);
+    return null;
   }
 }
 
@@ -156,27 +199,49 @@ export async function listProjectsFromDatabase(): Promise<Project[]> {
     }
 
     // Convert database records to Project objects
-    const projects: Project[] = data.map((record) => {
-      let blockCount = 0
+    const projects: Project[] = data
+      .map((record): Project | null => {
+        let blockCount = 0;
+        let parsedDropAreas: DropAreaType[] | null = null;
 
-      // Try to count blocks from project_data
-      try {
-        const projectData = JSON.parse(record.project_data)
-        blockCount = countBlocks(projectData.dropAreas)
-      } catch (e) {
-        console.warn("Could not parse project data to count blocks:", e)
-      }
+        // Try to parse project_data and count blocks
+        if (typeof record.project_data === "string" && record.project_data) {
+          try {
+            parsedDropAreas = JSON.parse(record.project_data);
+            blockCount = countBlocks(parsedDropAreas ?? []); // Use parsed data
+          } catch (e) {
+            console.warn(
+              `Could not parse project_data for project ${record.id} to count blocks:`,
+              e
+            );
+            // Optionally log the bad data snippet if small
+            if (record.project_data.length < 100) {
+              console.warn("Problematic data snippet:", record.project_data);
+            }
+            return null; // Return null if parsing fails
+          }
+        } else {
+          console.warn(
+            `Missing or invalid project_data type for project ${record.id}`
+          );
+          // Decide if this should also return null, or proceed with blockCount = 0
+          // Current logic proceeds, which might be okay if project_data is optional
+        }
 
-      return {
-        id: record.id,
-        title: record.title,
-        description: record.description,
-        createdAt: record.created_at,
-        updatedAt: record.updated_at,
-        blocks: blockCount,
-        thumbnail: undefined, // No thumbnail in database approach
-      }
-    })
+        // Construct the Project object, handle optional fields
+        const project: Project = {
+          id: record.id,
+          title: record.title,
+          // Only include description if it exists and is not null
+          ...(record.description && { description: record.description }),
+          createdAt: record.created_at,
+          updatedAt: record.updated_at,
+          blocks: blockCount, // Use calculated block count
+          // thumbnail is optional and not present here
+        };
+        return project; // Return the valid Project object
+      })
+      .filter((p): p is Project => p !== null); // Filter out the nulls
 
     return projects
   } catch (error) {
@@ -189,21 +254,45 @@ export async function listProjectsFromDatabase(): Promise<Project[]> {
  * Delete a project from Supabase database
  */
 export async function deleteProjectFromDatabase(projectId: string): Promise<boolean> {
-  const supabase = getSupabase()
-  if (!supabase) return false
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error("[DB Delete] Supabase client not available");
+    return false;
+  }
+
+  console.log(`[DB Delete] Attempting to delete project with ID: ${projectId}`);
 
   try {
-    const { error } = await supabase.from("projects").delete().eq("id", projectId)
+    // Perform the delete operation and request the count of deleted rows
+    const { error, count } = await supabase
+      .from("projects")
+      .delete({ count: "exact" }) // Request the count
+      .eq("id", projectId);
 
     if (error) {
-      console.error("Error deleting project:", error)
-      return false
+      console.error("[DB Delete] Error during delete operation:", error);
+      return false;
     }
 
-    return true
+    // Check if any rows were actually deleted
+    if (count === 0) {
+      console.warn(`[DB Delete] No project found with ID ${projectId} or RLS prevented deletion. Count: ${count}`);
+      // Depending on requirements, you might treat this as a failure or success.
+      // Returning true here assumes the goal is achieved if the record doesn't exist anymore.
+      // If RLS might prevent deletion by an authorized user, returning false might be better.
+      return true; // Or return false if RLS preventing deletion should be an error
+    } else if (count && count > 0) {
+      console.log(`[DB Delete] Successfully deleted ${count} project(s) with ID: ${projectId}`);
+      return true;
+    } else {
+      // This case should ideally not happen with count: 'exact'
+      console.warn(`[DB Delete] Delete operation returned an unexpected count: ${count} for project ID: ${projectId}`);
+      return false; // Treat unexpected count as failure
+    }
+
   } catch (error) {
-    console.error("Error deleting project:", error)
-    return false
+    console.error("[DB Delete] Unexpected error during database delete:", error);
+    return false;
   }
 }
 

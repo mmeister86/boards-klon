@@ -53,9 +53,6 @@ export default function Navbar({
   const currentProjectId = useBlocksStore((state) =>
     context === "editor" ? state.currentProjectId : null
   );
-  const currentProjectDatabaseId = useBlocksStore((state) =>
-    context === "editor" ? state.currentProjectDatabaseId : null
-  );
   const publishBoard = useBlocksStore((state) =>
     context === "editor" ? state.publishBoard : undefined
   );
@@ -208,39 +205,64 @@ export default function Navbar({
   }, [publishBoard, user]);
 
   const handleDelete = useCallback(async () => {
-    // Revert the check to use currentProjectId primarily, as it's needed for storage deletion
+    // Get user ID first
+    if (!user?.id) {
+      toast.error("Fehler: Benutzer nicht angemeldet.");
+      return;
+    }
+    const userId = user.id;
+
+    // Ensure project ID and store callbacks are available
     if (
       !currentProjectId ||
       !setProjectJustDeleted ||
       !setDeletedProjectTitle
     ) {
-      console.warn("Deletion prerequisites not met:", { currentProjectId });
+      console.warn("Deletion prerequisites not met:", {
+        currentProjectId,
+        storeCallbacks: !!(setProjectJustDeleted && setDeletedProjectTitle),
+      });
+      toast.error("Fehler: Projektinformationen nicht verfügbar.");
       return;
     }
 
     setIsDeleting(true);
-    try {
-      // Delete from storage FIRST, using currentProjectId
-      console.log(
-        `Attempting to delete project from storage: ${currentProjectId}`
-      );
-      await deleteProjectFromStorage(currentProjectId);
-      console.log(`Deleted project from storage: ${currentProjectId}`);
+    let storageDeleted = false;
+    let databaseDeleted = false;
 
-      // Conditionally delete from database ONLY if a database ID exists
-      if (currentProjectDatabaseId) {
-        console.log(
-          `Attempting to delete project from database: ${currentProjectDatabaseId}`
-        );
-        await deleteProjectFromDatabase(currentProjectDatabaseId); // Use the correct DB ID
-        console.log(
-          `Deleted project from database: ${currentProjectDatabaseId}`
+    try {
+      // 1. Delete from storage FIRST
+      console.log(
+        `[Navbar Delete] Attempting to delete project from storage: ${currentProjectId} for user ${userId}`
+      );
+      storageDeleted = await deleteProjectFromStorage(currentProjectId, userId); // Pass userId
+
+      if (!storageDeleted) {
+        // If storage delete failed, stop the process
+        throw new Error("Fehler beim Löschen der Projektdateien aus dem Speicher.");
+      }
+      console.log(`[Navbar Delete] Successfully deleted project from storage: ${currentProjectId}`);
+
+      // 2. Conditionally delete from database ONLY if a database ID exists
+      // Use currentProjectId as it should match the DB ID after creation/loading
+      console.log(
+        `[Navbar Delete] Attempting to delete project from database: ${currentProjectId}`
+      );
+      databaseDeleted = await deleteProjectFromDatabase(currentProjectId); // Use the primary project ID
+
+      if (!databaseDeleted) {
+        // Log warning but proceed, as storage was the primary target
+        console.warn(
+          `[Navbar Delete] Project ${currentProjectId} deleted from storage, but failed/skipped database deletion.`
         );
       } else {
         console.log(
-          `No database ID found for project ${currentProjectId}, skipping database deletion.`
+          `[Navbar Delete] Successfully deleted project from database: ${currentProjectId}`
         );
       }
+
+      // If we reached here, at least storage was deleted successfully
+      toast.success(`Projekt "${title}" wurde gelöscht.`);
 
       // Set deletion state in store
       setProjectJustDeleted(true);
@@ -248,19 +270,23 @@ export default function Navbar({
 
       // Redirect to dashboard
       router.push("/dashboard/projekte");
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      toast.error("Fehler beim Löschen des Projekts");
-      setIsDeleting(false);
+
+      // No need to setIsDeleting(false) here as we are navigating away
+
+    } catch (error: unknown) {
+      console.error("[Navbar Delete] Error deleting project:", error);
+      const errorMsg = error instanceof Error ? error.message : "Unbekannter Fehler beim Löschen";
+      toast.error(`Fehler beim Löschen: ${errorMsg}`);
+      setIsDeleting(false); // Stop loading indicator on error
     }
-    // Keep both IDs in dependency array as they are used
+    // Add userId to dependency array
   }, [
     currentProjectId,
-    currentProjectDatabaseId,
     setProjectJustDeleted,
     setDeletedProjectTitle,
     title,
     router,
+    user?.id, // Add userId
   ]);
 
   return (
@@ -313,7 +339,7 @@ export default function Navbar({
           {context === "editor" && (
             <>
               {showLastSaved && (
-                <span className="text-xs text-muted-foreground animate-pulse">
+                <span className="text-xs text-muted-foreground ease-in-out duration-300">
                   Gespeichert um {new Date(lastSaved!).toLocaleTimeString()}
                 </span>
               )}

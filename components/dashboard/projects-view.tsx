@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBlocksStore } from "@/store/blocks-store";
 import { useSupabase } from "@/components/providers/supabase-provider";
+import { deleteProjectFromDatabase } from "@/lib/supabase/database"; // Import the database delete function
 
 export default function ProjectsView() {
   console.log("[ProjectsView] Rendering...");
@@ -157,7 +158,7 @@ export default function ProjectsView() {
     router.push(`/editor?projectId=${projectId}`);
   };
 
-  // Delete project from storage
+  // Delete project from storage and database
   const handleProjectDelete = async (
     projectId: string,
     projectTitle: string
@@ -170,25 +171,49 @@ export default function ProjectsView() {
 
     setIsLoading(true); // Indicate loading state during deletion
 
+    let storageDeleted = false;
+    let databaseDeleted = false;
+
     try {
-      // Delete from storage only since projects are stored as JSON files
+      // 1. Delete from storage
       console.log(
         `[ProjectDelete] Attempting to delete project ${projectId} from storage...`
       );
       console.log(
         `[ProjectDelete] Calling deleteProjectFromStorage with projectId: ${projectId}, userId: ${userId}`
       );
-      const storageResult = await deleteProjectFromStorage(projectId, userId);
+      storageDeleted = await deleteProjectFromStorage(projectId, userId);
 
-      if (!storageResult) {
+      if (!storageDeleted) {
         throw new Error("Failed to delete project from storage");
       }
-
       console.log(
         `[ProjectDelete] Successfully deleted project ${projectId} from storage`
       );
 
-      // Show success toast
+      // 2. Delete from database
+      // Note: We use projectId here. Ensure your RLS policies allow deleting based on user_id
+      // or that deleteProjectFromDatabase handles permissions correctly.
+      console.log(
+        `[ProjectDelete] Attempting to delete project ${projectId} from database...`
+      );
+      databaseDeleted = await deleteProjectFromDatabase(projectId);
+
+      if (!databaseDeleted) {
+        // Log a warning but don't necessarily throw an error,
+        // as the primary goal (removing from storage/list) succeeded.
+        console.warn(
+          `[ProjectDelete] Project ${projectId} deleted from storage, but failed to delete from database.`
+        );
+        // Depending on requirements, you might want to throw an error here
+        // or try to re-sync storage later.
+      } else {
+        console.log(
+          `[ProjectDelete] Successfully deleted project ${projectId} from database`
+        );
+      }
+
+      // Show success toast regardless of DB deletion success (as storage was deleted)
       toast.error(`"${projectTitle}" wurde gelöscht`, {
         description: `Ihr Projekt wurde erfolgreich gelöscht.`,
         style: {
@@ -201,12 +226,19 @@ export default function ProjectsView() {
       setRefreshCounter((prev) => prev + 1);
     } catch (error) {
       console.error("[ProjectDelete] Error during project deletion:", error);
+      // Provide more specific error based on which step failed
+      let errorMsg = `Das Projekt "${projectTitle}" konnte nicht gelöscht werden.`;
+      if (!storageDeleted) {
+        errorMsg = `Das Projekt "${projectTitle}" konnte nicht aus dem Speicher gelöscht werden.`
+      } else if (!databaseDeleted) {
+        errorMsg = `Das Projekt "${projectTitle}" wurde aus dem Speicher gelöscht, aber ein Fehler trat beim Bereinigen der Datenbank auf.`
+      }
       showErrorToast(
         "Fehler beim Löschen",
-        `Das Projekt "${projectTitle}" konnte nicht gelöscht werden.`
+        errorMsg
       );
     } finally {
-      // Let the loadProjects effect handle setting isLoading to false
+      // Let the loadProjects effect handle setting isLoading to false after refresh
     }
   };
 
@@ -272,7 +304,7 @@ export default function ProjectsView() {
           <span className="ml-3 text-lg">Projekte werden geladen...</span>
         </div>
       ) : filteredProjects.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}

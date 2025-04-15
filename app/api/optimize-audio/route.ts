@@ -5,28 +5,29 @@ import os from 'os';             // To get temporary directory
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid'; // For unique temporary filenames
 // Import Supabase client
-import { createClient } from '@supabase/supabase-js';
+// import { createClient } from '@supabase/supabase-js'; // Entfernt: Server Client verwenden
+import { createServerClient } from "@/lib/supabase/server"; // Hinzugefügt: Server Client
 
 // --- Supabase Client Setup ---
 // Ensure env variables are loaded (Next.js does this automatically in API routes)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL; // Nicht mehr direkt benötigt
+// const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY; // Nicht mehr direkt benötigt
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables');
-  // Optional: throw an error to prevent the route from running without config
-  // throw new Error('Supabase configuration missing');
-}
+// if (!supabaseUrl || !supabaseServiceKey) { // Prüfung nicht mehr hier nötig
+//   console.error('Missing Supabase environment variables');
+//   // Optional: throw an error to prevent the route from running without config
+//   // throw new Error('Supabase configuration missing');
+// }
 
 // Create a single Supabase client instance for the route
 // Use service key for elevated privileges (e.g., bypassing RLS for uploads)
-const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
-  auth: {
-    // Required for service role client
-    persistSession: false,
-    autoRefreshToken: false,
-  }
-});
+// const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, { // Entfernt: Server Client verwenden
+//   auth: {
+//     // Required for service role client
+//     persistSession: false,
+//     autoRefreshToken: false,
+//   }
+// });
 // --- End Supabase Setup ---
 
 // Define the output directory for optimized audios
@@ -41,12 +42,29 @@ fs.mkdir(outputDir, { recursive: true }).catch(console.error);
 export async function POST(request: Request) {
   let tempInputPath: string | null = null;
   let localOutputPath: string | null = null;
+  const supabase = createServerClient(); // Hinzugefügt: Server Client Instanz
 
   try {
+    // +++ Hinzugefügt: Authentifizierung prüfen +++
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("API Route (Audio): Authentication failed.", authError);
+      return NextResponse.json(
+        { error: "Nicht autorisiert. Bitte melden Sie sich an." },
+        { status: 401 }
+      );
+    }
+    const userId = user.id; // Hinzugefügt: userId aus der Session holen
+    // +++ Ende Authentifizierung +++
+
     const formData = await request.formData();
     const file = formData.get('audio'); // Changed from 'video' to 'audio'
-    // --- Get userId from FormData ---
-    const userId = formData.get('userId');
+    // --- Get userId from FormData --- // Entfernt
+    // const userId = formData.get('userId'); // Entfernt
 
     // Validate the file
     // Überprüft, ob eine gültige Audiodatei hochgeladen wurde.
@@ -56,14 +74,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    // --- Validate userId ---
+    // --- Validate userId --- // Entfernt
     // Überprüft, ob eine gültige Benutzer-ID angegeben wurde.
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json(
-        { error: 'User ID missing or invalid.' },
-        { status: 400 } // Bad Request
-      );
-    }
+    // if (!userId || typeof userId !== 'string') { // Entfernt
+    //   return NextResponse.json( // Entfernt
+    //     { error: 'User ID missing or invalid.' }, // Entfernt
+    //     { status: 400 } // Bad Request // Entfernt
+    //   ); // Entfernt
+    // } // Entfernt
 
     // Basic audio type check (optional, but recommended)
     // Führt eine grundlegende Überprüfung des MIME-Typs durch, um sicherzustellen, dass es sich um eine Audiodatei handelt.
@@ -131,11 +149,12 @@ export async function POST(request: Request) {
 
     // --- Use userId in storage path ---
     // Definiert den Speicherpfad in Supabase Storage, einschließlich der Benutzer-ID.
-    const storagePath = `${userId}/${outputFilename}`; // Store in folder named after userId
+    const storagePath = `${userId}/${outputFilename}`; // Store in folder named after userId (aus Session)
     console.log(`Uploading compressed audio file to Supabase Storage at: audio/${storagePath}`); // Changed bucket to 'audio'
 
     // Lädt die komprimierte Audiodatei in den 'audio'-Bucket von Supabase Storage hoch.
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+    // Verwende den Server Client
+    const { data: uploadData, error: uploadError } = await supabase.storage // Geändert: supabase statt supabaseAdmin
       .from('audio') // Changed bucket name to 'audio'
       .upload(storagePath, optimizedFileBuffer, {
         contentType: 'audio/aac', // Set content type explicitly for AAC
@@ -152,7 +171,8 @@ export async function POST(request: Request) {
     // --- Get Public URL from Supabase ---
     // Ruft die öffentliche URL der hochgeladenen Audiodatei von Supabase ab.
     console.log(`Attempting to get public URL for path: ${storagePath}`);
-    const { data: urlData } = supabaseAdmin.storage
+    // Verwende den Server Client
+    const { data: urlData } = supabase.storage // Geändert: supabase statt supabaseAdmin
       .from('audio') // Changed bucket name to 'audio'
       .getPublicUrl(storagePath);
     console.log("getPublicUrl data:", JSON.stringify(urlData, null, 2));

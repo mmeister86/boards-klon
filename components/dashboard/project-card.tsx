@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
-import { deleteProjectFromStorage } from "@/lib/supabase/storage";
 import type { Project } from "@/lib/types";
 import {
   AlertDialog,
@@ -48,19 +47,18 @@ export default function ProjectCard({
 
   const confirmDelete = async () => {
     setIsDeleting(true);
+    setError(null);
     try {
-      const success = await deleteProjectFromStorage(project.id);
-      if (success) {
-        setShowDeleteDialog(false);
-        if (onDelete) {
-          onDelete();
-        }
+      if (onDelete) {
+        await onDelete();
       } else {
-        throw new Error("Failed to delete project");
+        throw new Error("Delete handler is not configured.");
       }
+      setShowDeleteDialog(false);
     } catch (error: unknown) {
+      console.error("Error during onDelete callback execution:", error);
       setError(
-        error instanceof Error ? error.message : "Error deleting project"
+        error instanceof Error ? error.message : "Error triggering delete action"
       );
     } finally {
       setIsDeleting(false);

@@ -8,13 +8,23 @@ import { Loader2, AlertCircle, Music } from "lucide-react";
 import ReactPlayer from "react-player/lazy";
 import { cn } from "@/lib/utils";
 
-// Import pdfjs-dist library and types
-import * as pdfjsLib from "pdfjs-dist";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+// Import types directly if needed, but avoid importing the main library statically
+import type { PDFDocumentProxy, PDFPageProxy, PDFDocumentLoadingTask } from "pdfjs-dist";
 
-// Set worker source
+// Define a type for the dynamically imported pdfjs-dist library
+interface PdfJsLibType {
+  GlobalWorkerOptions: {
+    workerSrc: string;
+  };
+  getDocument: (
+    src: string | URL | Uint8Array | import("pdfjs-dist/types/src/display/api").DocumentInitParameters
+  ) => PDFDocumentLoadingTask;
+}
+
+// PDF worker setup remains conditional
 if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+  // Dynamically set worker source if needed later or ensure build process copies it
+  // The actual setting might move inside the dynamic import logic if library requires it
 }
 
 interface PublicDropAreaRendererProps {
@@ -90,14 +100,26 @@ function RenderBlock({ block }: { block: BlockType }) {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
 
+  // Ref to store the dynamically imported library with a specific type
+  const pdfjsLibRef = useRef<PdfJsLibType | null>(null);
+
   const loadPdf = useCallback(async () => {
-    if (!block.content || pdfDoc || isLoadingPdf) return;
+    // Ensure running only on client
+    if (typeof window === "undefined" || !block.content || pdfDoc || isLoadingPdf) return;
 
     setIsLoadingPdf(true);
     setPdfError(null);
 
     try {
-      const loadingTask = pdfjsLib.getDocument(block.content);
+      // Dynamically import the library
+      if (!pdfjsLibRef.current) {
+        const pdfjs = await import("pdfjs-dist");
+        // Set worker source *after* import and *before* getDocument
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+        pdfjsLibRef.current = pdfjs;
+      }
+
+      const loadingTask = pdfjsLibRef.current.getDocument(block.content);
       const pdf = await loadingTask.promise;
       setPdfDoc(pdf);
       setNumPages(pdf.numPages);
@@ -321,39 +343,40 @@ function PdfPage({ pdfDoc, pageNumber, containerWidth }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let isMounted = true;
-
     const render = async () => {
-      if (!pdfDoc || !canvasRef.current || !isMounted) return;
+      if (!pdfDoc || !canvasRef.current || !containerWidth) return;
 
       try {
-        const page = await pdfDoc.getPage(pageNumber);
-        const desiredWidth = containerWidth ? containerWidth * 0.95 : 800;
-        const viewportBase = page.getViewport({ scale: 1 });
-        const scale = desiredWidth / viewportBase.width;
-        const viewport = page.getViewport({ scale });
+        const page: PDFPageProxy = await pdfDoc.getPage(pageNumber);
+        const desiredWidth = containerWidth;
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = desiredWidth / viewport.width;
+        const scaledViewport = page.getViewport({ scale: scale });
 
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
         if (!context) return;
 
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        canvas.height = scaledViewport.height;
+        canvas.width = scaledViewport.width;
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
 
-        await page.render({
+        const renderContext = {
           canvasContext: context,
-          viewport: viewport,
-        }).promise;
+          viewport: scaledViewport,
+        };
+        await page.render(renderContext).promise;
       } catch (error) {
-        console.error(`Error rendering page ${pageNumber}:`, error);
+        console.error(`Error rendering PDF page ${pageNumber}:`, error);
       }
     };
 
     render();
 
-    return () => {
-      isMounted = false;
-    };
+    // Cleanup function if needed (though page proxy cleanup might not be necessary here)
+    // return () => { page?.cleanup?.(); };
+
   }, [pdfDoc, pageNumber, containerWidth]);
 
   return (

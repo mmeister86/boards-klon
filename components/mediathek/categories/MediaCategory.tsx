@@ -29,13 +29,13 @@ export default function MediaCategory({
       <h2 className="text-xl font-semibold mb-4">
         {type.charAt(0).toUpperCase() + type.slice(1)}s
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
         {filteredItems.map((item) => (
           <div
             key={item.id}
-            className="aspect-square bg-muted rounded-lg p-2 hover:bg-muted/80 cursor-pointer group relative"
+            className="aspect-square rounded-xl hover:bg-muted/80 cursor-pointer group relative"
           >
-            <div className="w-full h-full bg-background rounded overflow-hidden flex items-center justify-center">
+            <div className="w-full h-full rounded-lg overflow-hidden flex items-center justify-center">
               {type === "video" && (
                 <div className="relative w-full h-full">
                   {item.preview_url_512 || item.preview_url_128 ? (
@@ -129,11 +129,8 @@ export default function MediaCategory({
                   </div>
                 ))}
             </div>
-            <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/40 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
               <p className="text-sm text-white truncate">{item.file_name}</p>
-              <p className="text-xs text-white/70">
-                {(item.size / 1024 / 1024).toFixed(1)} MB
-              </p>
             </div>
             <button
               onClick={(e) => {

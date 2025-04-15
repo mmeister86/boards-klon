@@ -4,6 +4,29 @@ import { Button } from "@/components/ui/button";
 import { UploadZoneProps } from "@/types/mediathek";
 import UpLoader from "@/components/uploading";
 
+// Hilfsfunktion zum Bereinigen von Dateinamen
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
+    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+};
+
 export default function UploadZone({
   onUpload,
   isUploading,
@@ -28,12 +51,27 @@ export default function UploadZone({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    onUpload(e.dataTransfer.files);
+
+    // Bereinige die Dateinamen vor dem Upload
+    const files = Array.from(e.dataTransfer.files).map(file => {
+      const sanitizedName = sanitizeFilename(file.name);
+      return new File([file], sanitizedName, { type: file.type });
+    });
+
+    onUpload(files as unknown as FileList);
   };
 
   // Handler für File Input
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpload(e.target.files);
+    if (e.target.files) {
+      // Bereinige die Dateinamen vor dem Upload
+      const files = Array.from(e.target.files).map(file => {
+        const sanitizedName = sanitizeFilename(file.name);
+        return new File([file], sanitizedName, { type: file.type });
+      });
+
+      onUpload(files as unknown as FileList);
+    }
   };
 
   // Gemeinsame Komponenten
