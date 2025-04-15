@@ -160,24 +160,28 @@ export function ClientPage({ params }: PageProps) {
   });
 
   return (
-    <main className="container mx-auto p-4">
-      {/* Header */}
-      <header className="mb-8 text-center">
-        <h1 className="text-3xl font-bold mb-2">{projectContent.title}</h1>
-        <p className="text-muted-foreground">
-          Created by {publishedBoard.author_name}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Last updated:{" "}
+    <main className="w-full min-h-screen flex flex-col items-center gap-8 py-8 px-0 sm:container sm:px-4 sm:mx-auto">
+      {/* Logo */}
+      <h1 className="text-4xl font-bold text-gray-800 mt-10 mb-4">
+        Block Builder
+      </h1>
+
+      {/* Main content area */}
+      <div className="w-full bg-white shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] sm:rounded-lg sm:max-w-[85rem]">
+        <div className="board-content space-y-6 p-4 sm:p-8">
+          {renderableAreas.map((area: DropAreaType) => (
+            <PublicDropAreaRenderer key={area.id} dropArea={area} />
+          ))}
+        </div>
+      </div>
+
+      {/* Footer info */}
+      <div className="text-center text-gray-600 text-sm">
+        <p className="font-medium text-lg mb-1">{projectContent.title}</p>
+        <p className="text-gray-500">
+          {publishedBoard.author_name} |{" "}
           {new Date(publishedBoard.updated_at).toLocaleDateString()}
         </p>
-      </header>
-
-      {/* Board content */}
-      <div className="board-content space-y-6">
-        {renderableAreas.map((area: DropAreaType) => (
-          <PublicDropAreaRenderer key={area.id} dropArea={area} />
-        ))}
       </div>
     </main>
   );

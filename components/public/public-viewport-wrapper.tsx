@@ -7,7 +7,5 @@ interface PublicViewportWrapperProps {
 export function PublicViewportWrapper({
   children,
 }: PublicViewportWrapperProps) {
-  return (
-    <div className="container mx-auto p-4 bg-orange-500/20">{children}</div>
-  );
+  return <div className="container mx-auto p-4">{children}</div>;
 }

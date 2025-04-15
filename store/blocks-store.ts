@@ -14,13 +14,15 @@ import {
   saveProjectToStorage,
   loadProjectFromStorage,
 } from "@/lib/supabase/storage";
-import type { ProjectData } from "@/lib/types";
-import { createClient } from "@/lib/supabase/client";
 import {
+  loadProjectFromDatabase,
+  saveProjectToDatabase,
   publishBoard,
   unpublishBoard,
   getPublishedBoard,
 } from "@/lib/supabase/database";
+import type { ProjectData } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 
 // Add type guard function at the top level, after the imports
 const isValidBlockType = (type: string): type is BlockType['type'] => {
@@ -41,6 +43,7 @@ interface BlocksState {
   selectedBlockId: string | null;
   previewMode: boolean;
   currentProjectId: string | null;
+  currentProjectDatabaseId: string | null;
   currentProjectTitle: string;
   isLoading: boolean;
   isSaving: boolean;
@@ -169,6 +172,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     selectedBlockId: null,
     previewMode: false,
     currentProjectId: null,
+    currentProjectDatabaseId: null,
     currentProjectTitle: "Untitled Project",
     isLoading: false,
     isSaving: false,
@@ -697,89 +701,222 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     // Project Actions
-    loadProject: async (projectId) => {
+    loadProject: async (projectId: string) => {
+      const supabase = getSupabase(); // Hole Client für User-Info
+      if (!supabase) return false;
+      const { data: { user } } = await supabase.auth.getUser();
+      // userId kann null sein, wenn nicht eingeloggt
+      const userId = user?.id;
+
+      // Check if the projectId is a valid UUID format
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(projectId);
+
+      console.log(`[LoadProject] Starting load for ID: ${projectId}, Is UUID: ${isUuid}, User ID: ${userId}`);
+
+      set({ isLoading: true, currentProjectId: null, currentProjectDatabaseId: null });
+
       try {
-        const projectData = await loadProjectFromStorage(projectId);
-        if (!projectData) {
-          throw new Error(`Project ${projectId} not found`);
+        let projectData: ProjectData | null = null;
+        let projectTitle = "Untitled Project";
+        let dbProjectId: string | undefined = undefined;
+        let storageProjectId: string | undefined = undefined;
+
+        // Prioritize loading from Database if the ID is a UUID
+        if (isUuid) {
+           console.log(`[LoadProject] Attempting to load from database with UUID: ${projectId}`);
+          const dbProject = await loadProjectFromDatabase(projectId);
+          if (dbProject) {
+            console.log("[LoadProject] Successfully loaded from database.");
+            projectData = dbProject;
+            projectTitle = dbProject.title;
+            dbProjectId = dbProject.id;
+            storageProjectId = dbProject.id;
+          } else {
+            console.warn(
+              `[LoadProject] Project with UUID ${projectId} not found in database.`
+            );
+          }
         }
 
-        const dropAreasCopy = JSON.parse(JSON.stringify(projectData.dropAreas));
-        set({
-          dropAreas: dropAreasCopy,
-          currentProjectId: projectData.id,
-          currentProjectTitle: projectData.title,
-          isLoading: false,
-          lastSaved: new Date(projectData.updatedAt),
-        });
+        // If not loaded from DB OR if the provided ID wasn't a UUID, try loading from storage
+        // Nur aus Storage laden, wenn wir eine userId haben!
+        if (!projectData && userId) {
+           console.log(`[LoadProject] Attempting to load from storage with ID: ${projectId} for user ${userId}`);
+           // Übergebe userId an loadProjectFromStorage
+           const storageProject = await loadProjectFromStorage(projectId, userId);
+          if (storageProject) {
+            console.log("[LoadProject] Successfully loaded from storage.");
+            projectData = storageProject;
+            projectTitle = storageProject.title;
+            storageProjectId = storageProject.id;
+            dbProjectId = (storageProject.id && uuidRegex.test(storageProject.id)) ? storageProject.id : undefined;
+             console.log(`[LoadProject] Storage Project ID: ${storageProjectId}, Identified DB ID: ${dbProjectId}`);
+          } else {
+             console.log(`[LoadProject] Project not found in storage for user ${userId}.`);
+          }
+        } else if (!projectData) {
+            console.log("[LoadProject] Cannot load from storage without userId.");
+        }
 
-        return true;
+        // If project was loaded (either from DB or Storage)
+        if (projectData) {
+           console.log("[LoadProject] Setting store state:", {
+              dbId: dbProjectId,
+              storageId: storageProjectId,
+              title: projectTitle
+           });
+          set({
+            dropAreas: projectData.dropAreas,
+            currentProjectId: storageProjectId || dbProjectId || projectId,
+            currentProjectDatabaseId: dbProjectId || null,
+            currentProjectTitle: projectTitle,
+            lastSaved: projectData.updatedAt ? new Date(projectData.updatedAt) : null,
+            isLoading: false,
+          });
+          console.log("[LoadProject] Load successful.");
+          return true;
+        } else {
+          // Project not found
+          console.error(`[LoadProject] Project ${projectId} not found in database or storage.`);
+          set({ isLoading: false, currentProjectId: null, currentProjectDatabaseId: null });
+          return false;
+        }
       } catch (error: any) {
-        set({ isLoading: false });
-        throw new Error(`Error loading project ${projectId}: ${error.message}`);
+        console.error(`[LoadProject] Error loading project ${projectId}:`, error);
+        set({ isLoading: false, currentProjectId: null, currentProjectDatabaseId: null });
+        return false;
       }
     },
 
     saveProject: async (projectTitle, description) => {
-      const { dropAreas, currentProjectId } = get();
-      if (!currentProjectId) {
-        const newId = await get().createNewProject(projectTitle, description);
-        return !!newId;
+      const {
+        currentProjectId,
+        currentProjectDatabaseId,
+        dropAreas,
+      } = get();
+
+      const supabase = getSupabase();
+      if (!supabase) return false;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      const userId = user.id;
+
+      console.log(`[SaveProject] Starting save. Title: "${projectTitle}", Storage ID: ${currentProjectId}, DB ID: ${currentProjectDatabaseId}`);
+
+      set({ isSaving: true });
+      const now = new Date().toISOString();
+
+      let dbIdToUse: string | undefined = currentProjectDatabaseId || undefined;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+      if (!dbIdToUse && currentProjectId && uuidRegex.test(currentProjectId)) {
+         dbIdToUse = currentProjectId;
+         console.log(`[SaveProject] Using currentProjectId (${dbIdToUse}) as DB ID.`);
+      } else if (!dbIdToUse) {
+         console.log("[SaveProject] No valid DB ID found. DB will generate ID.");
       }
 
+      const projectData: ProjectData = {
+        id: dbIdToUse,
+        title: projectTitle,
+        description: description || "",
+        dropAreas: JSON.parse(JSON.stringify(dropAreas)),
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      // --- Attempt to load existing data to preserve createdAt ---
+      if (dbIdToUse) {
+         let existingCreatedAt: string | undefined;
+         try {
+            const existingDbData = await loadProjectFromDatabase(dbIdToUse);
+            existingCreatedAt = existingDbData?.createdAt;
+         } catch (loadDbError) {
+             console.warn(`Could not load DB data for ${dbIdToUse}:`, loadDbError);
+         }
+         if (!existingCreatedAt) {
+            try {
+               const storageIdForLoad = dbIdToUse;
+               if (userId) {
+                 const existingStorageData = await loadProjectFromStorage(storageIdForLoad, userId);
+                 existingCreatedAt = existingStorageData?.createdAt;
+               } else {
+                   console.warn("[SaveProject] Cannot load from storage to preserve createdAt without userId.");
+               }
+            } catch (loadStorageError) {
+                console.warn(`Could not load Storage data for ${dbIdToUse}:`, loadStorageError);
+            }
+         }
+         if (existingCreatedAt) {
+             projectData.createdAt = existingCreatedAt;
+         }
+      }
+
+      console.log('[SaveProject] Data prepared for saving:', projectData);
+
       try {
-        const existingProjectData = await loadProjectFromStorage(
-          currentProjectId
-        );
-        const projectData: ProjectData = {
-          id: currentProjectId,
-          title: projectTitle,
-          description,
-          dropAreas,
-          createdAt: existingProjectData?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        // --- Save to Database ---
+        console.log('[SaveProject] Attempting to save to database...');
+        const dbResult = await saveProjectToDatabase(projectData, userId);
+        console.log(`[SaveProject] Database save result:`, dbResult);
 
-        const success = await saveProjectToStorage(projectData);
+        if (!dbResult.success || !dbResult.projectId) {
+           console.error('[SaveProject] Database save failed. Aborting.');
+           set({ isSaving: false });
+           return false;
+        }
+
+        const finalDbId = dbResult.projectId;
+        set({ currentProjectDatabaseId: finalDbId });
+        projectData.id = finalDbId;
+
+        // --- Save to Storage ---
+        console.log(`[SaveProject] Attempting to save to storage with ID ${finalDbId}...`);
+        const storageSuccess = await saveProjectToStorage(projectData);
+        console.log(`[SaveProject] Storage save success: ${storageSuccess}`);
+
+        if (!storageSuccess) {
+           console.warn('[SaveProject] Storage save failed, but database save was successful.');
+        }
+
+        // Update store state
         set({
+          currentProjectId: finalDbId,
           currentProjectTitle: projectTitle,
+          lastSaved: new Date(),
           isSaving: false,
-          lastSaved: success ? new Date() : null,
         });
+        console.log(`[SaveProject] Save completed successfully. DB ID: ${finalDbId}`);
+        return true;
 
-        return success;
       } catch (error: any) {
+        console.error("[SaveProject] Error during save operation:", error);
         set({ isSaving: false });
-        throw new Error(
-          `Error saving project ${currentProjectId}: ${error.message}`
-        );
+        return false;
       }
     },
 
     createNewProject: async (title, description) => {
-      const { currentProjectId, dropAreas } = get();
-      const isEmptyProject = (areas: DropAreaType[]) => {
-        return !areas.some(
-          (area) =>
-            area.blocks.length > 0 ||
-            (area.isSplit && area.splitAreas.some((a) => a.blocks.length > 0))
-        );
-      };
-
-      if (currentProjectId && isEmptyProject(dropAreas)) {
-        set({
-          currentProjectTitle: title || "Untitled Project",
-          lastSaved: new Date(),
-        });
-        return currentProjectId;
+      const { isSaving } = get();
+      const supabase = getSupabase();
+      if (!supabase || isSaving) return null;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+           console.error("[CreateProject] User not authenticated.");
+           return null;
       }
+      const userId = user.id;
+
+      console.log("[CreateProject] Creating NEW project entry.");
+      set({ isSaving: true });
+      const now = new Date().toISOString();
 
       try {
-        const newProjectId = `project-${Date.now()}`;
-        const projectData: ProjectData = {
-          id: newProjectId,
+        const initialProjectData: ProjectData = {
           title: title || "Untitled Project",
-          description,
+          description: description || "",
           dropAreas: [
             {
               id: "drop-area-1",
@@ -789,28 +926,48 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
               splitLevel: 0,
             },
           ],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
         };
 
-        const success = await saveProjectToStorage(projectData);
-        if (!success) {
-          set({ isSaving: false });
-          return null;
+        console.log("[CreateProject] Saving initial data to database...");
+        const dbResult = await saveProjectToDatabase(initialProjectData, userId);
+
+        if (!dbResult.success || !dbResult.projectId) {
+           console.error("[CreateProject] Failed to save initial project to database.");
+           set({ isSaving: false });
+           return null;
+        }
+
+        const newDbId = dbResult.projectId;
+        console.log(`[CreateProject] Database save successful. New DB ID: ${newDbId}`);
+
+        const finalProjectData: ProjectData = {
+           ...initialProjectData,
+           id: newDbId,
+        };
+
+        console.log(`[CreateProject] Saving initial data to storage with ID ${newDbId}...`);
+        const storageSuccess = await saveProjectToStorage(finalProjectData);
+        if (!storageSuccess) {
+          console.warn("[CreateProject] Failed to save initial project to storage, but DB entry created.");
         }
 
         set({
-          dropAreas: projectData.dropAreas,
-          currentProjectId: newProjectId,
-          currentProjectTitle: projectData.title,
+          dropAreas: finalProjectData.dropAreas,
+          currentProjectId: newDbId,
+          currentProjectDatabaseId: newDbId,
+          currentProjectTitle: finalProjectData.title,
           isSaving: false,
           lastSaved: new Date(),
         });
+        console.log(`[CreateProject] New project created and store updated. ID: ${newDbId}`);
+        return newDbId;
 
-        return newProjectId;
       } catch (error: any) {
+        console.error("[CreateProject] Error creating new project:", error);
         set({ isSaving: false });
-        throw new Error("Error creating new project: " + error.message);
+        return null;
       }
     },
 

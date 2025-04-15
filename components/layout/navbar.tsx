@@ -53,6 +53,9 @@ export default function Navbar({
   const currentProjectId = useBlocksStore((state) =>
     context === "editor" ? state.currentProjectId : null
   );
+  const currentProjectDatabaseId = useBlocksStore((state) =>
+    context === "editor" ? state.currentProjectDatabaseId : null
+  );
   const publishBoard = useBlocksStore((state) =>
     context === "editor" ? state.publishBoard : undefined
   );
@@ -205,14 +208,39 @@ export default function Navbar({
   }, [publishBoard, user]);
 
   const handleDelete = useCallback(async () => {
-    if (!currentProjectId || !setProjectJustDeleted || !setDeletedProjectTitle)
+    // Revert the check to use currentProjectId primarily, as it's needed for storage deletion
+    if (
+      !currentProjectId ||
+      !setProjectJustDeleted ||
+      !setDeletedProjectTitle
+    ) {
+      console.warn("Deletion prerequisites not met:", { currentProjectId });
       return;
+    }
 
     setIsDeleting(true);
     try {
-      // Delete from storage and database
+      // Delete from storage FIRST, using currentProjectId
+      console.log(
+        `Attempting to delete project from storage: ${currentProjectId}`
+      );
       await deleteProjectFromStorage(currentProjectId);
-      await deleteProjectFromDatabase(currentProjectId);
+      console.log(`Deleted project from storage: ${currentProjectId}`);
+
+      // Conditionally delete from database ONLY if a database ID exists
+      if (currentProjectDatabaseId) {
+        console.log(
+          `Attempting to delete project from database: ${currentProjectDatabaseId}`
+        );
+        await deleteProjectFromDatabase(currentProjectDatabaseId); // Use the correct DB ID
+        console.log(
+          `Deleted project from database: ${currentProjectDatabaseId}`
+        );
+      } else {
+        console.log(
+          `No database ID found for project ${currentProjectId}, skipping database deletion.`
+        );
+      }
 
       // Set deletion state in store
       setProjectJustDeleted(true);
@@ -225,8 +253,10 @@ export default function Navbar({
       toast.error("Fehler beim Löschen des Projekts");
       setIsDeleting(false);
     }
+    // Keep both IDs in dependency array as they are used
   }, [
     currentProjectId,
+    currentProjectDatabaseId,
     setProjectJustDeleted,
     setDeletedProjectTitle,
     title,

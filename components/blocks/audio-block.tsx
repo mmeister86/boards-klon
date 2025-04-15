@@ -1,41 +1,34 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useDrag } from "react-dnd";
+import { useRef, useCallback } from "react";
+import { useDrag, useDrop } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
 import { ItemTypes } from "@/lib/item-types";
 import { Music } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBlocksStore } from "@/store/blocks-store";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import { toast } from "sonner";
+import { ModernAudioPlayer } from "../public/export-renderer";
 
-const sanitizeFilename = (filename: string): string => {
-  // Umlaute und ß ersetzen
-  const umlautMap: { [key: string]: string } = {
-    ä: "ae",
-    ö: "oe",
-    ü: "ue",
-    Ä: "Ae",
-    Ö: "Oe",
-    Ü: "Ue",
-    ß: "ss",
-  };
-  let sanitized = filename;
-  for (const key in umlautMap) {
-    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
-  }
+// --- Types for Dropped Items ---
+interface FileDropItem {
+  type: typeof NativeTypes.FILE;
+  files: File[];
+}
 
-  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
-  return sanitized
-    .replace(/\s+/g, "_") // Ersetzt ein oder mehrere Leerzeichen durch einen Unterstrich
-    .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
-};
+type AcceptedDropItem = FileDropItem;
 
+// --- Component Props ---
 interface AudioBlockProps {
   blockId: string;
   dropAreaId: string;
-  content: string; // URL to the audio file
+  content: string | null;
   isSelected?: boolean;
   onSelect?: () => void;
 }
 
+// --- Component Implementation ---
 export function AudioBlock({
   blockId,
   dropAreaId,
@@ -43,174 +36,145 @@ export function AudioBlock({
   isSelected,
   onSelect,
 }: AudioBlockProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const dragRef = useRef<HTMLDivElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [duration, setDuration] = useState<number>(0);
-  const [currentTime, setCurrentTime] = useState<number>(0);
+  const ref = useRef<HTMLDivElement>(null);
 
-  const [{ isDragging }, drag] = useDrag({
-    type: ItemTypes.EXISTING_BLOCK,
-    item: {
-      id: blockId,
-      type: "audio",
-      content,
-      sourceDropAreaId: dropAreaId,
+  const { updateBlockContent } = useBlocksStore();
+  useSupabase();
+
+  const [{ isDragging }, drag] = useDrag(
+    {
+      type: ItemTypes.EXISTING_BLOCK,
+      item: {
+        id: blockId,
+        type: "audio",
+        content,
+        sourceDropAreaId: dropAreaId,
+      },
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
     },
-    collect: (monitor) => ({
-      isDragging: !!monitor.isDragging(),
+    [blockId, content, dropAreaId]
+  );
+
+  const processDroppedFile = useCallback(
+    (file: File) => {
+      console.log(
+        `AudioBlock (${blockId}): processDroppedFile called for ${file.name}. Temporarily skipping API call.`
+      );
+      toast.info(`Simulating processing for: ${file.name}`);
+      // Der Rest ist auskommentiert
+      /* ... */
+    },
+    [blockId]
+  );
+
+  const [{ isOver, canDrop }, drop] = useDrop<
+    AcceptedDropItem,
+    void,
+    { isOver: boolean; canDrop: boolean }
+  >(
+    () => ({
+      accept: [NativeTypes.FILE],
+
+      canDrop: (item, monitor) => {
+        const itemType = monitor.getItemType();
+        if (itemType === NativeTypes.FILE) {
+          const fileItem = item as FileDropItem;
+          return (
+            fileItem.files?.some((file) => file.type.startsWith("audio/")) ??
+            false
+          );
+        }
+        return false;
+      },
+
+      drop: (item, monitor) => {
+        if (monitor.didDrop()) {
+          return;
+        }
+
+        const itemType = monitor.getItemType();
+        if (itemType === NativeTypes.FILE) {
+          const fileItem = item as FileDropItem;
+          const audioFile = fileItem.files?.find((file) =>
+            file.type.startsWith("audio/")
+          );
+          if (audioFile) {
+            processDroppedFile(audioFile);
+          }
+        }
+      },
+
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+        canDrop: monitor.canDrop(),
+      }),
     }),
-  });
+    [blockId, dropAreaId, updateBlockContent, processDroppedFile]
+  );
 
-  // Connect the drag ref
-  drag(dragRef);
+  drag(ref);
+  drop(ref);
 
-  // Extract filename from URL if not provided, then sanitize it
-  const rawFileName = content.split("/").pop() || "Audio File";
-  const displayFileName = sanitizeFilename(rawFileName);
+  const isActiveDrop = isOver && canDrop;
 
-  const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleLoadedData = () => {
-    setIsLoading(false);
-    setError(null);
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleError = () => {
-    setIsLoading(false);
-    setError("Failed to load audio");
-  };
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
+  if (!content) {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "group relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 transition-all",
+          "border-gray-300 hover:border-gray-400",
+          isActiveDrop && "border-rose-500 bg-rose-50 ring-2 ring-rose-300",
+          isDragging && "opacity-50",
+          isSelected && "ring-2 ring-rose-600"
+        )}
+        onClick={onSelect}
+        role="button"
+        aria-label="Audio Block Placeholder"
+      >
+        <div className="flex flex-col items-center justify-center space-y-2 text-center">
+          <Music
+            className={cn(
+              "h-8 w-8 text-gray-400 group-hover:text-gray-500",
+              isActiveDrop && "text-rose-500"
+            )}
+          />
+          <p
+            className={cn(
+              "text-sm text-gray-500",
+              isActiveDrop && "text-rose-600 font-medium"
+            )}
+          >
+            {canDrop ? "Audio hier ablegen" : "Audiodatei hierher ziehen"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      ref={dragRef}
+      ref={ref}
       className={cn(
-        "group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md",
+        "group relative",
         isDragging && "opacity-50",
-        isSelected && "ring-2 ring-blue-500"
+        isSelected && "ring-2 ring-rose-500 rounded-xl",
+        isActiveDrop && "ring-2 ring-rose-300 border-rose-400 rounded-xl"
       )}
       onClick={onSelect}
+      aria-label="Audio Block Player Container"
     >
-      {isLoading && (
-        <div className="flex h-24 items-center justify-center bg-gray-100">
-          <Music className="h-8 w-8 animate-pulse text-gray-400" />
+      <ModernAudioPlayer url={content} />
+
+      {isActiveDrop && (
+        <div className="absolute inset-0 flex items-center justify-center bg-rose-500/30 rounded-xl">
+          <p className="text-sm font-medium text-white bg-rose-600 px-2 py-1 rounded">
+            Audio ersetzen
+          </p>
         </div>
       )}
-
-      {error && (
-        <div className="flex h-24 items-center justify-center bg-red-50 text-red-500">
-          <Music className="mr-2 h-6 w-6" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className={cn("space-y-2", (isLoading || error) && "hidden")}>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={handlePlayPause}
-            className="rounded-full bg-gray-100 p-3 text-gray-900 hover:bg-gray-200"
-          >
-            {isPlaying ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 9v6m4-6v6"
-                />
-              </svg>
-            ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                />
-              </svg>
-            )}
-          </button>
-
-          <div className="flex-1">
-            <input
-              type="range"
-              min={0}
-              max={duration}
-              value={currentTime}
-              onChange={(e) => {
-                const time = parseFloat(e.target.value);
-                if (audioRef.current) {
-                  audioRef.current.currentTime = time;
-                  setCurrentTime(time);
-                }
-              }}
-              className="w-full"
-            />
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Display the sanitized filename */}
-        <p
-          className="mt-2 text-center text-sm text-gray-600 truncate"
-          title={displayFileName}
-        >
-          {displayFileName}
-        </p>
-
-        <audio
-          ref={audioRef}
-          src={content}
-          onLoadedData={handleLoadedData}
-          onTimeUpdate={handleTimeUpdate}
-          onError={handleError}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
-          className="hidden"
-        />
-      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   FormInput,
   SeparatorHorizontal,
   Film as VideoIcon,
+  Music as AudioIcon,
 } from "lucide-react";
 
 // Define the available block types with icons
@@ -54,6 +55,12 @@ const blockTypes = [
     content: null,
     icon: VideoIcon,
     description: "Füge ein Video hinzu (Upload oder URL)",
+  },
+  {
+    type: "audio",
+    content: null,
+    icon: AudioIcon,
+    description: "Füge eine Audiodatei hinzu (Upload oder URL)",
   },
 ];
 

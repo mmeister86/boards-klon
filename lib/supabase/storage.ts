@@ -57,22 +57,38 @@ export async function initializeStorage(): Promise<boolean> {
 export async function saveProjectToStorage(
   projectData: ProjectData
 ): Promise<boolean> {
+  if (!projectData.id) {
+     console.error("[Storage Save] Cannot save project without an ID.");
+     return false;
+  }
+
   const supabase = getSupabase();
   if (!supabase) {
+    console.error("[Storage Save] Supabase client not available");
     return false;
   }
 
   try {
+    // Get user ID for path
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("[Storage Save] User not authenticated, cannot determine path.");
+      return false;
+    }
+    const userId = user.id;
+
     const { data: sessionData } = await supabase.auth.getSession();
     const isAuthenticated = !!sessionData.session;
 
     if (!isAuthenticated) {
+      console.error("[Storage Save] Session check failed, user not authenticated.");
       return false;
     }
 
     // Initialize storage and check bucket access
     const initResult = await initializeStorage();
     if (!initResult) {
+      console.error("[Storage Save] Storage initialization failed.");
       return false;
     }
 
@@ -85,20 +101,34 @@ export async function saveProjectToStorage(
     // Create a buffer from the JSON string
     const jsonBuffer = new Uint8Array(new TextEncoder().encode(jsonData));
 
+    // Workaround für Linter: Verwende ?? '' obwohl id existieren sollte
+    const idForPath = projectData.id ?? '';
+    if (!idForPath) { // Zusätzliche Sicherheitsprüfung für den Fall der Fälle
+         console.error("[Storage Save] ID is unexpectedly empty, cannot construct path.");
+         return false;
+    }
+
+    // Define the user-specific path (ohne 'projects/' Prefix)
+    const filePath = `${userId}/${idForPath}.json`;
+    console.log(`[Storage Save] Attempting to upload to path: ${filePath}`);
+
     // Attempt the upload with minimal options
     const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(`${projectData.id}.json`, jsonBuffer, {
+      .from(BUCKET_NAME) // Assuming BUCKET_NAME is defined elsewhere
+      .upload(filePath, jsonBuffer, {
         contentType: "application/json",
         upsert: true, // Overwrite if exists
       });
 
     if (error) {
+      console.error("[Storage Save] Upload error:", error);
       return false;
     }
 
+    console.log(`[Storage Save] Successfully uploaded to ${filePath}`);
     return true;
-  } catch {
+  } catch (e) {
+    console.error("[Storage Save] Unexpected error:", e);
     return false;
   }
 }
@@ -107,98 +137,152 @@ export async function saveProjectToStorage(
  * Load a project from Supabase storage with improved error handling
  */
 export async function loadProjectFromStorage(
-  projectId: string
+  projectId: string,
+  userId: string
 ): Promise<ProjectData | null> {
   const supabase = getSupabase();
   if (!supabase) {
+    console.error("[Storage Load] Supabase client not available");
     return null;
+  }
+  if (!userId) {
+     console.error("[Storage Load] userId is required but was not provided.");
+     return null;
   }
 
   try {
-    await supabase.auth.getSession();
+    // Session holen ist gut für RLS, auch wenn wir hier nicht direkt darauf zugreifen
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) {
+        console.error("[Storage Load] Failed to get session or user not authenticated.", sessionError);
+        // Nicht unbedingt abbrechen, RLS sollte greifen, aber loggen.
+    }
 
-    // Initialize storage and check access
-    await initializeStorage();
+    // Initialize storage and check access (kann ggf. entfernt werden, wenn nicht nötig)
+    // await initializeStorage();
 
-    // Add a timestamp to avoid caching issues
-    const timestamp = new Date().getTime();
+    // Konstruiere den Pfad
+    const filePath = `${userId}/${projectId}.json`;
+    console.log(`[Storage Load] Attempting to download from path: ${filePath}`);
 
     // Attempt to download the file directly
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .download(`${projectId}.json?t=${timestamp}`);
+      .download(filePath); // Verwende den neuen Pfad
 
-    if (error || !data) {
+    if (error) {
+       console.error(`[Storage Load] Error downloading ${filePath}:`, error.message);
+       // Unterscheide "Not Found" von anderen Fehlern
+       if (error.message.includes("Object not found")) {
+           console.log(`[Storage Load] Project file not found at ${filePath}.`);
+       } else {
+            // Logge andere Fehler detaillierter
+           console.error("[Storage Load] Download failed with error:", error);
+       }
+       return null;
+    }
+
+    if (!data) {
+       console.error(`[Storage Load] Download succeeded but no data received for ${filePath}.`);
       return null;
     }
 
     // Process the downloaded data
+    console.log(`[Storage Load] Download successful for ${filePath}. Parsing data...`);
     const jsonData = await data.text();
-    return JSON.parse(jsonData) as ProjectData;
-  } catch {
+    const parsedData = JSON.parse(jsonData) as ProjectData;
+    console.log(`[Storage Load] Data parsed successfully for project ${projectId}.`);
+    return parsedData;
+
+  } catch (e) {
+     console.error(`[Storage Load] Unexpected error for project ${projectId}:`, e);
     return null;
   }
 }
 
 /**
- * List all projects from Supabase storage with improved error handling and caching control
+ * List all projects for a specific user from Supabase storage.
  */
-export async function listProjectsFromStorage(): Promise<Project[]> {
+export async function listProjectsFromStorage(userId: string): Promise<Project[]> {
   const supabase = getSupabase();
   if (!supabase) {
+    console.error("[ListStorage] Supabase client not available");
     return [];
+  }
+   if (!userId) {
+     console.error("[ListStorage] userId is required but was not provided.");
+     return [];
   }
 
   try {
-    await supabase.auth.getSession();
-    await initializeStorage();
+    // Session holen kann helfen, ist aber nicht unbedingt nötig, wenn RLS greift
+    // await supabase.auth.getSession();
+    // await initializeStorage(); // Wahrscheinlich nicht mehr nötig, da wir gezielt listen
 
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(``, {
+    console.log(`[ListStorage] Listing projects for user: ${userId}`);
+    // Liste nur den Ordner des Benutzers
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(`${userId}/`, {
       limit: 100,
       offset: 0,
-      sortBy: { column: "updated_at", order: "desc" },
+      sortBy: { column: "updated_at", order: "desc" }, // Sortierung funktioniert evtl. nicht auf Ordner
     });
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+        console.error(`[ListStorage] Error listing files for user ${userId}:`, error);
+        return [];
+    }
+
+    if (!data || data.length === 0) {
+       console.log(`[ListStorage] No project files found for user ${userId}.`);
       return [];
     }
 
-    // Filter for JSON files
+    // Filter for JSON files (sollten nur JSONs sein im User-Ordner)
     const projectFiles = data.filter((file) => file.name.endsWith(".json"));
+    console.log(`[ListStorage] Found ${projectFiles.length} potential project files.`);
 
     // Load each project's metadata
     const projects: Project[] = [];
+    const loadPromises: Promise<ProjectData | null>[] = [];
 
     for (const file of projectFiles) {
-      try {
-        const projectId = file.name.replace(".json", "");
-        const projectData = await loadProjectFromStorage(projectId);
-        if (projectData) {
-          let thumbnail: string | undefined = undefined;
+      const projectId = file.name.replace(".json", "");
+      // Rufe loadProjectFromStorage mit userId und projectId auf
+      loadPromises.push(loadProjectFromStorage(projectId, userId));
+    }
 
-          try {
-            thumbnail = await getProjectThumbnail(projectId);
-          } catch {
-            // Ignore thumbnail errors
-          }
+    // Lade Projekte parallel
+    const loadedProjectData = await Promise.all(loadPromises);
 
-          projects.push({
-            id: projectData.id,
-            title: projectData.title,
-            description: projectData.description,
-            createdAt: projectData.createdAt,
-            updatedAt: projectData.updatedAt,
-            blocks: countBlocks(projectData.dropAreas),
-            thumbnail,
-          });
-        }
-      } catch {
-        continue;
+    for (const projectData of loadedProjectData) {
+       // Prüfung hinzugefügt: Nur Projekte mit gültiger ID und Daten hinzufügen
+      if (projectData && projectData.id) {
+        let thumbnail: string | undefined = undefined;
+        try {
+          // TODO: getProjectThumbnail muss evtl. auch userId verwenden?
+          thumbnail = await getProjectThumbnail(projectData.id);
+        } catch { /* Ignore thumbnail errors */ }
+
+        projects.push({
+          id: projectData.id, // Ist hier sicher ein string
+          title: projectData.title,
+          description: projectData.description,
+          createdAt: projectData.createdAt,
+          updatedAt: projectData.updatedAt,
+          blocks: countBlocks(projectData.dropAreas),
+          thumbnail,
+        });
       }
     }
 
+    console.log(`[ListStorage] Returning ${projects.length} projects for user ${userId}.`);
+    // Sortiere hier nach updatedAt, da die Storage-Sortierung unsicher ist
+    projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
     return projects;
-  } catch {
+
+  } catch (e) {
+     console.error(`[ListStorage] Unexpected error listing projects for user ${userId}:`, e);
     return [];
   }
 }
@@ -207,32 +291,57 @@ export async function listProjectsFromStorage(): Promise<Project[]> {
  * Delete a project from Supabase storage
  */
 export async function deleteProjectFromStorage(
-  projectId: string
+  projectId: string,
+  userId: string
 ): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return false;
+  if (!supabase) {
+     console.error("[Storage Delete] Supabase client not available");
+     return false;
+  }
+   if (!userId) {
+     console.error("[Storage Delete] userId is required but was not provided.");
+     return false;
+  }
+  if (!projectId) {
+    console.error("[Storage Delete] projectId is required but was not provided.");
+    return false;
+  }
 
   try {
+     // Konstruiere den Pfad
+    const filePath = `${userId}/${projectId}.json`;
+    console.log(`[Storage Delete] Attempting to delete file at path: ${filePath}`);
+
     // Delete the project file
     const { error } = await supabase.storage
       .from(BUCKET_NAME)
-      .remove([`${projectId}.json`]);
+      .remove([filePath]); // Verwende den neuen Pfad
 
     if (error) {
+       console.error(`[Storage Delete] Error deleting ${filePath}:`, error);
       return false;
     }
 
+    console.log(`[Storage Delete] Successfully deleted file: ${filePath}`);
+
     // Also delete the thumbnail if it exists
+    // Thumbnail Pfad muss wahrscheinlich auch angepasst werden?
+    const thumbnailPath = `thumbnails/${projectId}.png`; // Annahme: Thumbnails bleiben global?
     try {
+       console.log(`[Storage Delete] Attempting to delete thumbnail: ${thumbnailPath}`);
       await supabase.storage
         .from(BUCKET_NAME)
-        .remove([`thumbnails/${projectId}.png`]);
-    } catch {
-      // Ignore errors when deleting thumbnails
+        .remove([thumbnailPath]);
+       console.log(`[Storage Delete] Thumbnail deleted (if existed): ${thumbnailPath}`);
+    } catch (thumbError) {
+      // Ignore errors when deleting thumbnails, log it
+       console.warn(`[Storage Delete] Failed to delete thumbnail ${thumbnailPath} (might not exist):`, thumbError);
     }
 
     return true;
-  } catch {
+  } catch (e) {
+     console.error(`[Storage Delete] Unexpected error deleting project ${projectId}:`, e);
     return false;
   }
 }

@@ -1,15 +1,6 @@
 import { createClient } from "@/lib/supabase/client"
 import type { DropAreaType, Project } from "@/lib/types"
-
-// Define the project data structure for database
-export interface ProjectData {
-  id: string
-  title: string
-  description?: string
-  dropAreas: DropAreaType[]
-  createdAt: string
-  updatedAt: string
-}
+import type { ProjectData } from "@/lib/types"
 
 // Create a singleton instance of the Supabase client
 const getSupabase = () => {
@@ -18,61 +9,87 @@ const getSupabase = () => {
 }
 
 /**
- * Save a project to Supabase database
+ * Save or update project data in the Supabase database 'projects' table.
  */
-export async function saveProjectToDatabase(projectData: ProjectData): Promise<boolean> {
+export async function saveProjectToDatabase(
+  projectData: ProjectData,
+  userId: string
+): Promise<{ success: boolean; projectId: string | null }> {
   const supabase = getSupabase()
   if (!supabase) {
-    console.error("Supabase client not available")
-    return false
+    console.error("[DB Save] Supabase client not available")
+    return { success: false, projectId: null }
   }
 
+  console.log("[DB Save] Attempting to save project to database:", {
+    id: projectData.id,
+    title: projectData.title,
+    userId: userId,
+  })
+
   try {
-    // First, check if the project exists
-    const { data: existingProject, error: checkError } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("id", projectData.id)
-      .single()
+    // Prepare data for upsert. Conditionally include 'id' and 'createdAt'.
+    // Define a type for the data being sent to Supabase
+    type UpsertPayload = {
+      user_id: string;
+      title: string;
+      description?: string;
+      project_data: DropAreaType[]; // Use the imported type
+      updated_at: string;
+      id?: string; // Optional ID
+      created_at?: string; // Optional createdAt
+    };
 
-    if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 is "not found" error
-      console.error("Error checking if project exists:", checkError)
-      return false
-    }
-
-    // Convert the project data to a format suitable for the database
-    const projectRecord = {
-      id: projectData.id,
+    const upsertData: UpsertPayload = {
+      user_id: userId,
       title: projectData.title,
       description: projectData.description,
-      created_at: projectData.createdAt,
-      updated_at: projectData.updatedAt,
-      project_data: JSON.stringify(projectData), // Store the entire project data as JSON
+      project_data: projectData.dropAreas,
+      updated_at: new Date().toISOString(), // Keep updated_at for both insert/update
     }
 
-    if (existingProject) {
-      // Update existing project
-      const { error: updateError } = await supabase.from("projects").update(projectRecord).eq("id", projectData.id)
-
-      if (updateError) {
-        console.error("Error updating project:", updateError)
-        return false
-      }
+    // Only include 'id' if it's a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    let isUpdate = false
+    if (projectData.id && uuidRegex.test(projectData.id)) {
+      console.log(`[DB Save] Valid UUID provided (${projectData.id}), performing upsert.`)
+      upsertData.id = projectData.id
+      // For updates, we don't set createdAt, DB keeps original or trigger handles it
+      isUpdate = true
     } else {
-      // Insert new project
-      const { error: insertError } = await supabase.from("projects").insert(projectRecord)
-
-      if (insertError) {
-        console.error("Error inserting project:", insertError)
-        return false
-      }
+      console.log("[DB Save] No valid UUID provided, performing insert. DB will generate ID.")
+      // For inserts, explicitly set createdAt if DB doesn't have a default
+      // Assuming DB has `DEFAULT timezone('utc'::text, now()) NOT NULL`
+      // upsertData.created_at = new Date().toISOString();
     }
 
-    return true
+    // Use upsert to insert or update based on the primary key (id)
+    const { data, error } = await supabase
+      .from("projects")
+      .upsert(upsertData, {
+        onConflict: "id",
+        ignoreDuplicates: false, // Important for upsert to perform update
+      })
+      .select("id")
+      .single()
+
+    if (error) {
+      console.error("[DB Save] Error upserting project:", error)
+      // Log the data we tried to send
+      console.error("[DB Save] Data sent:", upsertData)
+      return { success: false, projectId: null }
+    }
+
+    if (!data || !data.id) {
+      console.error("[DB Save] Upsert operation completed but no ID returned.")
+      return { success: false, projectId: null }
+    }
+
+    console.log(`[DB Save] Successfully saved project to database. Operation: ${isUpdate ? 'Update' : 'Insert'}. DB ID:`, data.id)
+    return { success: true, projectId: data.id }
   } catch (error) {
-    console.error("Error saving project to database:", error)
-    return false
+    console.error("[DB Save] Unexpected error during database save:", error)
+    return { success: false, projectId: null }
   }
 }
 
@@ -272,8 +289,8 @@ export async function migrateMockProjectsToDatabase(mockProjects: Project[]): Pr
         }
 
         // Save the project to database
-        const saved = await saveProjectToDatabase(projectData)
-        if (saved) {
+        const saved = await saveProjectToDatabase(projectData, "")
+        if (saved.success) {
           successCount++
         } else {
           failCount++

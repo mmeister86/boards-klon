@@ -25,7 +25,7 @@ export interface DropAreaType {
 }
 
 export interface ProjectData {
-  id: string;
+  id?: string;
   title: string;
   description?: string;
   dropAreas: DropAreaType[];
@@ -104,5 +104,6 @@ export interface VideoBlockType extends BaseBlock {
 }
 
 export interface AudioBlockType extends BaseBlock {
-  // ... existing code ...
+    type: "audio";
+    content: string;
 }

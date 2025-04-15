@@ -16,5 +16,9 @@ export default function BoardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className={inter.className}>{children}</div>;
+  return (
+    <div className={`${inter.className} min-h-screen bg-[#F3FFE1]/20`}>
+      {children}
+    </div>
+  );
 }

@@ -11,11 +11,11 @@ import {
   initializeStorage,
   deleteProjectFromStorage, // Need this for delete handler
 } from "@/lib/supabase/storage";
-import { deleteProjectFromDatabase } from "@/lib/supabase/database"; // Need this for delete handler
 import type { Project } from "@/lib/types";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBlocksStore } from "@/store/blocks-store";
+import { useSupabase } from "@/components/providers/supabase-provider";
 
 export default function ProjectsView() {
   console.log("[ProjectsView] Rendering...");
@@ -38,6 +38,7 @@ export default function ProjectsView() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [activeTab, setActiveTab] = useState("all");
+  const { user } = useSupabase();
 
   // Memoize the toast notifications
   const showErrorToast = useCallback((title: string, description: string) => {
@@ -65,6 +66,16 @@ export default function ProjectsView() {
   // Load projects from Supabase storage
   useEffect(() => {
     async function loadProjects() {
+      if (!user?.id) {
+        console.log(
+          "[ProjectsView] No user ID, cannot load projects from storage."
+        );
+        setIsLoading(false);
+        setProjects([]);
+        return;
+      }
+      const userId = user.id;
+
       setIsLoading(true);
       try {
         const storageInitialized = await initializeStorage();
@@ -77,7 +88,7 @@ export default function ProjectsView() {
           setIsLoading(false);
           return;
         }
-        const loadedProjects = await listProjectsFromStorage();
+        const loadedProjects = await listProjectsFromStorage(userId);
         setProjects(loadedProjects || []);
       } catch (error) {
         console.error("Error loading projects:", error);
@@ -90,7 +101,7 @@ export default function ProjectsView() {
       }
     }
     loadProjects();
-  }, [refreshCounter, showErrorToast]); // Depend on refreshCounter
+  }, [refreshCounter, showErrorToast, user?.id]);
 
   // Load projects from Supabase storage
   useEffect(() => {
@@ -146,17 +157,36 @@ export default function ProjectsView() {
     router.push(`/editor?projectId=${projectId}`);
   };
 
-  // Combined delete logic (Database + Storage)
+  // Delete project from storage
   const handleProjectDelete = async (
     projectId: string,
     projectTitle: string
   ) => {
+    if (!user?.id) {
+      showErrorToast("Fehler", "Benutzer nicht angemeldet.");
+      return;
+    }
+    const userId = user.id;
+
     setIsLoading(true); // Indicate loading state during deletion
+
     try {
-      // Attempt to delete from storage first (might be less critical if DB fails)
-      await deleteProjectFromStorage(projectId);
-      // Attempt to delete from database
-      await deleteProjectFromDatabase(projectId);
+      // Delete from storage only since projects are stored as JSON files
+      console.log(
+        `[ProjectDelete] Attempting to delete project ${projectId} from storage...`
+      );
+      console.log(
+        `[ProjectDelete] Calling deleteProjectFromStorage with projectId: ${projectId}, userId: ${userId}`
+      );
+      const storageResult = await deleteProjectFromStorage(projectId, userId);
+
+      if (!storageResult) {
+        throw new Error("Failed to delete project from storage");
+      }
+
+      console.log(
+        `[ProjectDelete] Successfully deleted project ${projectId} from storage`
+      );
 
       // Show success toast
       toast.error(`"${projectTitle}" wurde gelöscht`, {
@@ -170,17 +200,13 @@ export default function ProjectsView() {
       // Trigger refresh after successful deletion
       setRefreshCounter((prev) => prev + 1);
     } catch (error) {
-      console.error("Error deleting project:", error);
+      console.error("[ProjectDelete] Error during project deletion:", error);
       showErrorToast(
         "Fehler beim Löschen",
-        `Das Projekt "${projectTitle}" konnte nicht vollständig gelöscht werden.`
+        `Das Projekt "${projectTitle}" konnte nicht gelöscht werden.`
       );
-      // Still refresh the list even if deletion failed partially
-      setRefreshCounter((prev) => prev + 1);
     } finally {
-      // Set loading to false *after* state update from refresh
-      // We might need a small delay or better state management here
-      // For now, let the loadProjects effect handle setting isLoading to false
+      // Let the loadProjects effect handle setting isLoading to false
     }
   };
 
