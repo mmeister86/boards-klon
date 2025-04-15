@@ -106,14 +106,20 @@ export async function POST(
       );
     }
 
-    // 3. Datei in Buffer umwandeln (den Original-Buffer für Vorschauen behalten)
+    // 3. Datei in Buffer umwandeln
     const originalFileBuffer = Buffer.from(await file.arrayBuffer());
 
-    // 4. Bild mit Sharp optimieren (Konvertierung zu WebP für das Hauptbild)
+    // 4. Bild mit Sharp optimieren
     const { optimizedBuffer, contentType: optimizedContentType } =
       await optimizeImageWithSharp(originalFileBuffer, file.type);
 
     // 5. Eindeutigen Dateinamen für das Hauptbild generieren
+    // Da der Pfad nur die UUID verwendet, ist die Bereinigung des Namens hier nicht nötig.
+    // const originalFilename = file.name || 'image.webp';
+    // const fileExt = path.extname(originalFilename);
+    // const fileNameWithoutExt = path.basename(originalFilename, fileExt);
+    // const sanitizedFileNameWithoutExt = sanitizeFilename(fileNameWithoutExt);
+
     const fileUuid = uuidv4(); // Generiere die UUID einmal
     const uniqueFileName = `${user.id}/${fileUuid}.webp`;
 

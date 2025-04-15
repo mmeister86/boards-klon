@@ -38,6 +38,31 @@ const outputDir = path.join(process.cwd(), 'public', 'optimized-audios');
 // Stellt sicher, dass das Ausgabeverzeichnis beim Serverstart erstellt wird.
 fs.mkdir(outputDir, { recursive: true }).catch(console.error);
 
+// --- Hinzugefügt: Hilfsfunktion zum Bereinigen von Dateinamen ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
+  return sanitized
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "");
+};
+// --- Ende Hilfsfunktion ---
+
 // Define the POST handler for the App Router
 export async function POST(request: Request) {
   let tempInputPath: string | null = null;
@@ -100,6 +125,7 @@ export async function POST(request: Request) {
     // Erstellt einen eindeutigen Pfad für die temporäre Eingabedatei.
     const tempDir = os.tmpdir();
     // Benennt die temporäre Datei eindeutig unter Verwendung von UUID und dem ursprünglichen Dateinamen.
+    // Wichtig: Hier den *Originalnamen* für die temporäre Datei verwenden, falls FFmpeg ihn braucht.
     const tempFilename = `${uuidv4()}-${file.name}`;
     tempInputPath = path.join(tempDir, tempFilename);
 
@@ -107,9 +133,14 @@ export async function POST(request: Request) {
     const originalFilename = file.name || 'audio.mp3'; // Default filename if needed
     const fileExt = path.extname(originalFilename);
     const fileNameWithoutExt = path.basename(originalFilename, fileExt);
-    // Use a unique name for the output file as well to avoid potential local clashes if processed concurrently
-    // Erstellt einen eindeutigen Namen für die Ausgabedatei (z.B. AAC-Format)
-    const outputFilename = `${uuidv4()}-${fileNameWithoutExt}_optimized.aac`; // Output as AAC
+
+    // --- Hinzugefügt: Dateinamen vor Verwendung bereinigen ---
+    const sanitizedFileNameWithoutExt = sanitizeFilename(fileNameWithoutExt);
+    // --- Ende Bereinigung ---
+
+    // Use a unique name for the output file as well
+    // Verwende den bereinigten Namen für die Ausgabedatei
+    const outputFilename = `${uuidv4()}-${sanitizedFileNameWithoutExt}_optimized.aac`; // Output as AAC
     localOutputPath = path.join(outputDir, outputFilename);
 
     // Write temp input file

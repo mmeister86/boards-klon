@@ -1,10 +1,11 @@
 "use client";
 
-import { notFound } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PublicDropAreaRenderer } from "@/components/public/export-renderer";
 import type { DropAreaType } from "@/lib/types";
 import { useState, useEffect } from "react";
+import { AlertCircle } from "lucide-react";
 
 // Types
 interface PageProps {
@@ -34,11 +35,14 @@ export function ClientPage({ params }: PageProps) {
     null
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     async function loadBoard() {
       console.log("[PublicBoard] Loading board", { projectId });
+      setError(null);
 
       try {
         // Check if board is published
@@ -55,13 +59,13 @@ export function ClientPage({ params }: PageProps) {
             error: publishError,
             projectId,
           });
-          notFound();
+          setError("Das Board konnte nicht geladen werden.");
           return;
         }
 
         if (!publishedBoardData) {
           console.log("[PublicBoard] Board not found or not published");
-          notFound();
+          setError("Dieses Board wurde nicht gefunden oder ist nicht veröffentlicht.");
           return;
         }
 
@@ -88,13 +92,13 @@ export function ClientPage({ params }: PageProps) {
             message: storageError.message,
             name: storageError.name,
           });
-          notFound();
+          setError("Die Board-Daten konnten nicht geladen werden.");
           return;
         }
 
         if (!projectData) {
           console.log("[PublicBoard] Project data not found");
-          notFound();
+          setError("Die Board-Daten wurden nicht gefunden.");
           return;
         }
 
@@ -112,12 +116,12 @@ export function ClientPage({ params }: PageProps) {
             "[PublicBoard] Error parsing project data:",
             parseError
           );
-          notFound();
+          setError("Die Board-Daten sind ungültig.");
           return;
         }
       } catch (error) {
         console.error("[PublicBoard] Unexpected error:", error);
-        notFound();
+        setError("Ein unerwarteter Fehler ist aufgetreten.");
       } finally {
         setIsLoading(false);
       }
@@ -131,6 +135,24 @@ export function ClientPage({ params }: PageProps) {
       <main className="container mx-auto p-4">
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="container mx-auto p-4">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Fehler beim Laden des Boards</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors"
+          >
+            Zurück zum Editor
+          </button>
         </div>
       </main>
     );

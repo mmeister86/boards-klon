@@ -40,6 +40,30 @@ Promise.all([
   fs.mkdir(previewDir, { recursive: true })
 ]).catch(console.error);
 
+// --- Hinzugefügt: Hilfsfunktion zum Bereinigen von Dateinamen ---
+const sanitizeFilename = (filename: string): string => {
+  // Umlaute und ß ersetzen
+  const umlautMap: { [key: string]: string } = {
+    ä: "ae",
+    ö: "oe",
+    ü: "ue",
+    Ä: "Ae",
+    Ö: "Oe",
+    Ü: "Ue",
+    ß: "ss",
+  };
+  let sanitized = filename;
+  for (const key in umlautMap) {
+    sanitized = sanitized.replace(new RegExp(key, "g"), umlautMap[key]);
+  }
+
+  // Leerzeichen durch Unterstriche ersetzen und ungültige Zeichen entfernen
+  return sanitized
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "");
+};
+// --- Ende Hilfsfunktion ---
+
 // Helper function to generate and upload preview images
 async function generateAndUploadPreviews(
   inputPath: string,
@@ -193,6 +217,7 @@ export async function POST(request: Request) {
 
     // Create a unique temporary file path
     const tempDir = os.tmpdir();
+    // Use original name for temp file
     const tempFilename = `${uuidv4()}-${file.name}`;
     tempInputPath = path.join(tempDir, tempFilename);
 
@@ -200,8 +225,14 @@ export async function POST(request: Request) {
     const originalFilename = file.name || 'video.mp4';
     const fileExt = path.extname(originalFilename);
     const fileNameWithoutExt = path.basename(originalFilename, fileExt);
-    // Use a unique name for the output file as well to avoid potential local clashes if processed concurrently
-    const outputFilename = `${uuidv4()}-${fileNameWithoutExt}_optimized${fileExt}`;
+
+    // --- Hinzugefügt: Dateinamen bereinigen ---
+    const sanitizedFileNameWithoutExt = sanitizeFilename(fileNameWithoutExt);
+    // --- Ende Bereinigung ---
+
+    // Use a unique name for the output file as well
+    // Verwende den bereinigten Namen für die lokale Ausgabe
+    const outputFilename = `${uuidv4()}-${sanitizedFileNameWithoutExt}_optimized${fileExt}`;
     localOutputPath = path.join(outputDir, outputFilename);
 
     // Write temp input file
@@ -247,34 +278,36 @@ export async function POST(request: Request) {
     console.log('Generating preview images...');
     let previewUrls = null;
     try {
+      // Übergebe den bereinigten Namen an die Preview-Funktion
       previewUrls = await generateAndUploadPreviews(
-        tempInputPath,
+        tempInputPath, // Input ist die temporäre Datei
         userId,
-        fileNameWithoutExt,
+        `${uuidv4()}-${sanitizedFileNameWithoutExt}`, // Verwende bereinigten Namen + UUID für Eindeutigkeit
         supabase
       );
-      console.log('Preview images generated and uploaded successfully');
+      console.log('Preview images generated and uploaded successfully:', previewUrls);
     } catch (previewError) {
-      console.error('Preview generation error:', previewError);
-      // Continue with video upload even if preview generation fails
+      console.warn('Failed to generate or upload preview images:', previewError);
+      // Fahre fort, auch wenn die Vorschau fehlschlägt
     }
 
     // --- Upload Optimized File to Supabase Storage ---
     if (!localOutputPath) {
       throw new Error('Internal error: Local output path was not set.');
     }
-    console.log(`Reading compressed file from: ${localOutputPath}`);
+    console.log(`Reading optimized video file from: ${localOutputPath}`);
     const optimizedFileBuffer = await fs.readFile(localOutputPath);
 
-    // --- Use userId in storage path ---
-    const storagePath = `${userId}/${outputFilename}`; // userId aus Session verwenden
-    console.log(`Uploading compressed file to Supabase Storage at: videos/${storagePath}`);
+    // --- Use userId and SANITIZED filename in storage path ---
+    // Verwende den bereinigten Namen im Storage-Pfad
+    const storagePath = `${userId}/${outputFilename}`; // outputFilename enthält bereits die UUID und den bereinigten Namen
+    console.log(`Uploading optimized video file to Supabase Storage at: videos/${storagePath}`); // Bucket 'videos'
 
     // Verwende den Server Client
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('videos')
+      .from('videos') // Bucket name 'videos'
       .upload(storagePath, optimizedFileBuffer, {
-        contentType: file.type,
+        contentType: 'video/mp4',
         upsert: false,
       });
 
