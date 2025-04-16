@@ -1,7 +1,9 @@
 *.md
 scripts
 .next
-.node_modules
+node_modules
 memory-bank
 .vscode
 .supabase
+*.js.map
+*.d.ts

@@ -1,0 +1,4 @@
+.next/** linguist-generated=true
+node_modules/** linguist-vendored=true
+*.d.ts linguist-generated=true
+*.js.map linguist-generated=true
