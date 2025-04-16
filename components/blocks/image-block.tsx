@@ -15,17 +15,10 @@ import { useSupabase } from "@/components/providers/supabase-provider";
 import { useRouter } from "next/navigation";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
+import type { MediaItemInput } from "@/components/media/draggable-media-item";
 
 // Special value to indicate an empty image block
 const EMPTY_IMAGE_BLOCK = "__EMPTY_IMAGE_BLOCK__";
-
-// Interface for media items from the library
-interface MediaLibraryImageItem {
-  type: typeof ItemTypes.MEDIA_IMAGE;
-  url: string;
-  alt?: string;
-  file_type: string;
-}
 
 // Helper function to get file dimensions (for images)
 const getImageDimensions = async (
@@ -92,12 +85,16 @@ interface ImageBlockProps {
   altText?: string;
 }
 
-// Define accepted drop item types
+// Typ für ein Medienelement, das aus der rechten Sidebar gezogen wird
+type DroppedMediaItem = MediaItemInput & { type: typeof ItemTypes.MEDIA };
+
 interface FileDropItem {
   files: File[];
+  type: typeof NativeTypes.FILE;
 }
 
-type AcceptedDropItem = FileDropItem | MediaLibraryImageItem;
+// Union Type für alle akzeptierten Drop-Items
+type AcceptedDropItem = FileDropItem | DroppedMediaItem;
 
 // Definiere Upload-Status-Typen für besseres State Management
 type UploadStatus = "idle" | "uploading" | "loading" | "error" | "success";
@@ -289,22 +286,30 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
       { isOver: boolean; canDrop: boolean }
     >(
       () => ({
-        accept: [NativeTypes.FILE, ItemTypes.MEDIA_IMAGE],
+        // Akzeptiere NativeTypes.FILE und den korrekten ItemTypes.MEDIA
+        accept: [NativeTypes.FILE, ItemTypes.MEDIA],
         drop: (
           item: AcceptedDropItem,
           monitor: DropTargetMonitor<AcceptedDropItem>
         ) => {
           const itemType = monitor.getItemType();
+
+          // Verarbeitung für NativeTypes.FILE bleibt gleich
           if (itemType === NativeTypes.FILE) {
             const fileItem = item as FileDropItem;
             if (fileItem.files) {
               processDroppedFiles(fileItem.files);
             }
-          } else if (itemType === ItemTypes.MEDIA_IMAGE) {
-            const mediaItem = item as MediaLibraryImageItem;
+          }
+          // Verarbeitung für ItemTypes.MEDIA
+          else if (itemType === ItemTypes.MEDIA) {
+            // Type Assertion zu DroppedMediaItem
+            const mediaItem = item as DroppedMediaItem;
+            // Prüfe, ob es sich um ein Bild handelt
             if (mediaItem.url && mediaItem.file_type.startsWith("image/")) {
               updateBlockContent(blockId, dropAreaId, mediaItem.url, {
-                altText: mediaItem.alt || altText || "",
+                // Verwende file_name aus MediaItemInput als Fallback für altText
+                altText: mediaItem.file_name || altText || "",
               });
             }
           }
@@ -314,6 +319,8 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
           monitor: DropTargetMonitor<AcceptedDropItem>
         ) => {
           const itemType = monitor.getItemType();
+
+          // canDrop-Logik für NativeTypes.FILE bleibt gleich
           if (itemType === NativeTypes.FILE) {
             const fileItem = item as FileDropItem;
             return (
@@ -321,8 +328,11 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
               false
             );
           }
-          if (itemType === ItemTypes.MEDIA_IMAGE) {
-            const mediaItem = item as MediaLibraryImageItem;
+          // canDrop-Logik für ItemTypes.MEDIA
+          if (itemType === ItemTypes.MEDIA) {
+            // Type Assertion zu DroppedMediaItem
+            const mediaItem = item as DroppedMediaItem;
+            // Erlaube Drop nur, wenn es ein Bild ist
             return mediaItem.file_type.startsWith("image/");
           }
           return false;

@@ -2,7 +2,7 @@ export const ItemTypes = {
   SQUARE: "square",
   BLOCK: "block",
   EXISTING_BLOCK: "existing_block",
-  MEDIA_IMAGE: "media_image", // Add type for media library images
+  MEDIA: "media",
 } as const; // Use 'as const' for literal types
 
 // Global object to track drop operations across different handlers

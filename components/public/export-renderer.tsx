@@ -9,7 +9,11 @@ import ReactPlayer from "react-player/lazy";
 import { cn } from "@/lib/utils";
 
 // Import types directly if needed, but avoid importing the main library statically
-import type { PDFDocumentProxy, PDFPageProxy, PDFDocumentLoadingTask } from "pdfjs-dist";
+import type {
+  PDFDocumentProxy,
+  PDFPageProxy,
+  PDFDocumentLoadingTask,
+} from "pdfjs-dist";
 
 // Define a type for the dynamically imported pdfjs-dist library
 interface PdfJsLibType {
@@ -17,7 +21,11 @@ interface PdfJsLibType {
     workerSrc: string;
   };
   getDocument: (
-    src: string | URL | Uint8Array | import("pdfjs-dist/types/src/display/api").DocumentInitParameters
+    src:
+      | string
+      | URL
+      | Uint8Array
+      | import("pdfjs-dist/types/src/display/api").DocumentInitParameters
   ) => PDFDocumentLoadingTask;
 }
 
@@ -42,7 +50,7 @@ export function PublicDropAreaRenderer({
   // Basis Fall 2: Bereich ist NICHT gesplittet -> Blöcke rendern
   if (!dropArea.isSplit || dropArea.splitAreas.length === 0) {
     return (
-      <div className="w-full grid grid-cols-1 gap-2 items-start bg-white p-6 rounded-lg shadow-sm">
+      <div className="w-full grid grid-cols-1 gap-2 items-start bg-white p-6 rounded-lg">
         {dropArea.blocks.map((block) => (
           <RenderBlock key={block.id} block={block} />
         ))}
@@ -105,7 +113,13 @@ function RenderBlock({ block }: { block: BlockType }) {
 
   const loadPdf = useCallback(async () => {
     // Ensure running only on client
-    if (typeof window === "undefined" || !block.content || pdfDoc || isLoadingPdf) return;
+    if (
+      typeof window === "undefined" ||
+      !block.content ||
+      pdfDoc ||
+      isLoadingPdf
+    )
+      return;
 
     setIsLoadingPdf(true);
     setPdfError(null);
@@ -376,7 +390,6 @@ function PdfPage({ pdfDoc, pageNumber, containerWidth }: PdfPageProps) {
 
     // Cleanup function if needed (though page proxy cleanup might not be necessary here)
     // return () => { page?.cleanup?.(); };
-
   }, [pdfDoc, pageNumber, containerWidth]);
 
   return (

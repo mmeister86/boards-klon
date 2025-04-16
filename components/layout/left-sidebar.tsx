@@ -1,5 +1,6 @@
 "use client";
 
+// import { useState } from "react"; // Entfernt, da nicht mehr genutzt
 import { DraggableBlock } from "@/components/blocks/draggable-block";
 import {
   Heading,
@@ -10,6 +11,7 @@ import {
   SeparatorHorizontal,
   Film as VideoIcon,
   Music as AudioIcon,
+  FileText as DocumentIcon,
 } from "lucide-react";
 
 // Define the available block types with icons
@@ -33,24 +35,6 @@ const blockTypes = [
     description: "Füge ein Bild ein",
   },
   {
-    type: "button",
-    content: "Schaltfläche",
-    icon: ButtonIcon,
-    description: "Füge eine klickbare Schaltfläche hinzu",
-  },
-  {
-    type: "form",
-    content: "Formular",
-    icon: FormInput,
-    description: "Erstelle ein Formularelement",
-  },
-  {
-    type: "divider",
-    content: "Trennlinie",
-    icon: SeparatorHorizontal,
-    description: "Füge eine horizontale Trennlinie hinzu",
-  },
-  {
     type: "video",
     content: null,
     icon: VideoIcon,
@@ -62,22 +46,49 @@ const blockTypes = [
     icon: AudioIcon,
     description: "Füge eine Audiodatei hinzu (Upload oder URL)",
   },
+  {
+    type: "document",
+    content: null,
+    icon: DocumentIcon,
+    description: "Füge ein Dokument hinzu (z.B. PDF)",
+  },
+  {
+    type: "button",
+    content: "Schaltfläche",
+    icon: ButtonIcon,
+    description: "Füge eine klickbare Schaltfläche hinzu",
+  },
+  {
+    type: "divider",
+    content: "Trennlinie",
+    icon: SeparatorHorizontal,
+    description: "Füge eine horizontale Trennlinie hinzu",
+  },
+  {
+    type: "form",
+    content: "Formular",
+    icon: FormInput,
+    description: "Erstelle ein Formularelement",
+  },
 ];
 
 export default function LeftSidebar() {
   return (
     <div className="w-64 bg-card border-r border-border overflow-y-auto p-5 pt-24">
-      <h2 className="text-lg font-semibold mb-5">Blöcke</h2>
-      <div className="grid grid-cols-2 gap-3">
-        {blockTypes.map((block) => (
-          <DraggableBlock
-            key={block.type}
-            type={block.type}
-            content={block.content}
-            icon={block.icon}
-            description={block.description}
-          />
-        ))}
+      {/* Blocks Section */}
+      <div>
+        <h2 className="text-lg font-semibold mb-5">Blöcke</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {blockTypes.map((block) => (
+            <DraggableBlock
+              key={block.type}
+              type={block.type}
+              content={block.content}
+              icon={block.icon}
+              description={block.description}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

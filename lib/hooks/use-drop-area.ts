@@ -15,14 +15,15 @@ import { useSupabase } from "@/components/providers/supabase-provider";
 import { toast } from "sonner";
 // Re-import storage helpers for direct uploads
 import { uploadMediaFile, addMediaItemToDatabase } from "@/lib/supabase/storage";
+// Import der wiederverwendeten Schnittstelle
+import type { MediaItemInput } from "@/components/media/draggable-media-item";
 
-interface DragItem {
-  id?: string; // ID of the block being dragged (if existing)
-  type: string; // Type of the block (e.g., 'heading', 'paragraph')
-  content: string; // Default content for new blocks
-  sourceDropAreaId?: string; // Original drop area ID (if moving existing block)
-  files?: File[]; // Add files for NativeTypes.FILE
-}
+// Definiere einen Union Type für die verschiedenen möglichen Drag-Items
+// Dies verbessert die Typsicherheit in der drop-Funktion
+type CombinedDragItem =
+  | { type: typeof ItemTypes.BLOCK | typeof ItemTypes.EXISTING_BLOCK | typeof ItemTypes.SQUARE; id?: string; content: string; sourceDropAreaId?: string; files?: never; }
+  | { type: typeof NativeTypes.FILE; files: File[]; id?: never; content?: never; sourceDropAreaId?: never; }
+  | (MediaItemInput & { type: typeof ItemTypes.MEDIA; files?: never; }); // Fügt den Typ für Media-Items hinzu
 
 /**
  * Helper function to handle optimized file uploads via API endpoints.
@@ -102,15 +103,17 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
   );
 
   const [{ isOver, canDrop }, drop] = useDrop<
-    DragItem,
+    CombinedDragItem, // Verwende den neuen Union Type
     { name: string; handled: boolean; dropAreaId: string } | undefined,
     { isOver: boolean; canDrop: boolean }
   >({
-    accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK, NativeTypes.FILE],
+    // Füge ItemTypes.MEDIA zur Accept-Liste hinzu
+    accept: [ItemTypes.BLOCK, ItemTypes.SQUARE, ItemTypes.EXISTING_BLOCK, NativeTypes.FILE, ItemTypes.MEDIA],
 
-    canDrop: (item: DragItem, monitor) => {
+    canDrop: (item: CombinedDragItem, monitor) => {
+      const itemType = monitor.getItemType();
       // Handle file drops
-      if (monitor.getItemType() === NativeTypes.FILE) {
+      if (itemType === NativeTypes.FILE) {
         const files = (item as { files: File[] }).files;
         if (!files || files.length === 0) return false;
 
@@ -130,13 +133,13 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         return hasValidFile;
       }
 
-      // Default canDrop behavior for other item types
+      // Default canDrop behavior for other item types (BLOCK, EXISTING_BLOCK, MEDIA)
       return true;
     },
 
     hover: (
-      item: DragItem,
-      monitor: DropTargetMonitor<DragItem, { name: string } | undefined>
+      item: CombinedDragItem, // Verwende den neuen Union Type
+      monitor: DropTargetMonitor<CombinedDragItem, { name: string } | undefined>
     ) => {
       const clientOffset = monitor.getClientOffset();
       if (clientOffset) {
@@ -151,8 +154,9 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
       if (!isHovering) setIsHovering(true);
     },
 
-    drop: (item: DragItem, monitor) => {
+    drop: (item: CombinedDragItem, monitor) => { // Verwende den neuen Union Type
       const dropOpId = `drop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const itemType = monitor.getItemType(); // Hole den Typ des Items
 
       // Check if handled by parent
       if (monitor.didDrop()) {
@@ -170,8 +174,8 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         return undefined;
       }
 
-      // Handle file drops
-      if (monitor.getItemType() === NativeTypes.FILE) {
+      // Handle file drops (NativeTypes.FILE)
+      if (itemType === NativeTypes.FILE) {
         if (!user || !supabaseClient) {
           toast.error("Du musst dich einloggen, um Dateien hochzuladen");
           return undefined;
@@ -320,89 +324,157 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
         };
       }
 
-      // --- Core Logic: Determine if this hook should handle the drop ---
-      const isAreaEmpty = dropArea.blocks.length === 0;
-      const isExistingBlock = item.sourceDropAreaId !== undefined;
-      const isExternalBlock = isExistingBlock && item.sourceDropAreaId !== dropArea.id && item.id;
+      // Handle Media Item Drops (ItemTypes.MEDIA)
+      else if (itemType === ItemTypes.MEDIA) {
+        // Casting zu MediaItemInput, da wir den Typ überprüft haben
+        const mediaItem = item as MediaItemInput;
 
-      // Handle drops only if:
-      // 1. Area is empty (for both new and external blocks)
-      // 2. OR it's an external block (even to populated areas)
-      const shouldHandleDrop = isAreaEmpty || isExternalBlock;
+        let finalBlockType: BlockType['type'] = 'document'; // Default
+        const fileType = mediaItem.file_type.toLowerCase();
 
-      if (!shouldHandleDrop) {
-        console.log(
-          `[${dropOpId}] DropAreaHook ${dropArea.id}: Delegating drop to nested handlers.`
-        );
-        return undefined;
+        // Bestimme den Block-Typ basierend auf dem file_type des Media-Items
+        if (fileType.startsWith('image/')) {
+          finalBlockType = 'image';
+        } else if (fileType.startsWith('video/')) {
+          finalBlockType = 'video';
+        } else if (fileType.startsWith('audio/')) {
+          finalBlockType = 'audio';
+        } else {
+          // Bleibt 'document' für PDF, Word etc.
+          finalBlockType = 'document';
+        }
+
+        // Erstelle die Konfiguration für den neuen Block
+        const blockConfig: Partial<BlockType> & { type: BlockType['type']; content: string } = {
+            type: finalBlockType,
+            content: mediaItem.url, // Verwende die URL aus dem Media-Item
+        };
+
+        // Füge typspezifische Eigenschaften hinzu
+        if (finalBlockType === 'image') {
+            Object.assign(blockConfig, {
+                altText: mediaItem.file_name, // Verwende file_name als altText
+                previewUrl512: mediaItem.preview_url_512,
+                previewUrl128: mediaItem.preview_url_128
+            });
+        } else if (finalBlockType === 'video') {
+            Object.assign(blockConfig, {
+                // Videos haben keine speziellen Props außer Previews (optional)
+                previewUrl512: mediaItem.preview_url_512,
+                previewUrl128: mediaItem.preview_url_128
+            });
+        } else if (finalBlockType === 'document') {
+            Object.assign(blockConfig, {
+                fileName: mediaItem.file_name, // Verwende file_name als fileName
+                // Keine spezifische Vorschau-URL für Dokumente aus der Library momentan
+            });
+        }
+        // Audio hat keine zusätzlichen spezifischen Props
+
+        // Füge den Block zum Store hinzu (innerhalb setTimeout für Konsistenz)
+        setTimeout(() => {
+            addBlock(blockConfig as BlockType, dropArea.id);
+        }, 0);
+
+        console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Added new block ${finalBlockType} from dropped media item ${mediaItem.id}`);
+        toast.success(`${mediaItem.file_name} hinzugefügt.`);
+
+        return {
+          name: `Media Item ${mediaItem.id} hinzugefügt`,
+          handled: true,
+          dropAreaId: dropArea.id
+        };
       }
 
-      try {
-        // Handle NEW block dropped into EMPTY area
-        if (!isExistingBlock && isAreaEmpty) {
-          const result = {
-            name: `Added Block to ${dropArea.id}`,
-            handled: true,
-            dropAreaId: dropArea.id,
-          };
+      // --- Handle BLOCK and EXISTING_BLOCK types ---
+      else if (itemType === ItemTypes.BLOCK || itemType === ItemTypes.EXISTING_BLOCK || itemType === ItemTypes.SQUARE) {
+          // Type assertion: Now we know item has the properties for BLOCK/EXISTING_BLOCK
+          const blockItem = item as { type: typeof ItemTypes.BLOCK | typeof ItemTypes.EXISTING_BLOCK | typeof ItemTypes.SQUARE; id?: string; content: string; sourceDropAreaId?: string; };
 
-          // FIX: Validate the block type before adding
-          const validBlockTypesForNew: BlockType['type'][] = ['paragraph', 'image', 'video', 'audio', 'document', 'heading'];
-          let blockTypeToAdd: BlockType['type'];
+          const isAreaEmpty = dropArea.blocks.length === 0;
+          // Verwende blockItem.sourceDropAreaId hier
+          const isExistingBlock = blockItem.sourceDropAreaId !== undefined;
+          // Verwende blockItem.sourceDropAreaId und blockItem.id hier
+          const isExternalBlock = isExistingBlock && blockItem.sourceDropAreaId !== dropArea.id && blockItem.id;
 
-          if (item.type && validBlockTypesForNew.includes(item.type as BlockType['type'])) {
-              blockTypeToAdd = item.type as BlockType['type'];
-          } else {
-              // Default to paragraph if type is missing or invalid
-              console.warn(`Invalid or missing block type \"${item.type}\" dropped. Defaulting to paragraph.`);
-              blockTypeToAdd = 'paragraph';
+          const shouldHandleDrop = isAreaEmpty || isExternalBlock;
+
+          if (!shouldHandleDrop) {
+              console.log(
+                  `[${dropOpId}] DropAreaHook ${dropArea.id}: Delegating drop to nested handlers for block.`
+              );
+              return undefined;
           }
 
-          // Use setTimeout to ensure drop operation completes before state update
-          setTimeout(() => {
-            addBlock(
-              {
-                type: blockTypeToAdd, // Use the validated type
-                content: item.content || "", // Use provided content or empty string
-                dropAreaId: dropArea.id,
-                // Add specific props based on the validated type if necessary
-                ...(blockTypeToAdd === 'image' && { altText: 'New Image' }), // Example default
-                ...(blockTypeToAdd === 'document' && { fileName: 'New Document' }), // Example default
-              },
-              dropArea.id
-            );
-          }, 0); // Execute after current event loop tick
+          try {
+              // Handle NEW block dropped into EMPTY area
+              if (!isExistingBlock && isAreaEmpty) {
+                  const result = {
+                      name: `Added Block to ${dropArea.id}`,
+                      handled: true,
+                      dropAreaId: dropArea.id,
+                  };
 
-          console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Added new block ${blockTypeToAdd}`);
-          return result;
-        }
+                  // FIX: Validate the block type before adding
+                  const validBlockTypesForNew: BlockType['type'][] = ['paragraph', 'image', 'video', 'audio', 'document', 'heading'];
+                  let blockTypeToAdd: BlockType['type'];
 
-        // Handle EXISTING block moved into this area (empty or populated)
-        if (isExistingBlock && item.id && item.sourceDropAreaId) {
-           const result = {
-            name: `Moved Block ${item.id} to ${dropArea.id}`,
-            handled: true,
-            dropAreaId: dropArea.id,
-          };
-          // Use setTimeout for consistency
-          setTimeout(() => {
-             moveBlock(item.id!, item.sourceDropAreaId!, dropArea.id);
-          }, 0);
+                  if (blockItem.type && validBlockTypesForNew.includes(blockItem.type as BlockType['type'])) {
+                      blockTypeToAdd = blockItem.type as BlockType['type'];
+                  } else {
+                      console.warn(`Invalid or missing block type "${String(blockItem.type)}" dropped. Defaulting to paragraph.`);
+                      blockTypeToAdd = 'paragraph';
+                  }
 
-          console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Moved existing block ${item.id}`);
-          return result;
-        }
+                  setTimeout(() => {
+                      addBlock(
+                          {
+                              type: blockTypeToAdd,
+                              content: blockItem.content || "", // Verwende blockItem.content
+                              dropAreaId: dropArea.id,
+                              ...(blockTypeToAdd === 'image' && { altText: 'New Image' }),
+                              ...(blockTypeToAdd === 'document' && { fileName: 'New Document' }),
+                          },
+                          dropArea.id
+                      );
+                  }, 0);
 
-      } catch (error) {
-        console.error(
-          `[${dropOpId}] DropAreaHook ${dropArea.id}: Error during drop:`,
-          error
-        );
-        setDropError(
-          error instanceof Error ? error.message : "An unknown error occurred"
-        );
-        setIsHovering(false);
-        return undefined;
+                  console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Added new block ${blockTypeToAdd}`);
+                  return result;
+              }
+
+              // Handle EXISTING block moved into this area (empty or populated)
+              // Verwende blockItem.id und blockItem.sourceDropAreaId
+              if (isExistingBlock && blockItem.id && blockItem.sourceDropAreaId) {
+                  const result = {
+                      name: `Moved Block ${blockItem.id} to ${dropArea.id}`,
+                      handled: true,
+                      dropAreaId: dropArea.id,
+                  };
+                  setTimeout(() => {
+                      moveBlock(blockItem.id!, blockItem.sourceDropAreaId!, dropArea.id);
+                  }, 0);
+
+                  console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Moved existing block ${blockItem.id}`);
+                  return result;
+              }
+
+          } catch (error) {
+              console.error(
+                  `[${dropOpId}] DropAreaHook ${dropArea.id}: Error during block drop:`, error
+              );
+              setDropError(
+                  error instanceof Error ? error.message : "An unknown error occurred"
+              );
+              setIsHovering(false);
+              return undefined;
+          }
+      }
+      // Fallback, wenn kein Typ passt (sollte nicht passieren)
+      else {
+          // Umschließe itemType mit String() für die Konsolenausgabe
+          console.warn(`[${dropOpId}] DropAreaHook ${dropArea.id}: Unhandled item type dropped: ${String(itemType)}`);
+          return undefined;
       }
     },
     collect: (monitor) => ({

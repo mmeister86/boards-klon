@@ -32,20 +32,16 @@ export function DraggableBlock({
   return (
     <div
       ref={drag as unknown as React.LegacyRef<HTMLDivElement>}
-      className={`aspect-square flex flex-col items-center justify-center p-3 bg-background border border-border
-                rounded-lg cursor-move shadow-sm hover:shadow-md transition-all
+      className={`group aspect-square flex items-center justify-center p-3 !bg-[#fef9ef]/80 hover:!bg-slate-500/80 border border-border
+                rounded-lg cursor-move shadow-sm transition-all ease-in-out duration-300
                 ${
                   isDragging
                     ? "opacity-50 scale-95 border-primary"
                     : "opacity-100 scale-100"
                 }`}
+      title={description}
     >
-      <div className="flex flex-col items-center text-center">
-        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-2">
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </div>
+      <Icon className="h-10 w-10 text-slate-500 group-hover:!text-[#fef9ef]/80 " />
     </div>
   );
 }

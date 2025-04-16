@@ -75,7 +75,6 @@ export async function saveProjectToStorage(
       console.error("[Storage Save] User not authenticated, cannot determine path.");
       return false;
     }
-    const userId = user.id;
 
     const { data: sessionData } = await supabase.auth.getSession();
     const isAuthenticated = !!sessionData.session;
@@ -109,7 +108,7 @@ export async function saveProjectToStorage(
     }
 
     // Define the user-specific path (ohne 'projects/' Prefix)
-    const filePath = `${userId}/${idForPath}.json`;
+    const filePath = `${idForPath}.json`;
     console.log(`[Storage Save] Attempting to upload to path: ${filePath}`);
 
     // Attempt the upload with minimal options
@@ -162,7 +161,7 @@ export async function loadProjectFromStorage(
     // await initializeStorage();
 
     // Konstruiere den Pfad
-    const filePath = `${userId}/${projectId}.json`;
+    const filePath = `${projectId}.json`;
     console.log(`[Storage Load] Attempting to download from path: ${filePath}`);
 
     // Attempt to download the file directly
@@ -221,7 +220,7 @@ export async function listProjectsFromStorage(userId: string): Promise<Project[]
 
     console.log(`[ListStorage] Listing projects for user: ${userId}`);
     // Liste nur den Ordner des Benutzers
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(`${userId}/`, {
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).list('', {
       limit: 100,
       offset: 0,
       sortBy: { column: "updated_at", order: "desc" }, // Sortierung funktioniert evtl. nicht auf Ordner
@@ -296,52 +295,36 @@ export async function deleteProjectFromStorage(
 ): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) {
-     console.error("[Storage Delete] Supabase client not available");
-     return false;
-  }
-   if (!userId) {
-     console.error("[Storage Delete] userId is required but was not provided.");
-     return false;
-  }
-  if (!projectId) {
-    console.error("[Storage Delete] projectId is required but was not provided.");
+    console.error("[Storage Delete] Supabase client not available");
     return false;
+  }
+  if (!userId || !projectId) {
+       console.error("[Storage Delete] Both userId and projectId are required.");
+       return false;
   }
 
   try {
-     // Konstruiere den Pfad
-    const filePath = `${userId}/${projectId}.json`;
+    // Session holen ist gut für RLS
+    // await supabase.auth.getSession();
+    // await initializeStorage();
+
+    // Konstruiere den Pfad
+    const filePath = `${projectId}.json`;
     console.log(`[Storage Delete] Attempting to delete file at path: ${filePath}`);
 
-    // Delete the project file
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([filePath]); // Verwende den neuen Pfad
+    // Lösche die Datei
+    const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
 
     if (error) {
-       console.error(`[Storage Delete] Error deleting ${filePath}:`, error);
+       console.error(`[Storage Delete] Error deleting file ${filePath}:`, error);
       return false;
     }
 
-    console.log(`[Storage Delete] Successfully deleted file: ${filePath}`);
-
-    // Also delete the thumbnail if it exists
-    // Thumbnail Pfad muss wahrscheinlich auch angepasst werden?
-    const thumbnailPath = `thumbnails/${projectId}.png`; // Annahme: Thumbnails bleiben global?
-    try {
-       console.log(`[Storage Delete] Attempting to delete thumbnail: ${thumbnailPath}`);
-      await supabase.storage
-        .from(BUCKET_NAME)
-        .remove([thumbnailPath]);
-       console.log(`[Storage Delete] Thumbnail deleted (if existed): ${thumbnailPath}`);
-    } catch (thumbError) {
-      // Ignore errors when deleting thumbnails, log it
-       console.warn(`[Storage Delete] Failed to delete thumbnail ${thumbnailPath} (might not exist):`, thumbError);
-    }
-
+    console.log(`[Storage Delete] Successfully deleted file ${filePath}`);
     return true;
+
   } catch (e) {
-     console.error(`[Storage Delete] Unexpected error deleting project ${projectId}:`, e);
+     console.error(`[Storage Delete] Unexpected error for project ${projectId}:`, e);
     return false;
   }
 }

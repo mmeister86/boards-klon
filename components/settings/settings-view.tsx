@@ -51,24 +51,6 @@ export default function SettingsView() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center justify-between space-x-2">
-            <Label htmlFor="theme-mode" className="flex flex-col space-y-1">
-              <span>Theme</span>
-              <span className="font-normal leading-snug text-muted-foreground">
-                Wählen Sie zwischen hellem und dunklem Modus.
-              </span>
-            </Label>
-            <Select defaultValue="system">
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Theme wählen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Hell</SelectItem>
-                <SelectItem value="dark">Dunkel</SelectItem>
-                <SelectItem value="system">System</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </CardContent>
       </Card>
 
