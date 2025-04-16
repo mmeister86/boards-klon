@@ -54,6 +54,7 @@ interface BlocksState {
   isPublishing: boolean;
   isPublished: boolean;
   publishedUrl: string | null;
+  canvasHoveredInsertionIndex: number | null;
 
   // Block Actions
   addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => void;
@@ -112,6 +113,10 @@ interface BlocksState {
   publishBoard: () => Promise<boolean>;
   unpublishBoard: () => Promise<boolean>;
   checkPublishStatus: () => Promise<void>;
+
+  // NEU: Canvas Hover Actions
+  setCanvasHoveredInsertionIndex: (index: number | null) => void;
+  resetAllHoverStates: () => void;
 }
 
 // Debounce helper function
@@ -183,6 +188,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     isPublishing: false,
     isPublished: false,
     publishedUrl: null,
+    canvasHoveredInsertionIndex: null,
 
     // Block Actions
     addBlock: (block, dropAreaId) => {
@@ -240,18 +246,26 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         return { ...state, dropAreas: updated };
       });
 
-      // Cleanup and auto-save
+      // Cleanup und Auto-Save nach dem State-Update
       setTimeout(() => {
-        get().cleanupEmptyDropAreas();
+        get().cleanupEmptyDropAreas(); // <-- RE-ENABLED
         get().triggerAutoSave();
       }, 0);
     },
 
     moveBlock: (blockId, sourceAreaId, targetAreaId) => {
       set((state) => {
+        console.log(`[Store.moveBlock] Initiated`, {
+          blockId,
+          sourceAreaId,
+          targetAreaId,
+        });
         try {
-          const { block: foundBlock, dropAreaId: actualSourceAreaId } =
-            findBlockById(state.dropAreas, blockId);
+          const { block: foundBlock, dropAreaId: actualSourceAreaId } = findBlockById(state.dropAreas, blockId);
+          console.log(`[Store.moveBlock] Found block info`, {
+            foundBlock: foundBlock ? { ...foundBlock } : null,
+            actualSourceAreaId,
+          });
           if (!foundBlock) {
             throw new Error(`Block ${blockId} not found`);
           }
@@ -324,14 +338,18 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
             })
           );
 
+          console.log(`[Store.moveBlock] State *before* setting`, {
+            newState: JSON.parse(JSON.stringify(rootAreas)),
+          });
           return { ...state, dropAreas: rootAreas };
         } catch (error: any) {
+          console.error(`[Store.moveBlock] Error occurred:`, error);
           throw new Error(`Error moving block: ${error.message}`);
         }
       });
 
       setTimeout(() => {
-        get().cleanupEmptyDropAreas();
+        get().cleanupEmptyDropAreas(); // <-- RE-ENABLED
         get().triggerAutoSave();
       }, 0);
     },
@@ -378,7 +396,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       });
 
       setTimeout(() => {
-        get().cleanupEmptyDropAreas();
+        get().cleanupEmptyDropAreas(); // <-- RE-ENABLED
         get().triggerAutoSave();
       }, 0);
     },
@@ -467,9 +485,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         // --- End Simplified State Update ---
       });
 
-      // Cleanup and auto-save
+      // Cleanup und Auto-Save nach dem State-Update
       setTimeout(() => {
-        get().cleanupEmptyDropAreas();
+        get().cleanupEmptyDropAreas(); // <-- RE-ENABLED
         get().triggerAutoSave();
       }, 0);
     },
@@ -628,6 +646,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           }
           return state;
         });
+        get().cleanupEmptyDropAreas(); // <-- RE-ENABLED (Direct call? Check if this was intended)
         get().triggerAutoSave();
       }, 0);
     },
@@ -652,51 +671,59 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
     cleanupEmptyDropAreas: () => {
       set((state) => {
-        const rootAreas = [...state.dropAreas];
-        if (rootAreas.length <= 1) return state;
+        const initialAreas = state.dropAreas;
+        if (initialAreas.length <= 1) return state;
 
-        const hasPopulatedAreas = rootAreas.some(
-          (area) =>
-            !isDropAreaEmpty(area) ||
-            (area.isSplit && area.splitAreas.some((a) => !isDropAreaEmpty(a)))
-        );
+        let changed = false;
+        const cleanedAreas: DropAreaType[] = [];
 
-        if (hasPopulatedAreas) {
-          rootAreas.sort((a, b) => {
-            const aEmpty =
-              isDropAreaEmpty(a) &&
-              (!a.isSplit || a.splitAreas.every(isDropAreaEmpty));
-            const bEmpty =
-              isDropAreaEmpty(b) &&
-              (!b.isSplit || b.splitAreas.every(isDropAreaEmpty));
-            return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
-          });
-        }
+        // 1. Iterate backwards to safely remove consecutive empty areas
+        let previousAreaWasEmpty = false;
+        for (let i = initialAreas.length - 1; i >= 0; i--) {
+          const currentArea = initialAreas[i];
+          const isCurrentAreaEmpty = isDropAreaEmpty(currentArea);
 
-        // Remove consecutive empty areas
-        for (let i = 0; i < rootAreas.length - 1; i++) {
-          if (
-            isDropAreaEmpty(rootAreas[i]) &&
-            isDropAreaEmpty(rootAreas[i + 1])
-          ) {
-            rootAreas.splice(i + 1, 1);
-            i--;
+          if (isCurrentAreaEmpty && previousAreaWasEmpty) {
+            // Skip this area (it's a consecutive empty one)
+            changed = true;
+            continue; // Don't add it to cleanedAreas
+          } else {
+            // Keep this area (either populated or the first empty one from the end)
+            cleanedAreas.unshift(currentArea); // Add to the beginning to maintain relative order
+            previousAreaWasEmpty = isCurrentAreaEmpty;
           }
         }
 
-        // Ensure one empty area at the end if needed
-        const lastArea = rootAreas[rootAreas.length - 1];
-        if (!isDropAreaEmpty(lastArea)) {
-          rootAreas.push({
+        // If after cleaning we have 0 areas (shouldn't happen if initial length > 1, but safe check)
+        if (cleanedAreas.length === 0) {
+           cleanedAreas.push({
+              id: `drop-area-${Date.now()}`,
+              blocks: [], isSplit: false, splitAreas: [], splitLevel: 0
+           });
+           changed = true;
+        }
+
+        // 2. Ensure exactly one empty area exists at the very end
+        const lastCleanedArea = cleanedAreas[cleanedAreas.length - 1];
+        if (!isDropAreaEmpty(lastCleanedArea)) {
+          // If the last area is populated, add a new empty one
+          cleanedAreas.push({
             id: `drop-area-${Date.now()}`,
             blocks: [],
             isSplit: false,
             splitAreas: [],
             splitLevel: 0,
           });
+          changed = true;
         }
 
-        return { ...state, dropAreas: rootAreas };
+        // 3. Return original state if nothing changed
+        if (!changed) {
+          return state;
+        }
+
+        // 4. Return the new state
+        return { ...state, dropAreas: cleanedAreas };
       });
     },
 
@@ -985,11 +1012,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     toggleAutoSave: (enabled) => set({ autoSaveEnabled: enabled }),
 
     triggerAutoSave: () => {
-      const { autoSaveEnabled, currentProjectId, isSaving } = get();
-      if (isSaving || !autoSaveEnabled || !currentProjectId) {
-        return;
+      if (get().autoSaveEnabled) {
+        debouncedSave();
       }
-      debouncedSave();
     },
 
     // Area Insertion Actions
@@ -1086,7 +1111,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       });
 
       setTimeout(() => {
-        get().cleanupEmptyDropAreas();
+        get().cleanupEmptyDropAreas(); // <-- RE-ENABLED
         get().triggerAutoSave();
       }, 0);
     },
@@ -1217,6 +1242,16 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       } catch (error) {
         console.error("Error checking publish status:", error);
       }
+    },
+
+    // NEU: Canvas Hover Actions
+    setCanvasHoveredInsertionIndex: (index) => {
+      set({ canvasHoveredInsertionIndex: index });
+    },
+    resetAllHoverStates: () => {
+      get().setCanvasHoveredInsertionIndex(null);
+      // Zukünftig könnten hier weitere Resets (z.B. für DropAreas) hinzugefügt werden,
+      // aber vorerst reicht der Canvas-Reset über den Store.
     },
   };
 });

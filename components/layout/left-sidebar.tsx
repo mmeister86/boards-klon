@@ -19,54 +19,63 @@ const blockTypes = [
   {
     type: "heading",
     content: "Überschrift",
+    label: "Überschrift",
     icon: Heading,
     description: "Füge eine Überschrift hinzu",
   },
   {
     type: "paragraph",
     content: "Absatz",
+    label: "Text",
     icon: ParagraphIcon,
     description: "Füge einen Textabsatz hinzu",
   },
   {
     type: "image",
     content: null,
+    label: "Bild",
     icon: ImageIcon,
     description: "Füge ein Bild ein",
   },
   {
     type: "video",
     content: null,
+    label: "Video",
     icon: VideoIcon,
     description: "Füge ein Video hinzu (Upload oder URL)",
   },
   {
     type: "audio",
     content: null,
+    label: "Audio",
     icon: AudioIcon,
     description: "Füge eine Audiodatei hinzu (Upload oder URL)",
   },
   {
     type: "document",
     content: null,
+    label: "Dokument",
     icon: DocumentIcon,
     description: "Füge ein Dokument hinzu (z.B. PDF)",
   },
   {
     type: "button",
     content: "Schaltfläche",
+    label: "Button",
     icon: ButtonIcon,
     description: "Füge eine klickbare Schaltfläche hinzu",
   },
   {
     type: "divider",
     content: "Trennlinie",
+    label: "Trenner",
     icon: SeparatorHorizontal,
     description: "Füge eine horizontale Trennlinie hinzu",
   },
   {
     type: "form",
     content: "Formular",
+    label: "Formular",
     icon: FormInput,
     description: "Erstelle ein Formularelement",
   },
@@ -86,6 +95,7 @@ export default function LeftSidebar() {
               content={block.content}
               icon={block.icon}
               description={block.description}
+              label={block.label}
             />
           ))}
         </div>

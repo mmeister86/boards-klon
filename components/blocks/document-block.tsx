@@ -64,7 +64,8 @@ export function DocumentBlock({
   drag(dragRef);
 
   // Extract filename from URL if not provided, then sanitize it
-  const rawDisplayName = fileName || content.split("/").pop() || "Document";
+  const rawDisplayName =
+    fileName || (content ? content.split("/").pop() : null) || "Document";
   const displayName = sanitizeFilename(rawDisplayName);
 
   return (

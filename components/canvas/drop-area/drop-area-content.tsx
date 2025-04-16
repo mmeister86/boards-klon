@@ -67,20 +67,6 @@ export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
 
   // Removed redundant useEffect for dragEnd listener
 
-  // Expose a reset function globally (use with caution - consider context/store later)
-  useEffect(() => {
-    // Attaching to window for simplicity (consider alternatives for production)
-    window.resetDropAreaContentHover = () => {
-      console.log("[Window Reset] Resetting DropAreaContent hover state");
-      setHoverIndex(null);
-      setDraggedItemOriginalIndex(null);
-    };
-    return () => {
-      // Cleanup window property
-      delete window.resetDropAreaContentHover;
-    };
-  }, []); // Empty dependency array ensures it runs once
-
   // Reset hover state when window is blurred
   useEffect(() => {
     const handleBlur = () => {
@@ -159,18 +145,33 @@ export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
         }
       }
 
+      // Holen der aktuellen Mausposition (X) und Container-Grenzen
+      const clientOffsetX = clientOffset.x;
+      const containerRect = containerRef.current?.getBoundingClientRect();
+
+      let isHorizontallyValid = false;
+      if (clientOffsetX && containerRect) {
+        const hoverClientX = clientOffsetX;
+        // Prüfen, ob die Maus horizontal innerhalb des Containers ist
+        // Optional: Toleranz hinzufügen, falls Blöcke nicht die volle Breite einnehmen
+        isHorizontallyValid =
+          hoverClientX >= containerRect.left &&
+          hoverClientX <= containerRect.right;
+      }
+
       // console.log( // Keep logs commented out
-      //   `Final calculated hover index: ${calculatedHoverIndex}, Original index: ${originalIndex}`
+      //   `Final calculated hover index: ${calculatedHoverIndex}, Original index: ${originalIndex}, Horizontally valid: ${isHorizontallyValid}`
       // );
 
-      // Prevent indicator flicker when dragging existing item over its own position or the gap after it
+      // Verhindere Indikator-Flackern UND setze null, wenn horizontal ungültig
       if (
-        isExistingBlock &&
-        (calculatedHoverIndex === originalIndex ||
-          calculatedHoverIndex === (originalIndex ?? -1) + 1)
+        !isHorizontallyValid || // NEU: Wenn horizontal außerhalb, immer null
+        (isExistingBlock &&
+          (calculatedHoverIndex === originalIndex ||
+            calculatedHoverIndex === (originalIndex ?? -1) + 1))
       ) {
         // console.log( // Keep logs commented out
-        //   `Setting hover index to null (would be moving to same position)`
+        //   `Setting hover index to null (flicker prevention or horizontal invalid)`
         // );
         setHoverIndex(null);
       } else {
@@ -248,27 +249,31 @@ export function DropAreaContent({ dropArea, viewport }: DropAreaContentProps) {
         else {
           const newItem = freshItem as DraggedNewBlockItem;
 
-          // Prepare base block data
-          const newBlockDataBase = {
-            type: newItem.type,
+          // Prepare base block data - Assert type here
+          let newBlockData: Omit<BlockType, "id"> = {
+            type: newItem.type as BlockType["type"], // Assert the base type
             content: newItem.content || "",
             dropAreaId: dropArea.id,
           };
 
-          // Add heading level if it's a heading block
-          const finalNewBlockData = isDraggedHeading(freshItem)
-            ? {
-                ...newBlockDataBase,
-                type: "heading",
-                headingLevel: freshItem.headingLevel,
-              }
-            : newBlockDataBase;
+          // Add heading level if it's a heading block AND the type is confirmed as 'heading'
+          if (isDraggedHeading(freshItem) && newBlockData.type === "heading") {
+            // Now TypeScript knows newBlockData is a HeadingBlock (or assignable to it)
+            // We need to cast to access headingLevel specifically if needed for type safety
+            // However, adding the property should be enough if the base type is correct.
+            newBlockData = {
+              ...newBlockData,
+              headingLevel: freshItem.headingLevel,
+            };
+            // Alternative: Direct assignment if confident in the type guard
+            // (newBlockData as HeadingBlockType).headingLevel = freshItem.headingLevel;
+          }
 
           // Schedule block addition AFTER drop handler returns
           setTimeout(() => {
             useBlocksStore
               .getState()
-              .addBlockAtIndex(finalNewBlockData, dropArea.id, targetIndex);
+              .addBlockAtIndex(newBlockData, dropArea.id, targetIndex); // Use the correctly typed object
           }, 0);
         }
       } catch (error: unknown) {

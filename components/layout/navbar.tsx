@@ -239,9 +239,13 @@ export default function Navbar({
 
       if (!storageDeleted) {
         // If storage delete failed, stop the process
-        throw new Error("Fehler beim Löschen der Projektdateien aus dem Speicher.");
+        throw new Error(
+          "Fehler beim Löschen der Projektdateien aus dem Speicher."
+        );
       }
-      console.log(`[Navbar Delete] Successfully deleted project from storage: ${currentProjectId}`);
+      console.log(
+        `[Navbar Delete] Successfully deleted project from storage: ${currentProjectId}`
+      );
 
       // 2. Conditionally delete from database ONLY if a database ID exists
       // Use currentProjectId as it should match the DB ID after creation/loading
@@ -262,7 +266,6 @@ export default function Navbar({
       }
 
       // If we reached here, at least storage was deleted successfully
-      toast.success(`Projekt "${title}" wurde gelöscht.`);
 
       // Set deletion state in store
       setProjectJustDeleted(true);
@@ -272,10 +275,12 @@ export default function Navbar({
       router.push("/dashboard/projekte");
 
       // No need to setIsDeleting(false) here as we are navigating away
-
     } catch (error: unknown) {
       console.error("[Navbar Delete] Error deleting project:", error);
-      const errorMsg = error instanceof Error ? error.message : "Unbekannter Fehler beim Löschen";
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : "Unbekannter Fehler beim Löschen";
       toast.error(`Fehler beim Löschen: ${errorMsg}`);
       setIsDeleting(false); // Stop loading indicator on error
     }

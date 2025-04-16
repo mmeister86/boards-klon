@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Music, AlertCircle } from "lucide-react";
+import { Music, AlertCircle, Play, Pause } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AudioPlayerProps {
@@ -14,6 +16,7 @@ export function ModernAudioPlayer({ url }: AudioPlayerProps) {
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [volume, setVolume] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const handlePlayPause = () => {
@@ -28,6 +31,22 @@ export function ModernAudioPlayer({ url }: AudioPlayerProps) {
           setIsPlaying(false); // Ensure state is correct on error
         });
       }
+    }
+  };
+
+  const handleVolumeChange = (value: number[]) => {
+    const newVolume = value[0];
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
+    }
+  };
+
+  const toggleMute = () => {
+    const newVolume = volume === 0 ? 0.5 : 0;
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
     }
   };
 
@@ -48,13 +67,7 @@ export function ModernAudioPlayer({ url }: AudioPlayerProps) {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Extract filename from URL as a placeholder title
-  const displayFileName = decodeURIComponent(
-    url?.split("/").pop() || "Audio Track"
-  );
-
   useEffect(() => {
-    console.log("ModernAudioPlayer EFFECT START for url:", url);
     // Reset state if URL changes
     setIsLoading(true);
     setError(null);
@@ -66,14 +79,15 @@ export function ModernAudioPlayer({ url }: AudioPlayerProps) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current.src = url; // Ensure src is updated if url changes
+      audioRef.current.volume = volume;
       // Load might be needed if src is reset late
       audioRef.current.load();
     }
 
     return () => {
-      console.log("ModernAudioPlayer EFFECT CLEANUP for url:", url);
       // Cleanup logic (if any needed beyond component unmount)
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   return (
@@ -99,57 +113,23 @@ export function ModernAudioPlayer({ url }: AudioPlayerProps) {
 
       {/* Player UI - Hidden until loaded and no error */}
       <div className={cn("space-y-3", (isLoading || error) && "hidden")}>
-        {/* Top Section: Info and Icons */}
+        {/* Top Section: Icon and Text */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            {/* Make icon and text clickable for play/pause */}
             <button
               onClick={handlePlayPause}
               className="flex items-center space-x-3 focus:outline-none group"
               aria-label={isPlaying ? "Pause Audio" : "Play Audio"}
             >
-              <Music className="h-6 w-6 text-orange-500 group-hover:text-orange-600 transition-colors" />
-              <div>
-                <h3
-                  className="font-semibold text-gray-900 truncate text-left group-hover:text-gray-700 transition-colors"
-                  title={displayFileName}
-                >
-                  {displayFileName}
-                </h3>
+              {isPlaying ? (
+                <Pause className="h-6 w-6 text-orange-500 group-hover:text-orange-600 transition-colors" />
+              ) : (
+                <Play className="h-6 w-6 text-orange-500 group-hover:text-orange-600 transition-colors" />
+              )}
+              {/* <div>
                 <p className="text-sm text-gray-500 text-left">Audio File</p>
-              </div>
+              </div> */}
             </button>
-          </div>
-          {/* Icons (visual only for now) */}
-          <div className="flex items-center space-x-2">
-            <svg
-              className="h-6 w-6 text-red-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-              ></path>
-            </svg>
-            <svg
-              className="h-6 w-6 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.539 1.118l-3.975-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.539-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-              ></path>
-            </svg>
           </div>
         </div>
 
@@ -176,6 +156,27 @@ export function ModernAudioPlayer({ url }: AudioPlayerProps) {
             <span>{formatTime(currentTime)}</span>
             <span>{formatTime(duration)}</span>
           </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={toggleMute}
+            aria-label={volume === 0 ? "Unmute" : "Mute"}
+          >
+            {volume === 0 ? (
+              <VolumeX className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+            ) : (
+              <Volume2 className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+            )}
+          </button>
+          <Slider
+            value={[volume]}
+            onValueChange={handleVolumeChange}
+            max={1}
+            step={0.01}
+            className="w-full"
+            aria-label="Volume"
+          />
         </div>
       </div>
 

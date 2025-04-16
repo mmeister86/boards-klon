@@ -53,7 +53,7 @@ export default function UploadZone({
     setIsDragging(false);
 
     // Bereinige die Dateinamen vor dem Upload
-    const files = Array.from(e.dataTransfer.files).map(file => {
+    const files = Array.from(e.dataTransfer.files).map((file) => {
       const sanitizedName = sanitizeFilename(file.name);
       return new File([file], sanitizedName, { type: file.type });
     });
@@ -65,7 +65,7 @@ export default function UploadZone({
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       // Bereinige die Dateinamen vor dem Upload
-      const files = Array.from(e.target.files).map(file => {
+      const files = Array.from(e.target.files).map((file) => {
         const sanitizedName = sanitizeFilename(file.name);
         return new File([file], sanitizedName, { type: file.type });
       });
@@ -135,7 +135,7 @@ export default function UploadZone({
           className={`
             relative border-2 border-dashed rounded-lg p-8
             flex flex-col items-center justify-center gap-4
-            transition-colors duration-200 h-[70vH] bg-gray-50/80
+            transition-colors duration-200 h-[70vH] bg-[#a5b1c2]/10
             ${isDragging ? "border-primary bg-primary/5" : "border-border"}
           `}
           onDragOver={handleDragOver}

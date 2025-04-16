@@ -43,7 +43,7 @@ export default function MediaCategory({
           <Dialog key={item.id}>
             <DialogTrigger asChild>
               <div className="aspect-square rounded-xl hover:bg-muted/80 cursor-pointer group relative">
-                <div className="w-full h-full rounded-lg overflow-hidden flex items-center justify-center shadow-md shadow-black/50">
+                <div className="w-full h-full rounded-lg overflow-hidden flex items-center justify-center shadow-sm shadow-black/30">
                   {type === "video" && (
                     <div className="relative w-full h-full">
                       {item.preview_url_512 || item.preview_url_128 ? (

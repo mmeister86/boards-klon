@@ -1,11 +1,10 @@
 "use client";
 
-import { ConnectDropTarget, useDrop } from "react-dnd";
+import { ConnectDropTarget, useDrop, DropTargetMonitor } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { useState, useCallback } from "react";
-import { ItemTypes } from "@/lib/item-types";
 import { useBlocksStore } from "@/store/blocks-store";
-import type { DropAreaType, BlockType } from "@/lib/types";
+import type { DropAreaType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { CanvasBlock } from "@/components/blocks/canvas-block";
 import { SquareSplitHorizontalIcon as SplitHorizontal } from "lucide-react";
@@ -102,12 +101,21 @@ export function DropArea({
     {
       // --- MODIFIED: Accept NativeTypes.FILE ---
       accept: [
-        ItemTypes.BLOCK,
-        ItemTypes.SQUARE,
-        ItemTypes.EXISTING_BLOCK,
+        // ItemTypes.BLOCK, // REMOVED
+        // ItemTypes.SQUARE, // REMOVED
+        // ItemTypes.EXISTING_BLOCK, // REMOVED
         NativeTypes.FILE,
       ],
       drop: (item: AcceptedDropItem, monitor) => {
+        // --- BEGIN ADD LOG ---
+        console.log(`[DropArea] Drop occurred on area: ${dropArea.id}`, {
+          item,
+          itemType: monitor.getItemType(),
+          targetAreaBlocksCount: dropArea.blocks.length,
+          isTargetSplit: dropArea.isSplit,
+        });
+        // --- END ADD LOG ---
+
         const currentItemType = monitor.getItemType();
         console.log("Dropped item type:", currentItemType);
 
@@ -129,6 +137,7 @@ export function DropArea({
           }
         }
         // --- Handle Block/Existing Block Drop (Original Logic) ---
+        /* // --- REMOVED BLOCK HANDLING LOGIC ---
         else if (
           currentItemType === ItemTypes.EXISTING_BLOCK ||
           (item as BlockDropItem).sourceDropAreaId
@@ -162,10 +171,14 @@ export function DropArea({
             dropArea.id
           );
         }
+        */ // --- END REMOVED BLOCK HANDLING LOGIC ---
         return { name: `Drop Area ${dropArea.id}` };
       },
       // --- MODIFIED: canDrop check for files ---
-      canDrop: (item: AcceptedDropItem, monitor) => {
+      canDrop: (
+        item: AcceptedDropItem,
+        monitor: DropTargetMonitor<AcceptedDropItem, unknown>
+      ) => {
         const currentItemType = monitor.getItemType();
         if (currentItemType === NativeTypes.FILE) {
           // Files can only be dropped if the drop area is currently empty
@@ -178,7 +191,9 @@ export function DropArea({
           );
         }
         // Original canDrop logic for blocks
-        return true; // Allow dropping blocks/squares/existing blocks regardless of content
+        // REMOVED: return true; // Allow dropping blocks/squares/existing blocks regardless of content
+        // --- ADDED: Explicitly return false for non-file types ---
+        return false;
       },
       collect: (monitor) => ({
         isOver: monitor.isOver(),

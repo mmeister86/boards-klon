@@ -1,6 +1,7 @@
 import { useDrag, DragSourceMonitor } from "react-dnd"; // Correctly import only DragSourceMonitor
 import { ItemTypes } from "@/lib/item-types";
 import type { BlockType } from "@/lib/types";
+import { useBlocksStore } from "@/store/blocks-store"; // NEU: Importiere den Store
 
 // Global object to track which blocks are currently being dragged
 // This helps prevent duplicate drag operations of the same block
@@ -57,12 +58,21 @@ export const useBlockDrag = (
   // Pass spec object directly to useDrag
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.EXISTING_BLOCK, // Draggable type
-    item: (monitor) => {
+    item: () => {
       // CRITICAL: Before creating the item, check if this block is already being dragged
       if (isBlockBeingDragged(block.id)) {
         // console.log(`[useBlockDrag] Block ${block.id} is already being dragged! Preventing duplicate drag.`); // Keep logs commented out
         return null;
       }
+
+      // --- BEGIN ADD LOG ---
+      console.log(`[useBlockDrag] Begin drag for block:`, {
+        id: block.id,
+        type: block.type,
+        dropAreaId: block.dropAreaId,
+        index,
+      });
+      // --- END ADD LOG ---
 
       // console.log(`[useBlockDrag] Begin drag for block: ${block.id}`); // Keep logs commented out
 
@@ -81,7 +91,7 @@ export const useBlockDrag = (
         ...(block.headingLevel && { headingLevel: block.headingLevel }),
       };
     },
-    canDrag: (monitor) => {
+    canDrag: () => {
       // Don't allow drag if this block is already being dragged
       if (isBlockBeingDragged(block.id)) {
         return false;
@@ -95,36 +105,32 @@ export const useBlockDrag = (
     // Called when dragging stops
     end: (
       item: BlockDragItem | undefined,
-      monitor: DragSourceMonitor<BlockDragItem, any> // *** FIX: Use DragSourceMonitor ***
+      // monitor: DragSourceMonitor<BlockDragItem, unknown> // Entfernt, da nicht mehr verwendet
     ) => {
       const dragId = `drag-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 9)}`;
 
-      if (!item) {
-        untrackBlockDrag(block.id);
+      const itemToUntrack = item ?? block; // Use block as fallback if item is undefined during untrack
+
+      if (!itemToUntrack) {
+        console.warn(`[useBlockDrag:end ${dragId}] No item or block available for untracking.`);
+        // Versuche trotzdem, den globalen Zustand zurückzusetzen, falls ein Drag stattgefunden hat
+        useBlocksStore.getState().resetAllHoverStates(); // NEU: Immer Reset über Store
         return;
       }
 
-      // Untrack this block
-      untrackBlockDrag(item.id);
+      // Untrack this block using its ID
+      untrackBlockDrag(itemToUntrack.id);
 
       // Dispatch custom event for drag end
       const event = new CustomEvent("dragEnd", {
-        detail: { blockId: item.id, dragId },
+        detail: { blockId: itemToUntrack.id, dragId },
       });
       window.dispatchEvent(event);
 
-      // If no drop result but drag ended, make sure UI is reset
-      if (!monitor.didDrop()) {
-        // @ts-ignore - Accessing window property
-        const resetFnExists =
-          typeof window.resetDropAreaContentHover === "function";
-        if (resetFnExists) {
-          // @ts-ignore
-          window.resetDropAreaContentHover();
-        }
-      }
+      // *** IMMER Reset über den Store aufrufen, unabhängig von didDrop() ***
+      useBlocksStore.getState().resetAllHoverStates();
     },
   });
 

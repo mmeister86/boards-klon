@@ -4,7 +4,8 @@
 import type { BlockType } from "@/lib/types";
 import { getBlockStyle } from "@/lib/utils/block-utils";
 import ReactPlayer from "react-player/lazy";
-import Image from "next/image";
+// import Image from "next/image"; // Entferne ungenutzten Import
+import { ModernAudioPlayer } from "@/components/ui/modern-audio-player"; // Importiere den neuen Player
 
 interface PreviewBlockProps {
   block: BlockType;
@@ -64,6 +65,11 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
     );
   }
 
+  // --- Spezielle Behandlung für Audio, kein Wrapper Div mehr ---
+  if (block.type === "audio") {
+    return <ModernAudioPlayer url={block.content} />;
+  }
+
   // For other block types, render with the wrapper div
   return (
     <div
@@ -75,14 +81,6 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         renderHeadingContent()
       ) : block.type === "paragraph" ? (
         renderParagraphContent()
-      ) : // --- NEU: Spezifische Behandlung für Audio-Blöcke ---
-      block.type === "audio" ? (
-        <audio
-          src={block.content}
-          controls
-          className="w-full"
-          preload="metadata" // Lade Metadaten (wie Dauer) vorab
-        />
       ) : // --- NEU: Spezifische Behandlung für Video-Blöcke ---
       block.type === "video" ? (
         <div className="player-wrapper relative pt-[56.25%] rounded-md overflow-hidden">

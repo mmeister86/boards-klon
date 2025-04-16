@@ -1,0 +1,7 @@
+*.md
+scripts
+.next
+.node_modules
+memory-bank
+.vscode
+.supabase

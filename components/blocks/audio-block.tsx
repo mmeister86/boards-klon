@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { ItemTypes } from "@/lib/item-types";
-import { Music, Loader2 } from "lucide-react";
+import { Loader2, UploadCloud, AlertCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBlocksStore } from "@/store/blocks-store";
 import { useSupabase } from "@/components/providers/supabase-provider";
@@ -42,6 +42,15 @@ interface FileDropItem {
 
 type AcceptedDropItem = FileDropItem;
 
+// --- Definiere Upload-Status-Typen ---
+type UploadStatus = "idle" | "uploading" | "error" | "success";
+
+interface AudioBlockState {
+  status: UploadStatus;
+  error: string | null;
+  audioUrl: string | null;
+}
+
 // --- Component Props ---
 interface AudioBlockProps {
   blockId: string;
@@ -60,11 +69,32 @@ export function AudioBlock({
   onSelect,
 }: AudioBlockProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  // --- Zustand für Upload-Status, Fehler und URL ---
+  const [state, setState] = useState<AudioBlockState>(() => ({
+    status: content ? "success" : "idle", // Initialstatus basierend auf content
+    error: null,
+    audioUrl: content || null,
+  }));
 
   const { updateBlockContent } = useBlocksStore();
   const { supabase } = useSupabase();
+
+  // --- Zustand bei Inhaltsänderung aktualisieren ---
+  useEffect(() => {
+    setState((prev) => ({
+      ...prev,
+      status: content ? "success" : "idle",
+      audioUrl: content || null,
+      error: null, // Fehler zurücksetzen bei neuer URL
+    }));
+  }, [content]);
+
+  // --- Zustand beim Unmount bereinigen ---
+  useEffect(() => {
+    return () => {
+      setState({ status: "idle", error: null, audioUrl: null });
+    };
+  }, []);
 
   const [{ isDragging }, drag] = useDrag(
     {
@@ -82,32 +112,69 @@ export function AudioBlock({
     [blockId, content, dropAreaId]
   );
 
+  // --- Funktion zum Löschen des Audioinhalts ---
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation(); // Verhindert das Auswählen des Blocks
+      if (!supabase || !state.audioUrl) return;
+
+      // Optional: Datei auch aus Storage löschen (vorsichtig verwenden!)
+      // const filePath = state.audioUrl.substring(state.audioUrl.indexOf('public/'));
+      // supabase.storage.from('audio').remove([filePath]);
+
+      updateBlockContent(blockId, dropAreaId, "");
+      setState({ status: "idle", error: null, audioUrl: null }); // Lokalen Zustand aktualisieren
+      toast.info("Audio entfernt.");
+    },
+    [blockId, dropAreaId, updateBlockContent, state.audioUrl, supabase]
+  );
+
   const processDroppedFile = useCallback(
     async (file: File) => {
       if (!supabase) {
         toast.error("Supabase Client nicht verfügbar.");
-        setUploadError("Upload-Service nicht bereit.");
+        setState((prev) => ({
+          ...prev,
+          status: "error",
+          error: "Upload-Service nicht bereit.",
+        }));
         return;
       }
-      setIsUploading(true);
-      setUploadError(null);
+      // --- Zustand auf "uploading" setzen ---
+      setState((prev) => ({ ...prev, status: "uploading", error: null }));
 
       const sanitizedFilename = sanitizeFilename(file.name);
-      const filePath = `public/${blockId}-${sanitizedFilename}`;
+      // --- Eindeutigen Dateipfad generieren (optional, aber empfohlen) ---
+      // const uniqueId = uuidv4(); // Erfordert uuid Import: import { v4 as uuidv4 } from "uuid";
+      const filePath = `public/${blockId}-${Date.now()}-${sanitizedFilename}`; // Zeitstempel für Eindeutigkeit hinzugefügt
 
       toast.info(`Lade ${sanitizedFilename} hoch...`);
-      console.log(`AudioBlock (${blockId}): Starte Upload für ${sanitizedFilename} nach ${filePath}`);
+      console.log(
+        `AudioBlock (${blockId}): Starte Upload für ${sanitizedFilename} nach ${filePath}`
+      );
 
       try {
         const { error } = await supabase.storage
           .from("audio")
           .upload(filePath, file, {
             cacheControl: "3600",
-            upsert: true,
+            upsert: false, // Upsert auf false setzen, um Überschreiben zu verhindern, wenn Dateiname gleich bleibt
           });
 
         if (error) {
-          throw error;
+          // --- Spezifische Fehlerbehandlung für Duplikate (optional) ---
+          if (
+            error.message.includes(
+              "duplicate key value violates unique constraint"
+            )
+          ) {
+            console.warn(
+              `AudioBlock (${blockId}): Datei ${filePath} existiert bereits. Überspringe Upload.`
+            );
+            // Hier könnte man die URL der existierenden Datei abrufen, falls gewünscht
+          } else {
+            throw error;
+          }
         }
 
         const { data: publicUrlData } = supabase.storage
@@ -119,19 +186,33 @@ export function AudioBlock({
         }
 
         const newContentUrl = publicUrlData.publicUrl;
-        console.log(`AudioBlock (${blockId}): Upload erfolgreich. URL: ${newContentUrl}`);
+        console.log(
+          `AudioBlock (${blockId}): Upload erfolgreich. URL: ${newContentUrl}`
+        );
 
         updateBlockContent(blockId, dropAreaId, newContentUrl);
+        // --- Zustand auf "success" setzen ---
+        setState((prev) => ({
+          ...prev,
+          status: "success",
+          audioUrl: newContentUrl,
+          error: null,
+        }));
         toast.success(`${sanitizedFilename} erfolgreich hochgeladen!`);
-
       } catch (error) {
         console.error(`AudioBlock (${blockId}): Fehler beim Upload:`, error);
-        const errorMessage = (error instanceof Error ? error.message : String(error)) || "Unbekannter Upload-Fehler.";
-        setUploadError(`Fehler: ${errorMessage}`);
+        const errorMessage =
+          (error instanceof Error ? error.message : String(error)) ||
+          "Unbekannter Upload-Fehler.";
+        // --- Zustand auf "error" setzen ---
+        setState((prev) => ({
+          ...prev,
+          status: "error",
+          error: `Fehler: ${errorMessage}`,
+        }));
         toast.error(`Upload fehlgeschlagen: ${errorMessage}`);
-      } finally {
-        setIsUploading(false);
       }
+      // 'finally' wird nicht mehr benötigt, da der Status in try/catch gesetzt wird
     },
     [supabase, blockId, dropAreaId, updateBlockContent]
   );
@@ -143,7 +224,6 @@ export function AudioBlock({
   >(
     () => ({
       accept: [NativeTypes.FILE],
-
       canDrop: (item, monitor) => {
         const itemType = monitor.getItemType();
         if (itemType === NativeTypes.FILE) {
@@ -155,7 +235,6 @@ export function AudioBlock({
         }
         return false;
       },
-
       drop: (item, monitor) => {
         if (monitor.didDrop()) {
           return;
@@ -172,7 +251,6 @@ export function AudioBlock({
           }
         }
       },
-
       collect: (monitor) => ({
         isOver: monitor.isOver(),
         canDrop: monitor.canDrop(),
@@ -184,88 +262,135 @@ export function AudioBlock({
   drag(ref);
   drop(ref);
 
-  const isActiveDrop = isOver && canDrop;
+  const isActive = isOver && canDrop; // Umbenannt von isActiveDrop zu isActive für Konsistenz
 
-  if (!content) {
+  // --- Fall: Kein Audioinhalt (Placeholder) ---
+  if (
+    !state.audioUrl &&
+    (state.status === "idle" || state.status === "error")
+  ) {
     return (
       <div
         ref={ref}
         className={cn(
-          "group relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 transition-all",
-          "border-gray-300 hover:border-gray-400",
-          (isDragging || isUploading) && "opacity-50",
-          isSelected && "ring-2 ring-rose-600",
-          uploadError && "border-red-500 bg-red-50"
+          "group relative flex aspect-video min-h-[60px] cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-2 transition-colors duration-200",
+          // --- Styling an ImageBlock angepasst ---
+          isActive
+            ? "border-primary bg-primary/10" // Aktiv beim Hovern mit passender Datei
+            : canDrop
+            ? "border-primary/50" // Zeigt an, dass hier abgelegt werden kann
+            : "border-transparent bg-muted", // Standard-Placeholder-Stil
+          isDragging && "opacity-50",
+          isSelected && !isActive && "ring-2 ring-rose-500", // Selektionsring (Rose beibehalten)
+          state.status === "error" &&
+            !isActive &&
+            "border-destructive bg-destructive/10" // Fehlerstil
         )}
         onClick={onSelect}
         role="button"
-        aria-label="Audio Block Placeholder"
+        aria-label="Audio Block Platzhalter"
       >
-        {isUploading ? (
-          <div className="flex flex-col items-center justify-center text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
-            <p className="mt-2 text-sm text-rose-600 font-medium">
-              Lädt hoch...
+        {/* --- Upload-Indikator (Overlay-Stil) --- */}
+        {state.status === ("uploading" as string) && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-sm font-medium text-primary">
+              Wird hochgeladen...
             </p>
           </div>
-        ) : uploadError ? (
-           <div className="flex flex-col items-center justify-center space-y-2 text-center">
-             <Music className="h-8 w-8 text-red-500"/>
-             <p className="text-sm text-red-600 font-medium">
-                Upload fehlgeschlagen
-             </p>
-             <p className="text-xs text-red-500">{uploadError}</p>
-            </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center space-y-2 text-center">
-            <Music
+        )}
+
+        {/* --- Fehleranzeige (Overlay-Stil) --- */}
+        {state.status === "error" && !isActive && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center text-destructive">
+            <AlertCircle className="h-8 w-8 mb-1" />
+            <p className="text-sm font-medium mb-1">Upload fehlgeschlagen</p>
+            <p className="text-xs">{state.error}</p>
+          </div>
+        )}
+
+        {/* --- Aktiver Drop-Bereich (Overlay) --- */}
+        {canDrop && (
+          <div
+            className={cn(
+              "absolute inset-0 z-30 flex flex-col items-center justify-center transition-opacity duration-200",
+              isActive ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+          >
+            <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm rounded-lg border-2 border-primary"></div>
+            <UploadCloud className="h-10 w-10 mb-2 text-primary" />
+            <p className="text-sm font-medium text-primary">
+              Audio hier ablegen
+            </p>
+          </div>
+        )}
+
+        {/* --- Standard-Placeholder-Inhalt (nur sichtbar wenn idle) --- */}
+        {state.status === "idle" && !isActive && (
+          <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+            <UploadCloud
               className={cn(
-                "h-8 w-8 text-gray-400 group-hover:text-gray-500",
-                isActiveDrop && "text-rose-500"
+                "h-10 w-10 mb-2 transition-colors",
+                "text-muted-foreground/50" // Standardfarbe
               )}
             />
-            <p
-              className={cn(
-                "text-sm text-gray-500",
-                isActiveDrop && "text-rose-600 font-medium"
-              )}
-            >
-              {canDrop ? "Audio hier ablegen" : "Audiodatei hierher ziehen"}
+            <p className="text-sm font-medium">
+              Audio hierher ziehen oder{" "}
+              <span className="text-primary">hochladen</span>
             </p>
+            {/* <p className="text-xs mt-1">Zusätzliche Info...</p> */}
           </div>
         )}
       </div>
     );
   }
 
+  // --- Fall: Audioinhalt vorhanden ---
   return (
     <div
       ref={ref}
       className={cn(
-        "group relative",
+        "group relative rounded-xl", // rounded-xl für Konsistenz
         isDragging && "opacity-50",
-        isSelected && "ring-2 ring-rose-500 rounded-xl",
-        isActiveDrop && "ring-2 ring-rose-300 border-rose-400 rounded-xl"
+        // --- Selektions- und Drop-Hervorhebung ---
+        isSelected && !isActive && "ring-2 ring-rose-500", // Rose beibehalten für Selektion
+        isActive && "ring-2 ring-primary border-primary bg-primary/10" // Primärfarbe für Drop
       )}
       onClick={onSelect}
       aria-label="Audio Block Player Container"
     >
-      {isUploading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-xl z-10">
-              <Loader2 className="h-8 w-8 animate-spin text-white" />
-              <p className="mt-2 text-sm text-white font-medium">
-                  Lädt hoch...
-              </p>
-          </div>
+      {/* --- Löschen-Button --- */}
+      {state.audioUrl && state.status !== "uploading" && (
+        <button
+          onClick={handleDelete}
+          className="absolute top-2 right-2 z-40 p-1 bg-background/80 hover:bg-background rounded-full shadow-sm"
+          aria-label="Audio löschen"
+        >
+          <X className="h-4 w-4" />
+        </button>
       )}
-      <ModernAudioPlayer url={content} />
 
-      {isActiveDrop && !isUploading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-rose-500/30 rounded-xl">
-          <p className="text-sm font-medium text-white bg-rose-600 px-2 py-1 rounded">
+      {/* --- Upload-Overlay (wenn über vorhandenes Audio hochgeladen wird) --- */}
+      {state.status === "uploading" && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-xl">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-sm text-primary font-medium">Lädt hoch...</p>
+        </div>
+      )}
+
+      {/* --- Aktiver Drop-Bereich Overlay (über vorhandenem Player) --- */}
+      {isActive && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-primary/20 backdrop-blur-sm rounded-xl border-2 border-primary">
+          <UploadCloud className="h-10 w-10 mb-2 text-primary" />
+          <p className="text-sm font-medium text-primary bg-primary/80 px-2 py-1 rounded">
             Audio ersetzen
           </p>
         </div>
+      )}
+
+      {/* --- Der eigentliche Audio-Player --- */}
+      {state.audioUrl && (
+        <ModernAudioPlayer url={state.audioUrl} key={state.audioUrl} /> // key hinzugefügt für sauberes Remounting bei URL-Änderung
       )}
     </div>
   );

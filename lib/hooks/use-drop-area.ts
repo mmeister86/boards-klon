@@ -446,14 +446,20 @@ export const useDropArea = (dropArea: DropAreaType, viewport: ViewportType) => {
               // Handle EXISTING block moved into this area (empty or populated)
               // Verwende blockItem.id und blockItem.sourceDropAreaId
               if (isExistingBlock && blockItem.id && blockItem.sourceDropAreaId) {
+                  // --- BEGIN ADD LOG ---
+                  console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Handling EXISTING_BLOCK drop. Calling moveBlock for:`, {
+                      id: blockItem.id,
+                      source: blockItem.sourceDropAreaId,
+                      target: dropArea.id,
+                      itemContent: blockItem.content // Log content from the dragged item itself
+                  });
+                  // --- END ADD LOG ---
                   const result = {
                       name: `Moved Block ${blockItem.id} to ${dropArea.id}`,
                       handled: true,
                       dropAreaId: dropArea.id,
                   };
-                  setTimeout(() => {
-                      moveBlock(blockItem.id!, blockItem.sourceDropAreaId!, dropArea.id);
-                  }, 0);
+                  moveBlock(blockItem.id!, blockItem.sourceDropAreaId!, dropArea.id);
 
                   console.log(`[${dropOpId}] DropAreaHook ${dropArea.id}: Moved existing block ${blockItem.id}`);
                   return result;

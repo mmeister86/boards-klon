@@ -4,7 +4,7 @@ import { useBlocksStore } from "@/store/blocks-store";
 import { useViewport } from "@/lib/hooks/use-viewport";
 import { DropArea } from "./drop-area/drop-area";
 import { ViewportSelector } from "./viewport-selector";
-import React, { useEffect, useState, useRef, createRef } from "react"; // Added React import
+import React, { useEffect, useRef, createRef } from "react"; // Removed useState import
 import { getViewportStyles } from "@/lib/utils/viewport-utils";
 import { useDrop } from "react-dnd"; // Added useDrop, removed DropTargetMonitor import
 import { ItemTypes } from "@/lib/item-types"; // Added ItemTypes
@@ -32,11 +32,10 @@ export default function Canvas() {
     insertBlockInNewArea, // Get the new store action
     previewMode,
     setPreviewMode,
+    canvasHoveredInsertionIndex,
+    setCanvasHoveredInsertionIndex,
   } = useBlocksStore();
   const { viewport } = useViewport();
-  const [hoveredInsertionIndex, setHoveredInsertionIndex] = useState<
-    number | null
-  >(null);
 
   // Refs for each drop area element
   const dropAreaRefs = useRef<React.RefObject<HTMLDivElement>[]>([]);
@@ -99,11 +98,11 @@ export default function Canvas() {
       if (!isOverCurrent || !clientOffset) {
         // If not hovering, start the timer to hide the indicator (if it's visible)
         if (
-          hoveredInsertionIndex !== null &&
+          canvasHoveredInsertionIndex !== null &&
           !hideIndicatorTimeoutRef.current // Only start if not already timing out
         ) {
           hideIndicatorTimeoutRef.current = setTimeout(() => {
-            setHoveredInsertionIndex(null);
+            setCanvasHoveredInsertionIndex(null);
             hideIndicatorTimeoutRef.current = null; // Clear ref after execution
           }, 150); // Hide after 150ms delay
         }
@@ -129,11 +128,11 @@ export default function Canvas() {
       if (!isInBounds) {
         // If out of bounds, start timer to hide indicator
         if (
-          hoveredInsertionIndex !== null &&
+          canvasHoveredInsertionIndex !== null &&
           !hideIndicatorTimeoutRef.current // Only start if not already timing out
         ) {
           hideIndicatorTimeoutRef.current = setTimeout(() => {
-            setHoveredInsertionIndex(null);
+            setCanvasHoveredInsertionIndex(null);
             hideIndicatorTimeoutRef.current = null; // Clear ref after execution
           }, 100); // Use shorter delay for out of bounds
         }
@@ -189,17 +188,17 @@ export default function Canvas() {
           hideIndicatorTimeoutRef.current = null;
         }
         // Set the index immediately if it's different
-        if (currentHoveredIndex !== hoveredInsertionIndex) {
-          setHoveredInsertionIndex(currentHoveredIndex);
+        if (currentHoveredIndex !== canvasHoveredInsertionIndex) {
+          setCanvasHoveredInsertionIndex(currentHoveredIndex);
         }
       } else {
         // If not hovering over a valid gap, start timer to hide (if not already started)
         if (
-          hoveredInsertionIndex !== null &&
+          canvasHoveredInsertionIndex !== null &&
           !hideIndicatorTimeoutRef.current
         ) {
           hideIndicatorTimeoutRef.current = setTimeout(() => {
-            setHoveredInsertionIndex(null);
+            setCanvasHoveredInsertionIndex(null);
             hideIndicatorTimeoutRef.current = null; // Clear ref after execution
           }, 150); // Hide after 150ms delay
         }
@@ -216,12 +215,12 @@ export default function Canvas() {
         hideIndicatorTimeoutRef.current = null;
       }
 
-      if (hoveredInsertionIndex !== null) {
+      if (canvasHoveredInsertionIndex !== null) {
         // console.log( // Removed log
         //   `Canvas: Drop detected in gap at index ${hoveredInsertionIndex}`
         // );
-        insertBlockInNewArea(item, hoveredInsertionIndex);
-        setHoveredInsertionIndex(null); // Reset state immediately on drop
+        insertBlockInNewArea(item, canvasHoveredInsertionIndex);
+        setCanvasHoveredInsertionIndex(null); // Reset state immediately on drop
         return undefined;
       }
       // console.log("Canvas: Drop not in gap, letting DropArea handle."); // Removed log
@@ -291,21 +290,26 @@ export default function Canvas() {
                 className="w-full"
                 data-drop-container="true"
               >
-                {filteredDropAreas.map((dropArea, index) => (
-                  <React.Fragment key={`${dropArea.id}-${index}`}>
+                <InsertionIndicator
+                  isVisible={canvasHoveredInsertionIndex === 0}
+                />
+                {filteredDropAreas.map((area, index) => (
+                  <React.Fragment key={`${area.id}-${index}`}>
                     <InsertionIndicator
-                      isVisible={index === hoveredInsertionIndex}
+                      isVisible={canvasHoveredInsertionIndex === index + 1}
                     />
                     <DropArea
                       ref={dropAreaRefs.current[index]}
-                      dropArea={dropArea}
+                      dropArea={area}
                       showSplitIndicator={viewport !== "mobile"}
                       viewport={viewport}
                     />
                   </React.Fragment>
                 ))}
                 <InsertionIndicator
-                  isVisible={filteredDropAreas.length === hoveredInsertionIndex}
+                  isVisible={
+                    filteredDropAreas.length === canvasHoveredInsertionIndex
+                  }
                 />
               </div>
             </div>
