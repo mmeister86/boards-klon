@@ -82,39 +82,61 @@ export default function Canvas() {
     {
       accept: [ItemTypes.LAYOUT_BLOCK, ItemTypes.EXISTING_LAYOUT_BLOCK],
       hover: (item, monitor) => {
-        const clientOffset = monitor.getClientOffset();
+        console.log("DnD Event: hover", {
+          type: monitor.getItemType(),
+          isOver: monitor.isOver(),
+          isOverCurrent: monitor.isOver({ shallow: true }),
+          didDrop: monitor.didDrop(),
+          item
+        });
 
+        const clientOffset = monitor.getClientOffset();
         if (!clientOffset) {
+          console.log("DnD Event: Keine Mausposition in hover");
           return;
         }
 
         if (!monitor.isOver({ shallow: true })) {
+          console.log("DnD Event: Verlasse Drop-Zone in hover");
           if (
             canvasHoveredInsertionIndex !== null &&
             !hideIndicatorTimeoutRef.current
           ) {
+            console.log("DnD Event: Starte Timeout für Indikator-Reset");
             hideIndicatorTimeoutRef.current = setTimeout(() => {
+              console.log("DnD Event: Timeout ausgeführt - Reset Indikator");
               setCanvasHoveredInsertionIndex(null);
               hideIndicatorTimeoutRef.current = null;
-            }, 150);
+            }, 300);
           }
           return;
         }
 
         let currentHoveredIndex: number | null = null;
         const layoutCount = layoutBlocks.length;
+        console.log("Canvas: Anzahl Layouts:", layoutCount);
 
         if (layoutCount === 0) {
           if (placeholderRef.current) {
-            const placeholderRect =
-              placeholderRef.current.getBoundingClientRect();
+            const placeholderRect = placeholderRef.current.getBoundingClientRect();
+            const extendedRect = {
+              top: placeholderRect.top - 50,
+              bottom: placeholderRect.bottom + 50,
+              left: placeholderRect.left - 50,
+              right: placeholderRect.right + 50
+            };
+
             if (
-              clientOffset.y >= placeholderRect.top &&
-              clientOffset.y <= placeholderRect.bottom &&
-              clientOffset.x >= placeholderRect.left &&
-              clientOffset.x <= placeholderRect.right
+              clientOffset.y >= extendedRect.top &&
+              clientOffset.y <= extendedRect.bottom &&
+              clientOffset.x >= extendedRect.left &&
+              clientOffset.x <= extendedRect.right
             ) {
               currentHoveredIndex = 0;
+              if (hideIndicatorTimeoutRef.current) {
+                clearTimeout(hideIndicatorTimeoutRef.current);
+                hideIndicatorTimeoutRef.current = null;
+              }
             }
           }
         } else {
@@ -161,6 +183,7 @@ export default function Canvas() {
         }
 
         if (currentHoveredIndex !== null) {
+          console.log("Canvas: Berechneter Index:", currentHoveredIndex);
           if (hideIndicatorTimeoutRef.current) {
             clearTimeout(hideIndicatorTimeoutRef.current);
             hideIndicatorTimeoutRef.current = null;
@@ -169,6 +192,7 @@ export default function Canvas() {
             setCanvasHoveredInsertionIndex(currentHoveredIndex);
           }
         } else {
+          console.log("Canvas: Kein gültiger Index gefunden");
           if (
             canvasHoveredInsertionIndex !== null &&
             !hideIndicatorTimeoutRef.current
@@ -176,12 +200,22 @@ export default function Canvas() {
             hideIndicatorTimeoutRef.current = setTimeout(() => {
               setCanvasHoveredInsertionIndex(null);
               hideIndicatorTimeoutRef.current = null;
-            }, 150);
+            }, 300);
           }
         }
       },
       drop: (item, monitor) => {
+        console.log("DnD Event: drop", {
+          type: monitor.getItemType(),
+          isOver: monitor.isOver(),
+          isOverCurrent: monitor.isOver({ shallow: true }),
+          didDrop: monitor.didDrop(),
+          item,
+          targetIndex: canvasHoveredInsertionIndex
+        });
+
         if (hideIndicatorTimeoutRef.current) {
+          console.log("DnD Event: Lösche Timeout beim Drop");
           clearTimeout(hideIndicatorTimeoutRef.current);
           hideIndicatorTimeoutRef.current = null;
         }
@@ -190,7 +224,7 @@ export default function Canvas() {
         setCanvasHoveredInsertionIndex(null);
 
         if (targetIndex === null) {
-          console.log("Canvas: Drop nicht in gültigem Bereich.");
+          console.log("DnD Event: Drop abgebrochen - Kein gültiger Index");
           return undefined;
         }
 
@@ -199,20 +233,16 @@ export default function Canvas() {
         if (itemType === ItemTypes.LAYOUT_BLOCK) {
           const layoutInput = item as NewLayoutDragItem;
           if (layoutInput.layoutType) {
-            console.log(
-              `Canvas: Neues Layout ${layoutInput.layoutType} an Index ${targetIndex} hinzufügen.`
-            );
+            console.log("DnD Event: Füge neues Layout hinzu", {
+              type: layoutInput.layoutType,
+              index: targetIndex
+            });
             addLayoutBlock(layoutInput.layoutType, targetIndex);
           } else {
-            console.error(
-              "Canvas: Fehlendes layoutType im NewLayoutDragItem",
-              item
-            );
+            console.error("DnD Event: Fehlendes layoutType im NewLayoutDragItem", item);
           }
         } else if (itemType === ItemTypes.EXISTING_LAYOUT_BLOCK) {
-          console.log(
-            `Canvas: Drop von bestehendem LayoutBlock (wurde bereits durch hover verschoben).`
-          );
+          console.log("DnD Event: Verschiebe bestehendes Layout");
         } else {
           console.log(
             `Canvas: Unerwarteter Item-Typ gedropped: ${itemType?.toString()}`
@@ -284,30 +314,28 @@ export default function Canvas() {
       </div>
 
       <div
-        className="mx-auto transition-all duration-300 ease-in-out relative pb-20"
+        className="mx-auto transition-all duration-300 ease-in-out relative pb-20 bg-white rounded-xl shadow-lg p-4 py-10"
         style={viewportStyles}
       >
         {layoutBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
-            {canvasHoveredInsertionIndex === index && index !== 0 && (
+            {canvasHoveredInsertionIndex === 0 && index === 0 && (
               <div
-                ref={placeholderRef}
                 className={clsx(
-                  "h-36 border-2 border-dashed rounded-lg my-1 py-4 transition-colors",
+                  "h-16 border-2 border-dashed rounded-lg my-1 transition-colors",
                   isOver
-                    ? "border-blue-500 bg-blue-100 dark:bg-blue-900/30"
-                    : "border-blue-200"
+                    ? "border-blue-500 bg-blue-100"
+                    : "border-transparent"
                 )}
               ></div>
             )}
-            {canvasHoveredInsertionIndex === 0 && index === 0 && (
+            {canvasHoveredInsertionIndex === index && index !== 0 && (
               <div
-                ref={placeholderRef}
                 className={clsx(
-                  "h-36 border-2 border-dashed rounded-lg my-1 py-4 transition-colors",
+                  "h-16 border-2 border-dashed rounded-lg my-1 transition-colors",
                   isOver
-                    ? "border-blue-500 bg-blue-100 dark:bg-blue-900/30"
-                    : "border-blue-200"
+                    ? "border-blue-500 bg-blue-100"
+                    : "border-transparent"
                 )}
               ></div>
             )}
@@ -322,12 +350,11 @@ export default function Canvas() {
             {canvasHoveredInsertionIndex === layoutBlocks.length &&
               index === layoutBlocks.length - 1 && (
                 <div
-                  ref={placeholderRef}
                   className={clsx(
-                    "h-36 border-2 border-dashed rounded-lg my-1 py-4 transition-colors",
+                    "h-16 border-2 border-dashed rounded-lg my-1 transition-colors",
                     isOver
-                      ? "border-blue-500 bg-blue-100 dark:bg-blue-900/30"
-                      : "border-blue-200"
+                      ? "border-blue-500 bg-blue-100"
+                      : "border-transparent"
                   )}
                 ></div>
               )}
@@ -338,13 +365,13 @@ export default function Canvas() {
           <div
             ref={placeholderRef}
             className={clsx(
-              "text-center py-20 border-2 rounded-lg transition-colors",
-              canvasHoveredInsertionIndex === 0 && isOver
-                ? "border-dashed border-blue-500 dark:bg-blue-900/30"
-                : "border-dashed border-gray-300 dark:border-gray-600"
+              "text-center py-20 border-2 rounded-lg transition-colors cursor-pointer",
+              isOver
+                ? "border-dashed border-blue-500 bg-blue-100"
+                : "border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50"
             )}
           >
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-gray-500">
               Ziehe ein Layout aus der Seitenleiste hierhin,
               <br />
               um zu beginnen.

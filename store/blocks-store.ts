@@ -176,37 +176,117 @@ const createZonesForLayout = (layoutType: LayoutType): ContentDropZoneType[] => 
   return zones;
 }
 
-// Hilfsfunktion zum Erstellen eines Standard-Layoutblocks
-const createDefaultLayoutBlock = (): LayoutBlockType => ({
-  id: crypto.randomUUID(),
-  type: "single-column",
-  zones: createZonesForLayout("single-column"),
-});
-
 // Create the store
 export const useBlocksStore = create<BlocksState>((set, get) => {
   // Create a debounced version of the save function
   const debouncedSave = debounce(async () => {
-    const { currentProjectTitle, currentProjectId, isSaving, autoSaveEnabled } =
-      get();
+    const state = get();
+    console.log("Debounced Save Check:", {
+      isSaving: state.isSaving,
+      currentProjectId: state.currentProjectId,
+      autoSaveEnabled: state.autoSaveEnabled
+    });
 
-    if (isSaving || !currentProjectId || !autoSaveEnabled) {
+    if (!state.currentProjectId || !state.autoSaveEnabled) {
+      console.log("Debounced Save Aborted:", {
+        reason: !state.currentProjectId ? "no projectId" : "autoSave disabled"
+      });
+      return;
+    }
+    
+    if (state.isSaving) {
+      console.log("Already saving, will retry in 3 seconds");
+      // Schedule another attempt after current save completes
+      setTimeout(() => {
+        const newState = get();
+        if (!newState.isSaving && newState.autoSaveEnabled) {
+          console.log("Retrying auto-save after previous save completed");
+          debouncedSave();
+        }
+      }, 3000);
       return;
     }
 
-    set({ isSaving: true });
-
+    console.log("Starting auto-save process...");
+    
+    // Use direct internal save implementation rather than calling saveProject
+    // to avoid the double isSaving check
     try {
-      const success = await get().saveProject(currentProjectTitle);
+      // Mark as saving
+      set({ isSaving: true });
+      
+      const {
+        currentProjectId,
+        currentProjectDatabaseId,
+        layoutBlocks,
+        currentProjectTitle
+      } = get();
+
+      console.log("Internal auto-save running for project:", {
+        id: currentProjectId,
+        dbId: currentProjectDatabaseId,
+        title: currentProjectTitle,
+        layoutBlockCount: layoutBlocks.length
+      });
+      
+      const now = new Date().toISOString();
+      const supabase = getSupabase();
+
+      // Clone to avoid mutating state directly
+      const blocksToSave = JSON.parse(JSON.stringify(layoutBlocks));
+
+      const projectData = {
+        id: currentProjectDatabaseId || currentProjectId,
+        title: currentProjectTitle,
+        description: "",
+        layoutBlocks: blocksToSave,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      let success = false;
+      let finalDbId: string | null = null;
+      const supabaseUser = supabase ? (await supabase.auth.getUser()).data.user : null;
+
+      // Try database save first
+      if (supabase && supabaseUser) {
+        const dbResult = await saveProjectToDatabase(
+          projectData,
+          supabaseUser.id
+        );
+        success = dbResult.success;
+        finalDbId = dbResult.projectId;
+        console.log("Auto-save to database:", success, "DB ID:", finalDbId);
+      } else {
+        console.log("Supabase client or user not available, attempting storage save only.");
+      }
+
+      // If DB save not successful OR no DB connection, try local storage
+      if (!success) {
+        console.log("Attempting to save to local storage with ID:", currentProjectId);
+        success = await saveProjectToStorage(projectData);
+        console.log("Auto-save to storage:", success);
+        if (finalDbId && !success) finalDbId = null;
+      } else {
+        // If DB successful, optionally sync storage
+        if (finalDbId) {
+          await saveProjectToStorage({ ...projectData, id: finalDbId });
+          console.log("Synchronized local storage with DB ID:", finalDbId);
+        }
+      }
+
+      console.log(`Auto-save completed with result: ${success ? 'success' : 'failed'}`);
+      
       set({
-        lastSaved: success ? new Date() : null,
+        currentProjectTitle: currentProjectTitle,
+        currentProjectDatabaseId: finalDbId,
+        currentProjectId: finalDbId || currentProjectId,
+        lastSaved: success ? new Date() : get().lastSaved,
         isSaving: false,
       });
     } catch (error: any) {
-      set({ isSaving: false });
-      // Consider more robust error handling/logging here
       console.error(`Auto-save error: ${error.message}`);
-      // throw new Error(`Auto-save error: ${error.message}`); // Avoid throwing to not break the app
+      set({ isSaving: false });
     }
   }, 2000); // 2 seconds debounce time
 
@@ -319,12 +399,63 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     deleteBlock: (blockId, sourceLayoutId, sourceZoneId) => {
+      console.log("Store: deleteBlock called with:", {
+        blockId,
+        sourceLayoutId,
+        sourceZoneId
+      });
+      
+      // Check for null or undefined values
+      if (!blockId) {
+        console.error("Cannot delete block with null/undefined blockId");
+        return;
+      }
+      if (!sourceLayoutId) {
+        console.error("Cannot delete block with null/undefined sourceLayoutId");
+        return;
+      }
+      if (!sourceZoneId) {
+        console.error("Cannot delete block with null/undefined sourceZoneId");
+        return;
+      }
+      
       set((state) => {
+        console.log("Block store state:", {
+          layoutBlocksCount: state.layoutBlocks.length,
+          layoutBlockIds: state.layoutBlocks.map(lb => lb.id),
+          selectedBlockId: state.selectedBlockId
+        });
+        
+        // Find our layout block and zone to do checks before deleting
+        const layoutBlock = state.layoutBlocks.find(lb => lb.id === sourceLayoutId);
+        if (!layoutBlock) {
+          console.error(`Cannot find layout block with ID ${sourceLayoutId}`);
+          return {}; // No change to state
+        }
+        
+        const zone = layoutBlock.zones.find(z => z.id === sourceZoneId);
+        if (!zone) {
+          console.error(`Cannot find zone with ID ${sourceZoneId} in layout ${sourceLayoutId}`);
+          return {}; // No change to state
+        }
+        
+        const blockToDelete = zone.blocks.find(b => b.id === blockId);
+        if (!blockToDelete) {
+          console.error(`Cannot find block with ID ${blockId} in zone ${sourceZoneId}`);
+          return {}; // No change to state
+        }
+        
+        console.log("Found block to delete:", {
+          blockId: blockToDelete.id,
+          blockType: blockToDelete.type
+        });
+        
         const newLayoutBlocks = state.layoutBlocks.map((layoutBlock) => {
           if (layoutBlock.id === sourceLayoutId) {
             const newZones = layoutBlock.zones.map((zone) => {
               if (zone.id === sourceZoneId) {
                 const updatedBlocks = zone.blocks.filter((b) => b.id !== blockId);
+                console.log(`Filtered blocks in zone ${zone.id}: ${zone.blocks.length} -> ${updatedBlocks.length}`);
                 return { ...zone, blocks: updatedBlocks };
               }
               return zone;
@@ -333,11 +464,16 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           }
           return layoutBlock;
         });
+        
         const newSelectedBlockId =
           state.selectedBlockId === blockId ? null : state.selectedBlockId;
+        
+        console.log("Delete operation completed");
+        
         return {
           layoutBlocks: newLayoutBlocks,
           selectedBlockId: newSelectedBlockId,
+          canvasHoveredInsertionIndex: null,
         };
       });
       get().triggerAutoSave();
@@ -409,6 +545,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
     // NEU: Layout Block Actions Implementation
     addLayoutBlock: (type, targetIndex) => {
+      const state = get();
       const newLayoutBlockId = crypto.randomUUID();
       const newBlock: LayoutBlockType = {
         id: newLayoutBlockId,
@@ -416,24 +553,59 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         zones: createZonesForLayout(type),
       };
 
-      set((state) => {
-        const updatedLayoutBlocks = [...state.layoutBlocks];
-        const insertAt =
-          targetIndex !== undefined &&
-          targetIndex >= 0 &&
-          targetIndex <= updatedLayoutBlocks.length
-            ? targetIndex
-            : updatedLayoutBlocks.length;
-        updatedLayoutBlocks.splice(insertAt, 0, newBlock);
-
-        return { layoutBlocks: updatedLayoutBlocks };
-      });
-      get().triggerAutoSave();
+      // Check if we have a project ID - if not, create a new project first
+      if (!state.currentProjectId) {
+        console.log("[addLayoutBlock] No project ID found, auto-creating a project");
+        (async () => {
+          try {
+            const newProjectId = await state.createNewProject("Unbenanntes Projekt");
+            if (newProjectId) {
+              console.log(`[addLayoutBlock] Created new project: ${newProjectId}`);
+              
+              // Now add the layout block
+              set((state) => {
+                const updatedLayoutBlocks = [...state.layoutBlocks];
+                const insertAt =
+                  targetIndex !== undefined &&
+                  targetIndex >= 0 &&
+                  targetIndex <= updatedLayoutBlocks.length
+                    ? targetIndex
+                    : updatedLayoutBlocks.length;
+                updatedLayoutBlocks.splice(insertAt, 0, newBlock);
+                return { layoutBlocks: updatedLayoutBlocks };
+              });
+              
+              // Trigger save after setting both project ID and layout block
+              get().triggerAutoSave();
+            } else {
+              console.error("[addLayoutBlock] Failed to auto-create a project");
+            }
+          } catch (error) {
+            console.error("[addLayoutBlock] Error creating project:", error);
+          }
+        })();
+      } else {
+        // Normal flow when we have a project ID
+        set((state) => {
+          const updatedLayoutBlocks = [...state.layoutBlocks];
+          const insertAt =
+            targetIndex !== undefined &&
+            targetIndex >= 0 &&
+            targetIndex <= updatedLayoutBlocks.length
+              ? targetIndex
+              : updatedLayoutBlocks.length;
+          updatedLayoutBlocks.splice(insertAt, 0, newBlock);
+          return { layoutBlocks: updatedLayoutBlocks };
+        });
+        get().triggerAutoSave();
+      }
+      
       return newLayoutBlockId; // Gibt die ID zurück
     },
 
     deleteLayoutBlock: (id) => {
       set((state) => {
+        // Finde den zu löschenden LayoutBlock, um ggf. die Auswahl zurückzusetzen
         const layoutToDelete = state.layoutBlocks.find((lb) => lb.id === id);
         if (!layoutToDelete) return {}; // Nicht gefunden
 
@@ -441,13 +613,9 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           (block) => block.id !== id
         );
 
-        // Wenn keine Layoutblöcke mehr übrig sind, füge einen Standardblock hinzu
-        if (updatedLayoutBlocks.length === 0) {
-          updatedLayoutBlocks.push(createDefaultLayoutBlock());
-        }
-
         let newSelectedBlockId = state.selectedBlockId;
         if (state.selectedBlockId) {
+          // Wenn das ausgewählte Block im gelöschten Layoutblock war, Auswahl zurücksetzen
           const blockWasInDeletedLayout = layoutToDelete.zones.some((z) =>
             z.blocks.some((b) => b.id === state.selectedBlockId)
           );
@@ -455,9 +623,11 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
             newSelectedBlockId = null;
           }
         }
+
         return {
           layoutBlocks: updatedLayoutBlocks,
           selectedBlockId: newSelectedBlockId,
+          canvasHoveredInsertionIndex: null,
         };
       });
       get().triggerAutoSave();
@@ -517,9 +687,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         }
 
         // If not found in DB or Supabase not available, try Local Storage
-        // Benötigt userId!
         if (!projectData && userId) {
-          // Korrigierter Aufruf: projectId und userId übergeben
           projectData = await loadProjectFromStorage(projectId, userId);
           storageProjectId = projectData ? projectId : null;
         } else if (!projectData && !userId) {
@@ -528,17 +696,15 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
         if (projectData) {
           console.log("Project loaded:", projectData);
-          // --- KEINE Prüfung auf alte/neue Struktur hier mehr nötig, da DB das Parsen übernimmt ---
-          // Die DB-Funktion sollte direkt ProjectData mit layoutBlocks zurückgeben
           if (!projectData.layoutBlocks) {
-            console.warn(`Project ${projectId} loaded but has no layoutBlocks. Initializing with default.`);
-            projectData.layoutBlocks = [createDefaultLayoutBlock()];
+            console.warn(`Project ${projectId} loaded but hat keine layoutBlocks. Leere Canvas.`);
+            projectData.layoutBlocks = [];
           }
 
           set({
-            layoutBlocks: projectData.layoutBlocks.length > 0 ? projectData.layoutBlocks : [createDefaultLayoutBlock()], // Ensure never empty
-            currentProjectId: storageProjectId || dbProjectId || projectId, // Use the ID it was found with
-            currentProjectDatabaseId: dbProjectId || null, // Only set if loaded from DB
+            layoutBlocks: projectData.layoutBlocks, // Leerer oder geladener Array wird verwendet
+            currentProjectId: storageProjectId || dbProjectId || projectId,
+            currentProjectDatabaseId: dbProjectId || null,
             currentProjectTitle: projectData.title || "Untitled Project",
             lastSaved: projectData.updatedAt ? new Date(projectData.updatedAt) : null,
             isLoading: false,
@@ -568,7 +734,17 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
         isSaving,
       } = get();
 
-      if (isSaving) return false; // Verhindere konkurrierende Speicherungen
+      console.log("Save Project called:", { 
+        currentProjectId, 
+        currentProjectDatabaseId, 
+        isSaving, 
+        blocksCount: layoutBlocks.length 
+      });
+
+      if (isSaving) {
+        console.log("Save aborted: Already saving");
+        return false; // Verhindere konkurrierende Speicherungen
+      }
       if (!currentProjectId) {
         console.error("Cannot save project without a currentProjectId");
         return false;
@@ -632,6 +808,13 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
           }
         }
 
+        // Log detailed save results for debugging
+        console.log("Save completed with result:", { 
+          success, 
+          finalDbId,
+          timestamp: new Date().toISOString()
+        });
+        
         set({
           currentProjectTitle: projectTitle,
           // Aktualisiere die currentProjectDatabaseId nur, wenn DB-Speichern erfolgreich war
@@ -650,6 +833,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     },
 
     createNewProject: async (title, description = "") => {
+      console.log("[Store] Creating new project:", { title, description });
       set({ isLoading: true });
       const supabase = getSupabase();
       const now = new Date().toISOString();
@@ -658,7 +842,7 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       const projectData: Omit<ProjectData, "id"> = {
         title: title,
         description: description,
-        layoutBlocks: initialLayout, // Neuer Schlüssel
+        layoutBlocks: initialLayout,
         createdAt: now,
         updatedAt: now,
       };
@@ -670,44 +854,48 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
 
         // Versuche zuerst in der Datenbank zu erstellen
         if (supabase && supabaseUser) {
-          // Korrigierter Aufruf: projectData ohne ID und userId übergeben
+          console.log("[Store] Attempting to create project in database");
           const dbResult = await saveProjectToDatabase(
-             projectData, // projectData enthält hier keine ID
+             projectData,
              supabaseUser.id
            );
           if (dbResult.success && dbResult.projectId) {
             newDbId = dbResult.projectId;
-            newProjectId = newDbId; // Verwende DB-ID als primäre ID
-            console.log("Created project in database with ID:", newDbId);
-            // Optional: Auch im lokalen Storage speichern?
+            newProjectId = newDbId;
+            console.log("[Store] Created project in database:", { newDbId, newProjectId });
             await saveProjectToStorage({ ...projectData, id: newProjectId });
           } else {
-             console.error("Failed to create project in database.", dbResult);
+            console.error("[Store] Failed to create project in database:", dbResult);
           }
         }
 
         // Wenn DB fehlgeschlagen oder nicht verfügbar, erstelle im Local Storage
         if (!newProjectId) {
           newProjectId = `local-${crypto.randomUUID()}`;
+          console.log("[Store] Creating project in local storage:", newProjectId);
           const success = await saveProjectToStorage({ ...projectData, id: newProjectId });
           if (!success) throw new Error("Failed to save new project to storage");
-          console.log("Created project in local storage with ID:", newProjectId);
+          console.log("[Store] Created project in local storage:", newProjectId);
         }
 
-        set({
+        // Setze den State
+        const newState = {
           layoutBlocks: initialLayout,
           currentProjectId: newProjectId,
           currentProjectDatabaseId: newDbId,
           currentProjectTitle: title,
           isLoading: false,
           lastSaved: new Date(),
-          isPublished: false, // Neues Projekt ist nicht veröffentlicht
+          isPublished: false,
           publishedUrl: null,
-        });
+        };
+        console.log("[Store] Setting new project state:", newState);
+        set(newState);
+
         return newProjectId;
       } catch (error: any) {
+        console.error("[Store] Error creating new project:", error);
         set({ isLoading: false });
-        console.error(`Error creating new project: ${error.message}`);
         return null;
       }
     },
@@ -723,9 +911,32 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
       set((state) => ({ previewMode: !state.previewMode })),
     toggleAutoSave: (enabled) => set({ autoSaveEnabled: enabled }),
     triggerAutoSave: () => {
-      if (get().autoSaveEnabled) {
-        debouncedSave();
+      const state = get();
+      const { autoSaveEnabled, isSaving, currentProjectId } = state;
+      
+      console.log("AutoSave Trigger:", {
+        autoSaveEnabled,
+        isSaving,
+        currentProjectId
+      });
+      
+      if (!autoSaveEnabled) {
+        console.log("AutoSave not triggered: autoSaveEnabled is false");
+        return;
       }
+      
+      if (!currentProjectId) {
+        console.log("AutoSave not triggered: no currentProjectId");
+        return;
+      }
+      
+      if (isSaving) {
+        console.log("AutoSave deferred: already saving");
+        // Still trigger the debounced save, which will wait for the current save to complete
+      }
+      
+      console.log("Initiating debounced save sequence");
+      debouncedSave();
     },
     setProjectJustDeleted: (deleted) => set({ projectJustDeleted: deleted }),
     setDeletedProjectTitle: (title) => set({ deletedProjectTitle: title }),

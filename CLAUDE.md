@@ -1,10 +1,17 @@
-# CLAUDE.md - Guidelines for Boards Klon
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Commands
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm test` - Run all tests with Vitest
+- `npm test -- [filename]` - Run a single test file
+- `npm run test:ui` - Run tests with UI
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run test:e2e` - Run end-to-end tests with Playwright
 
 ## Code Style
 - **TypeScript**: Strict type checking, explicit return types for functions
@@ -24,10 +31,8 @@
 - `/store` - Zustand state management
 - `/utils` - Helper functions and utilities
 
-## Authentication Flow
-- **Protected Routes**: `/dashboard` and `/editor` require authentication
-- **Sign Up**: Magic link authentication (passwordless)
-  - User enters email → Magic link sent → User clicks link → Account created
-- **Sign In**: Magic link authentication (passwordless)
-  - User enters email → Magic link sent → User clicks link → Authentication complete
-- **Server-side Protection**: Middleware checks auth status and redirects as needed
+## Architecture Notes
+- **DnD (Drag and Drop)**: Uses React DnD library for drag and drop functionality
+- **Authentication**: Magic link authentication via Supabase
+- **Image Optimization**: Uses Sharp for image processing
+- **Data Storage**: Supabase for database and storage

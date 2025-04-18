@@ -37,28 +37,34 @@ const renderMediaItem = (item: MediaItem) => {
   let iconContent;
   const commonClasses = "h-8 w-8 text-foreground/80";
 
+  // Für die Sidebar-Vorschau verwenden wir wieder preview_url_128
+  const previewSrc = item.preview_url_128 || item.url;
+
   if (item.file_type.startsWith("image/")) {
     iconContent = (
-      <Image
-        src={item.preview_url_128 || item.url}
-        alt={item.file_name}
-        width={40}
-        height={40}
-        className="object-cover w-full h-full"
-        loading="lazy"
-      />
+      // Das Bild nutzt jetzt die volle Grid-Fläche, bleibt scharf und ist nicht zu klein
+      <div className="relative w-full h-full aspect-square">
+        <Image
+          src={previewSrc}
+          alt={item.file_name}
+          fill // Bild füllt das Elternelement komplett aus
+          className="object-cover rounded-lg"
+          loading="lazy"
+        />
+      </div>
     );
   } else if (item.file_type.startsWith("video/")) {
     if (item.preview_url_128) {
       iconContent = (
-        <Image
-          src={item.preview_url_128}
-          alt={`${item.file_name} preview`}
-          width={40}
-          height={40}
-          className="object-cover w-full h-full"
-          loading="lazy"
-        />
+        <div className="relative w-full h-full aspect-square">
+          <Image
+            src={item.preview_url_128}
+            alt={`${item.file_name} preview`}
+            fill
+            className="object-cover rounded-lg"
+            loading="lazy"
+          />
+        </div>
       );
     } else {
       iconContent = <VideoIcon className={commonClasses} />;
@@ -75,7 +81,7 @@ const renderMediaItem = (item: MediaItem) => {
       {/* Der bisherige Container wird jetzt als Kind von DraggableMediaItem gerendert */}
       <div
         className="aspect-square flex items-center justify-center border border-border rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden hover:scale-105"
-        title={item.file_name} // Tooltip bleibt hier, wird aber durch DraggableMediaItem ergänzt
+        title={item.file_name}
       >
         {iconContent}
       </div>

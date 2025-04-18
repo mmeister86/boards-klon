@@ -57,11 +57,10 @@ export const ImageBlock = forwardRef<HTMLDivElement, ImageBlockProps>(
           key={internalSrc} // Force re-render on src change
           src={internalSrc}
           alt={altText || "Bild"} // Default alt text
-          layout="responsive"
-          width={1600} // Placeholder width for responsive layout
-          height={900} // Placeholder height for responsive layout
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className={cn(
-            "transition-opacity duration-300 ease-in-out",
+            "transition-opacity duration-300 ease-in-out object-contain",
             status === "loading" ? "opacity-50" : "opacity-100",
             status === "error" ? "opacity-0" : "opacity-100" // Hide if error overlay is shown
           )}

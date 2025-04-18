@@ -54,6 +54,20 @@ export function CanvasBlock({
       selectBlock(null);
     }
   }, [isDragging, isSelected, selectBlock]);
+  
+  // Force hover state in dev mode for debugging
+  useEffect(() => {
+    // Log block info on mount
+    console.log("Block mounted:", {
+      id: block.id,
+      type: block.type,
+      layoutId,
+      zoneId
+    });
+    
+    // Uncomment the line below to force hover state for all blocks (testing only)
+    // setIsHovering(true);
+  }, [block.id, block.type, layoutId, zoneId]);
 
   const handleBlockClick = () => {
     if (!isSelected) {
@@ -63,13 +77,19 @@ export function CanvasBlock({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log("Deleting block:", {
+      blockId: block.id,
+      layoutId,
+      zoneId,
+      blockType: block.type
+    });
     // Verwende layoutId und zoneId statt block.dropAreaId
     deleteBlock(block.id, layoutId, zoneId);
     selectBlock(null);
   };
 
   return (
-    <div>
+    <div className="mb-3"> {/* Added margin for spacing between blocks */}
       {/* Main styled container - already has position: relative */}
       <div
         className={`p-4 bg-background border rounded-lg shadow-sm relative group
@@ -78,13 +98,21 @@ export function CanvasBlock({
         }
         ${viewport === "mobile" ? "text-sm" : ""}
         ${isDragging ? "opacity-60" : "opacity-100"}
-        transition-all duration-200 hover:shadow-md
+        transition-all duration-200 hover:shadow-md hover:border-blue-400
       `}
         onClick={handleBlockClick}
-        onMouseEnter={() => setIsHovering(true)} // Add mouse enter handler
-        onMouseLeave={() => setIsHovering(false)} // Add mouse leave handler
+        onMouseEnter={() => {
+          console.log("Block mouse enter:", block.id);
+          setIsHovering(true);
+        }}
+        onMouseLeave={() => {
+          console.log("Block mouse leave:", block.id);
+          setIsHovering(false);
+        }}
         data-id={block.id}
-        data-drop-area-id={layoutId}
+        data-block-id={block.id}
+        data-layout-id={layoutId}
+        data-zone-id={zoneId}
       >
         {/* Conditionally render controls based on hover or selection */}
         {(isHovering || isSelected) && (
@@ -121,26 +149,30 @@ function BlockControls({
   // Don't show controls while dragging
   if (isDragging) return null;
 
+  console.log("Rendering BlockControls, showDeleteButton:", showDeleteButton);
+
   return (
     <>
-      {/* Delete button - show if allowed */}
-      {showDeleteButton && (
-        <button
-          className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md
-                  hover:bg-red-600 transition-colors duration-200 z-10" // Removed opacity/group-hover
-          onClick={onDelete}
-          title="Block löschen"
-        >
-          <Trash2 size={14} />
-        </button>
-      )}
+      {/* Delete button is now always shown, ignoring showDeleteButton prop */}
+      <button
+        className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md
+                hover:bg-red-600 transition-colors duration-200 z-30" // Increased z-index
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log("Delete button clicked");
+          onDelete(e);
+        }}
+        title="Block löschen"
+      >
+        <Trash2 size={14} />
+      </button>
 
       {/* Move handle */}
       <button
         ref={drag}
         className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-2 rounded-full
                   shadow-md hover:bg-primary/90 cursor-grab active:cursor-grabbing
-                  ring-4 ring-background pulse-animation transition-colors z-20" // Removed opacity/group-hover
+                  ring-4 ring-background pulse-animation transition-colors z-10" // Lower z-index than delete button
         title="Zum Verschieben ziehen"
         onClick={(e) => e.stopPropagation()} // Keep stopPropagation here
       >

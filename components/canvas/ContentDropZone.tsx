@@ -7,6 +7,7 @@ import { useBlocksStore } from "@/store/blocks-store";
 import { CanvasBlock } from "../blocks/canvas-block";
 // Importiere den Typ für MediaItemInput
 import { MediaItemInput } from "@/components/media/draggable-media-item"; // Pfad ggf. anpassen
+import clsx from "clsx";
 
 // Typ für das Item, das von der *Block*-Sidebar kommt (Annahme: hat type und content)
 /* interface NewBlockDragItem {
@@ -48,35 +49,33 @@ interface NewContentBlockDragObject {
   // Ggf. weitere initiale Daten
 }
 
+interface ContentBlockDragItem {
+  type: typeof ItemTypes.CONTENT_BLOCK;
+  content: unknown;
+}
+
+interface ExistingBlockDragItem {
+  type: typeof ItemTypes.EXISTING_BLOCK;
+  id: string;
+  content: unknown;
+}
+
+type DropItem = ContentBlockDragItem | ExistingBlockDragItem | MediaItemInput;
+
 interface ContentDropZoneProps {
   zoneId: string;
   layoutId: string;
   blocks: BlockType[];
-  className?: string; // Für Styling des Zonen-Containers
 }
 
-export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
-  zoneId,
-  layoutId,
-  blocks,
-  className,
-}) => {
-  const addBlock = useBlocksStore((state) => state.addBlock);
-  const moveBlock = useBlocksStore((state) => state.moveBlock);
-  const reorderBlocks = useBlocksStore((state) => state.reorderBlocks);
-  const internalRef = useRef<HTMLDivElement>(null);
+export function ContentDropZone({ zoneId, layoutId, blocks }: ContentDropZoneProps) {
+  const { addBlock, moveBlock, reorderBlocks } = useBlocksStore();
+  const dropRef = useRef<HTMLDivElement>(null);
 
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
-      accept: [
-        ItemTypes.CONTENT_BLOCK, // Neuer Block aus Sidebar
-        ItemTypes.MEDIA_ITEM, // Neues Media Item aus Sidebar
-        ItemTypes.EXISTING_BLOCK, // Existierender Block vom Canvas
-      ],
-      drop: (
-        item: unknown, // Sicherer Start mit unknown
-        monitor: DropTargetMonitor<unknown, void> // Expliziter Monitor-Typ
-      ) => {
+      accept: [ItemTypes.CONTENT_BLOCK, ItemTypes.EXISTING_BLOCK, ItemTypes.MEDIA_ITEM],
+      drop: (item: DropItem, monitor) => {
         if (!monitor.didDrop()) {
           const itemType = monitor.getItemType(); // Typ vom Monitor holen!
           const droppedItem = monitor.getItem(); // Das tatsächliche Item-Objekt holen
@@ -197,6 +196,13 @@ export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
               console.log(
                 `Adding new image block from media item ${mediaItem.id} (${mediaItem.file_name}) to ${layoutId}/${zoneId} at index ${targetIndex}`
               );
+              console.log("[ContentDropZone] MediaItem Drop Details:", {
+                mediaItemId: mediaItem.id,
+                fileName: mediaItem.file_name,
+                targetLayout: layoutId,
+                targetZone: zoneId,
+                targetIndex
+              });
               // Erstelle spezifisch einen 'image' Block
               const blockData: Omit<BlockType, "id"> = {
                 type: "image",
@@ -229,7 +235,7 @@ export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
       },
       hover: (item: unknown, monitor: DropTargetMonitor<unknown, void>) => {
         // --- Reorder-Logik ---
-        if (!internalRef.current) return;
+        if (!dropRef.current) return;
 
         const itemType = monitor.getItemType();
         const currentItem = monitor.getItem();
@@ -276,11 +282,11 @@ export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
           const clientOffset = monitor.getClientOffset();
           if (!clientOffset) return;
 
-          const hoverBoundingRect = internalRef.current.getBoundingClientRect();
+          const hoverBoundingRect = dropRef.current.getBoundingClientRect();
           const hoverClientY = clientOffset.y - hoverBoundingRect.top;
 
           let hoverIndex = blocks.length; // Default: am Ende
-          const children = internalRef.current.children;
+          const children = dropRef.current.children;
           for (let i = 0; i < children.length; i++) {
             const blockElement = children[i] as HTMLElement;
             if (!blockElement || !blockElement.dataset.blockId) continue;
@@ -318,11 +324,11 @@ export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
         const clientOffset = monitor.getClientOffset();
         if (!clientOffset) return;
 
-        const hoverBoundingRect = internalRef.current.getBoundingClientRect();
+        const hoverBoundingRect = dropRef.current.getBoundingClientRect();
         const hoverClientY = clientOffset.y - hoverBoundingRect.top;
 
         let hoverIndex = blocks.length; // Default: am Ende
-        const children = internalRef.current.children;
+        const children = dropRef.current.children;
         for (let i = 0; i < children.length; i++) {
           // Prüfe, ob das Kind ein HTMLElement ist und ein CanvasBlock sein könnte
           const blockElement = children[i] as HTMLElement;
@@ -395,36 +401,26 @@ export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
         // Wir fügen hier 'index' für den Drop hinzu/aktualisieren es.
       },
       collect: (monitor) => ({
-        isOver: !!monitor.isOver({ shallow: true }),
-        canDrop: !!monitor.canDrop(),
+        isOver: monitor.isOver(),
+        canDrop: monitor.canDrop(),
       }),
     }),
-    [zoneId, layoutId, blocks, addBlock, moveBlock, reorderBlocks] // Abhängigkeiten prüfen
+    [zoneId, layoutId, blocks, addBlock, moveBlock, reorderBlocks]
   );
 
-  drop(internalRef);
+  drop(dropRef);
 
   return (
     <div
-      ref={internalRef}
-      className={`relative min-h-[100px] border border-dashed p-4 space-y-4 ${
-        className || ""
-      } ${
-        isOver && canDrop
-          ? "bg-blue-100 dark:bg-blue-900 border-blue-500"
-          : "border-gray-300 dark:border-gray-600"
-      }`}
-      data-zone-id={zoneId} // Hilfreich für Debugging
+      ref={dropRef}
+      className={clsx(
+        "min-h-[50px] rounded-lg transition-colors duration-200",
+        isOver && canDrop && "bg-primary/10 border-primary",
+        !isOver && canDrop && "border-primary/50",
+        "border-2 border-dashed p-2"
+      )}
+      onClick={(e) => e.stopPropagation()} // Nur wenn direkt auf die Zone geklickt wird
     >
-      {/* Füge einen visuellen Indikator hinzu */}
-      {isOver && canDrop && (
-        <div className="absolute inset-0 bg-blue-500 opacity-10 pointer-events-none"></div>
-      )}
-      {blocks.length === 0 && !isOver && (
-        <p className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm pointer-events-none">
-          Inhalt hierhin ziehen...
-        </p>
-      )}
       {blocks.map((block, index) => (
         <CanvasBlock
           key={block.id}
@@ -432,9 +428,9 @@ export const ContentDropZone: React.FC<ContentDropZoneProps> = ({
           index={index}
           layoutId={layoutId}
           zoneId={zoneId}
-          isOnlyBlockInArea={blocks.length === 1}
+          isOnlyBlockInArea={false} // Always allow deletion of blocks
         />
       ))}
     </div>
   );
-};
+}

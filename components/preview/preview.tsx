@@ -33,6 +33,7 @@ function PreviewContent() {
           maxWidth: "1400px",
           height: "auto",
           minHeight: "600px",
+          marginTop: "20px"
         };
     }
   };
@@ -81,7 +82,7 @@ function PreviewContent() {
   }, []);
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto p-6 flex justify-center items-center">
+    <div className="flex-1 bg-gray-50 overflow-visible p-6 flex justify-center items-start h-full">
       <div
         className={`${getFrameClasses()} flex flex-col`}
         style={getFrameStyles()}
@@ -112,6 +113,9 @@ function PreviewContent() {
         )}
         <div
           className={`flex-1 overflow-y-auto min-h-0 relative ${getContentPadding()}`}
+          style={{
+            maxHeight: viewport === "mobile" ? "calc(100% - 40px)" : viewport === "desktop" ? "70vh" : "100%"
+          }}
         >
           <div
             className={`${viewport === "desktop" ? "space-y-6" : "space-y-4"}`}
@@ -137,7 +141,7 @@ function PreviewContent() {
 
 // ===== Main Canvas/Preview Component =====
 // Importiere zusätzliche benötigte Komponenten und Hooks für den Editor-Modus
-import { LayoutBlock } from "../canvas/LayoutBlock";
+import LayoutBlock from "../canvas/LayoutBlock";
 import { ViewportSelector } from "../canvas/viewport-selector";
 import { useRef, createRef } from "react"; // Hinzugefügt für Editor-Refs
 import { useDrop } from "react-dnd"; // Hinzugefügt für Editor-Drop
@@ -335,24 +339,27 @@ export default function Canvas() {
   // ----- MODUS-AUSWAHL -----
   if (previewMode) {
     return (
-      <div className="flex flex-col flex-1 h-full relative bg-gray-50">
-        <div className="px-6 pt-6">
-          <div className="relative flex justify-center items-center mb-6">
-            <ViewportSelector />
-            <div className="absolute right-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPreviewMode(false)}
-                className="bg-white/80 hover:bg-white"
-              >
-                <EyeOff className="h-4 w-4 mr-2" />
-                Vorschau beenden
-              </Button>
+      <div className="flex flex-col flex-1 h-full relative bg-gray-50 overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 pt-24 z-10 bg-gray-50">
+          <div className="px-6">
+            <div className="relative flex justify-center items-center mb-6">
+              <ViewportSelector />
+              <div className="absolute right-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPreviewMode(false)}
+                >
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Vorschau beenden
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-        <PreviewContent />
+        <div className="flex-1 overflow-auto pt-24 mt-16">
+          <PreviewContent />
+        </div>
       </div>
     );
   }

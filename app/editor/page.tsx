@@ -52,8 +52,13 @@ export default function EditorPage() {
       window.history.replaceState({ as: newUrl, url: newUrl }, "", newUrl);
 
       console.log(`URL updated with new project ID: ${manuallyCreatedProject}`);
+      
+      // Force router refresh to ensure the component gets the updated URL
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
     }
-  }, [manuallyCreatedProject, projectId]);
+  }, [manuallyCreatedProject, projectId, router]);
 
   // Initialize storage and load project
   useEffect(() => {
@@ -65,15 +70,20 @@ export default function EditorPage() {
     async function init() {
       try {
         // Initialize Supabase storage
-        console.log("Initializing storage...");
+        console.log("[Editor Init] Initializing storage...");
         await initializeStorage();
 
         if (projectId) {
           // Load existing project
-          console.log(`Loading existing project: ${projectId}`);
+          console.log("[Editor Init] Loading existing project:", projectId);
           const success = await loadProject(projectId);
+          console.log("[Editor Init] Load result:", {
+            success,
+            currentProjectId: useBlocksStore.getState().currentProjectId,
+            currentProjectTitle: useBlocksStore.getState().currentProjectTitle
+          });
           if (!success) {
-            console.error(`Failed to load project with ID: ${projectId}`);
+            console.error("[Editor Init] Failed to load project with ID:", projectId);
             setError(`Failed to load project with ID: ${projectId}`);
           } else {
             console.log(`Successfully loaded project: ${projectId}`);
@@ -82,16 +92,17 @@ export default function EditorPage() {
           }
         } else {
           // Create a new project manually when no projectId is provided
-          console.log("No project ID, creating new project...");
-
+          console.log("[Editor Init] No project ID, creating new project...");
           const newProjectId = await createNewProject("Unbenanntes Projekt");
+          console.log("[Editor Init] Create result:", {
+            newProjectId,
+            currentProjectId: useBlocksStore.getState().currentProjectId,
+            currentProjectTitle: useBlocksStore.getState().currentProjectTitle
+          });
           if (newProjectId) {
-            console.log(`Created new project: ${newProjectId}`);
-            // Instead of using router.replace which may cause re-renders,
-            // we'll store the ID and update the URL in a separate effect
             setManuallyCreatedProject(newProjectId);
           } else {
-            console.error("Failed to create a new project");
+            console.error("[Editor Init] Failed to create a new project");
             setError("Fehler beim Erstellen eines neuen Projekts");
           }
         }

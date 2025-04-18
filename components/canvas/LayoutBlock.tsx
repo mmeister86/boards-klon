@@ -152,7 +152,8 @@ const LayoutBlock = React.forwardRef<
   const opacity = isDragging ? 0.3 : 1;
 
   const handleSelect = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.preventDefault(); // Verhindert Standardverhalten
+    e.stopPropagation(); // Verhindert Bubbling
     selectBlock(layoutBlock.id);
   };
 
@@ -171,10 +172,11 @@ const LayoutBlock = React.forwardRef<
       }}
       data-handler-id={handlerId}
       className={clsx(
-        "relative p-2 group border-2 transition-all duration-150 ease-in-out mb-4",
+        "relative p-2 group rounded-xl border-2 transition-all duration-150 ease-in-out mb-4",
+        "bg-white",
         isSelected
-          ? "border-blue-500"
-          : "border-transparent hover:border-blue-300",
+          ? "border-blue-500 border-solid shadow-lg ring-2 ring-blue-200"
+          : "border-gray-200 border-dashed hover:border-blue-400 hover:shadow-md",
         layoutBlock.customClasses?.margin
       )}
       onClick={handleSelect}
@@ -182,8 +184,8 @@ const LayoutBlock = React.forwardRef<
       {/* Drag Handle */}
       <div
         className={clsx(
-          "absolute top-1 left-1 cursor-move p-1 text-gray-400 rounded bg-white dark:bg-gray-700 shadow",
-          "opacity-0 group-hover:opacity-100 transition-opacity",
+          "absolute -top-2 -left-2 cursor-move p-1.5 text-white rounded-full bg-blue-500 hover:bg-blue-600 shadow-md",
+          "opacity-0 group-hover:opacity-100 transition-all duration-200",
           isSelected && "opacity-100"
         )}
         title="Layoutblock verschieben"
@@ -192,18 +194,19 @@ const LayoutBlock = React.forwardRef<
       </div>
 
       {/* Delete Button */}
-      {isSelected && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            deleteLayoutBlock(layoutBlock.id);
-          }}
-          className="absolute top-1 right-1 p-1 text-red-500 rounded bg-white dark:bg-gray-700 shadow opacity-0 group-hover:opacity-100 transition-opacity"
-          title="Layoutblock löschen"
-        >
-          <Trash2 size={16} />
-        </button>
-      )}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteLayoutBlock(layoutBlock.id);
+        }}
+        className={clsx(
+          "absolute -top-2 -right-2 p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-full shadow-md transition-all z-10",
+          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
+        title="Layoutblock löschen"
+      >
+        <Trash2 size={16} />
+      </button>
 
       {/* Layout-Struktur und Zonen - Wiederhergestellt */}
       <div className={getLayoutClasses(layoutBlock.type, viewport)}>
