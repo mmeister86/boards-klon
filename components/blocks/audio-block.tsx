@@ -54,7 +54,8 @@ interface AudioBlockState {
 // --- Component Props ---
 interface AudioBlockProps {
   blockId: string;
-  dropAreaId: string;
+  layoutId: string;
+  zoneId: string;
   content: string | null;
   isSelected?: boolean;
   onSelect?: () => void;
@@ -63,7 +64,8 @@ interface AudioBlockProps {
 // --- Component Implementation ---
 export function AudioBlock({
   blockId,
-  dropAreaId,
+  layoutId,
+  zoneId,
   content,
   isSelected,
   onSelect,
@@ -103,13 +105,14 @@ export function AudioBlock({
         id: blockId,
         type: "audio",
         content,
-        sourceDropAreaId: dropAreaId,
+        sourceLayoutId: layoutId,
+        sourceZoneId: zoneId,
       },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
     },
-    [blockId, content, dropAreaId]
+    [blockId, content, layoutId, zoneId]
   );
 
   // --- Funktion zum Löschen des Audioinhalts ---
@@ -122,11 +125,11 @@ export function AudioBlock({
       // const filePath = state.audioUrl.substring(state.audioUrl.indexOf('public/'));
       // supabase.storage.from('audio').remove([filePath]);
 
-      updateBlockContent(blockId, dropAreaId, "");
+      updateBlockContent(blockId, layoutId, zoneId, "");
       setState({ status: "idle", error: null, audioUrl: null }); // Lokalen Zustand aktualisieren
       toast.info("Audio entfernt.");
     },
-    [blockId, dropAreaId, updateBlockContent, state.audioUrl, supabase]
+    [blockId, layoutId, zoneId, updateBlockContent, state.audioUrl, supabase]
   );
 
   const processDroppedFile = useCallback(
@@ -190,7 +193,7 @@ export function AudioBlock({
           `AudioBlock (${blockId}): Upload erfolgreich. URL: ${newContentUrl}`
         );
 
-        updateBlockContent(blockId, dropAreaId, newContentUrl);
+        updateBlockContent(blockId, layoutId, zoneId, newContentUrl);
         // --- Zustand auf "success" setzen ---
         setState((prev) => ({
           ...prev,
@@ -214,7 +217,7 @@ export function AudioBlock({
       }
       // 'finally' wird nicht mehr benötigt, da der Status in try/catch gesetzt wird
     },
-    [supabase, blockId, dropAreaId, updateBlockContent]
+    [supabase, blockId, layoutId, zoneId, updateBlockContent]
   );
 
   const [{ isOver, canDrop }, drop] = useDrop<
@@ -256,7 +259,7 @@ export function AudioBlock({
         canDrop: monitor.canDrop(),
       }),
     }),
-    [blockId, dropAreaId, updateBlockContent, processDroppedFile]
+    [processDroppedFile]
   );
 
   drag(ref);

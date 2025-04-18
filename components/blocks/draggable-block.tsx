@@ -1,11 +1,11 @@
 "use client";
 
 import { useDrag } from "react-dnd";
-import { ItemTypes } from "@/lib/item-types";
+import { ItemTypes } from "@/lib/dnd/itemTypes";
 import type { LucideIcon } from "lucide-react";
 
 interface DraggableBlockProps {
-  type: string;
+  blockType: string;
   content: string | null;
   icon: LucideIcon;
   description: string;
@@ -13,18 +13,17 @@ interface DraggableBlockProps {
 }
 
 export function DraggableBlock({
-  type,
+  blockType,
   content,
   icon: Icon,
   description,
   label,
 }: DraggableBlockProps) {
   const [{ isDragging }, drag] = useDrag({
-    type: ItemTypes.BLOCK,
+    type: ItemTypes.CONTENT_BLOCK,
     item: {
-      type,
+      blockType,
       content,
-      isSidebarItem: true,
     },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),

@@ -16,7 +16,8 @@ import "tippy.js/dist/tippy.css";
 
 interface HeadingBlockProps {
   blockId: string;
-  dropAreaId: string;
+  layoutId: string;
+  zoneId: string;
   level?: Level;
   content: string;
   onChange: (data: { level: Level; content: string }) => void;
@@ -152,7 +153,8 @@ const HeadingToolbar = ({ editor }: { editor: Editor }) => {
 
 export function HeadingBlock({
   blockId,
-  dropAreaId,
+  layoutId,
+  zoneId,
   level = 1,
   content,
   onChange,
@@ -175,9 +177,7 @@ export function HeadingBlock({
     content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      // console.log("Tiptap Output:", html); // <-- REMOVED LOG
-      updateBlockContent(blockId, dropAreaId, html);
-      // Call the onChange prop with the current heading level
+      updateBlockContent(blockId, layoutId, zoneId, html);
       const currentLevel =
         ([1, 2, 3, 4, 5, 6] as Level[]).find((l) =>
           editor.isActive("heading", { level: l })

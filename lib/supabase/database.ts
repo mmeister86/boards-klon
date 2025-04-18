@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/client"
-import type { DropAreaType, Project } from "@/lib/types"
+// import type { DropAreaType } from "@/lib/types" // Veraltet
+import type { Project } from "@/lib/types"
 import type { ProjectData } from "@/lib/types"
+// Importiere den neuen Typ direkt oder über den Store (hier direkt, falls verschoben wird)
+import type { LayoutBlockType } from "@/lib/types"; // Nur LayoutBlockType importieren
 
 // Create a singleton instance of the Supabase client
 const getSupabase = () => {
@@ -34,7 +37,7 @@ export async function saveProjectToDatabase(
       user_id: string;
       title: string;
       description?: string;
-      project_data: string; // CHANGED: Expect a JSON string now
+      project_data: string; // Expect a JSON string now
       updated_at: string;
       id?: string; // Optional ID
       created_at?: string; // Optional createdAt
@@ -44,7 +47,7 @@ export async function saveProjectToDatabase(
       user_id: userId,
       title: projectData.title,
       description: projectData.description,
-      project_data: JSON.stringify(projectData.dropAreas), // CHANGED: Explicitly stringify the data
+      project_data: JSON.stringify(projectData.layoutBlocks), // NEU: layoutBlocks speichern
       updated_at: new Date().toISOString(), // Keep updated_at for both insert/update
     }
 
@@ -139,7 +142,8 @@ export async function loadProjectFromDatabase(projectId: string): Promise<Projec
 
     // Parse the JSON data
     try {
-      const parsedDropAreas = JSON.parse(data.project_data) as DropAreaType[];
+      // const parsedDropAreas = JSON.parse(data.project_data) as DropAreaType[]; // Veraltet
+      const parsedLayoutBlocks = JSON.parse(data.project_data) as LayoutBlockType[]; // NEU: Als LayoutBlockType parsen
 
       // Construct the full ProjectData object
       const projectData: ProjectData = {
@@ -148,7 +152,8 @@ export async function loadProjectFromDatabase(projectId: string): Promise<Projec
         description: data.description ?? "", // Handle potentially null description
         createdAt: data.created_at,
         updatedAt: data.updated_at,
-        dropAreas: parsedDropAreas,
+        // dropAreas: parsedDropAreas, // Veraltet
+        layoutBlocks: parsedLayoutBlocks, // NEU: layoutBlocks zuweisen
       };
 
       return projectData;
@@ -202,13 +207,15 @@ export async function listProjectsFromDatabase(): Promise<Project[]> {
     const projects: Project[] = data
       .map((record): Project | null => {
         let blockCount = 0;
-        let parsedDropAreas: DropAreaType[] | null = null;
+        // let parsedDropAreas: DropAreaType[] | null = null; // Veraltet
+        let parsedLayoutBlocks: LayoutBlockType[] | null = null; // NEU
 
         // Try to parse project_data and count blocks
         if (typeof record.project_data === "string" && record.project_data) {
           try {
-            parsedDropAreas = JSON.parse(record.project_data);
-            blockCount = countBlocks(parsedDropAreas ?? []); // Use parsed data
+            // parsedDropAreas = JSON.parse(record.project_data); // Veraltet
+            parsedLayoutBlocks = JSON.parse(record.project_data); // NEU
+            blockCount = countBlocks(parsedLayoutBlocks ?? []); // Use parsed data (NEU)
           } catch (e) {
             console.warn(
               `Could not parse project_data for project ${record.id} to count blocks:`,
@@ -299,20 +306,20 @@ export async function deleteProjectFromDatabase(projectId: string): Promise<bool
 /**
  * Helper function to count the total number of blocks in a project
  */
-function countBlocks(dropAreas: DropAreaType[]): number {
-  let count = 0
+function countBlocks(layoutBlocks: LayoutBlockType[]): number {
+  let count = 0;
+  if (!layoutBlocks) return 0;
 
-  for (const area of dropAreas) {
-    // Count blocks in this area
-    count += area.blocks.length
-
-    // Count blocks in split areas recursively
-    if (area.isSplit && area.splitAreas.length > 0) {
-      count += countBlocks(area.splitAreas)
+  for (const layoutBlock of layoutBlocks) {
+    if (layoutBlock.zones && Array.isArray(layoutBlock.zones)) {
+      for (const zone of layoutBlock.zones) {
+        if (zone.blocks && Array.isArray(zone.blocks)) {
+          count += zone.blocks.length;
+        }
+      }
     }
   }
-
-  return count
+  return count;
 }
 
 /**
@@ -359,22 +366,20 @@ export async function migrateMockProjectsToDatabase(mockProjects: Project[]): Pr
     // For each mock project, create a database entry
     for (const project of mockProjects) {
       try {
-        // Create a basic project structure
+        // Construct ProjectData from mock Project
         const projectData: ProjectData = {
           id: project.id,
           title: project.title,
           description: project.description,
-          dropAreas: [
+          layoutBlocks: [
             {
-              id: "drop-area-1",
-              blocks: [],
-              isSplit: false,
-              splitAreas: [],
-              splitLevel: 0,
+              id: "layout-block-1", // Beispiel-ID
+              type: "single-column", // Füge den Typ hinzu
+              zones: [{ id: "zone-1", blocks: [] }] // Füge eine leere Zone hinzu
             },
           ],
-          createdAt: project.createdAt,
-          updatedAt: project.updatedAt,
+          createdAt: project.createdAt || new Date().toISOString(),
+          updatedAt: project.updatedAt || new Date().toISOString(),
         }
 
         // Save the project to database

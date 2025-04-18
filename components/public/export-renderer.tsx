@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { DropAreaType, BlockType } from "@/lib/types";
-import { isDropAreaEmpty } from "@/lib/utils/drop-area-utils";
+import type { BlockType } from "@/lib/types";
 import Image from "next/image";
 import { Loader2, AlertCircle } from "lucide-react";
 import ReactPlayer from "react-player/lazy";
@@ -35,70 +34,8 @@ if (typeof window !== "undefined") {
   // The actual setting might move inside the dynamic import logic if library requires it
 }
 
-interface PublicDropAreaRendererProps {
-  dropArea: DropAreaType;
-}
-
-export function PublicDropAreaRenderer({
-  dropArea,
-}: PublicDropAreaRendererProps) {
-  // Basis Fall 1: Bereich ist leer -> Nichts rendern
-  if (isDropAreaEmpty(dropArea)) {
-    return null;
-  }
-
-  // Basis Fall 2: Bereich ist NICHT gesplittet -> Blöcke rendern
-  if (!dropArea.isSplit || dropArea.splitAreas.length === 0) {
-    return (
-      <div className="w-full grid grid-cols-1 gap-2 items-start bg-white p-6 rounded-lg">
-        {dropArea.blocks.map((block) => (
-          <RenderBlock key={block.id} block={block} />
-        ))}
-      </div>
-    );
-  }
-
-  // Rekursiver Fall: Bereich IST gesplittet -> Grid rendern
-
-  // Filtere leere Sub-Areas heraus
-  const renderableSubAreas = dropArea.splitAreas.filter(
-    (subArea) => !isDropAreaEmpty(subArea)
-  );
-
-  // Check if this is a nested area
-  const isNested = dropArea.splitLevel > 0;
-
-  // Function to get grid classes for the second div
-  const getGridClasses = (numColumns: number, isNested: boolean) => {
-    const baseClass = "grid-cols-1";
-
-    // Add lg:grid-cols-X based on actual number of columns
-    const lgClass = numColumns >= 2 ? ` lg:grid-cols-${numColumns}` : "";
-
-    // Only add md:grid-cols-2 for non-nested areas
-    const mdClass = !isNested ? " md:grid-cols-2" : "";
-
-    return `${baseClass}${mdClass}${lgClass}`;
-  };
-
-  return (
-    <div className="w-full">
-      <div
-        className={`w-full grid gap-4 bg-white p-6 ${getGridClasses(
-          renderableSubAreas.length,
-          isNested
-        )}`}
-      >
-        {renderableSubAreas.map((subArea) => (
-          <PublicDropAreaRenderer key={subArea.id} dropArea={subArea} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Block-Rendering Komponente
-function RenderBlock({ block }: { block: BlockType }) {
+// Block-Rendering Komponente - JETZT EXPORTIERT
+export function RenderBlock({ block }: { block: BlockType }) {
   const content = block.content || "";
   const [isPdfVisible, setIsPdfVisible] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);

@@ -8,7 +8,7 @@ import { useBlocksStore } from "@/store/blocks-store"; // NEU: Importiere den St
 const ActiveDrags = new Map<
   string,
   {
-    dropAreaId: string;
+    sourceLocation: string;
     index: number;
     startTime: number;
   }
@@ -20,15 +20,15 @@ function isBlockBeingDragged(blockId: string): boolean {
 
 function trackBlockDrag(
   blockId: string,
-  dropAreaId: string,
+  sourceLocation: string,
   index: number
 ): void {
   ActiveDrags.set(blockId, {
-    dropAreaId,
+    sourceLocation,
     index,
     startTime: Date.now(),
   });
-  // console.log(`[DragTracker] Started tracking drag for block ${blockId} from ${dropAreaId}`); // Keep logs commented out
+  // console.log(`[DragTracker] Started tracking drag for block ${blockId} from ${sourceLocation}`); // Keep logs commented out
 }
 
 function untrackBlockDrag(blockId: string): void {
@@ -44,7 +44,8 @@ interface BlockDragItem {
   type: typeof ItemTypes.EXISTING_BLOCK; // Explicitly set type
   originalType: string; // Store the actual block type
   content: string;
-  sourceDropAreaId: string;
+  sourceLayoutId: string;
+  sourceZoneId: string;
   originalIndex: number; // Add original index
   // Add any additional metadata needed for rendering the block preview
   headingLevel?: number; // For heading blocks
@@ -52,7 +53,9 @@ interface BlockDragItem {
 
 export const useBlockDrag = (
   block: BlockType,
-  index: number, // Add index parameter
+  index: number,
+  layoutId: string,
+  zoneId: string,
   canDrag: boolean = true
 ) => {
   // Pass spec object directly to useDrag
@@ -69,7 +72,8 @@ export const useBlockDrag = (
       console.log(`[useBlockDrag] Begin drag for block:`, {
         id: block.id,
         type: block.type,
-        dropAreaId: block.dropAreaId,
+        layoutId: layoutId,
+        zoneId: zoneId,
         index,
       });
       // --- END ADD LOG ---
@@ -77,7 +81,7 @@ export const useBlockDrag = (
       // console.log(`[useBlockDrag] Begin drag for block: ${block.id}`); // Keep logs commented out
 
       // Track that we're starting to drag this block
-      trackBlockDrag(block.id, block.dropAreaId, index);
+      trackBlockDrag(block.id, `${layoutId}-${zoneId}`, index);
 
       // Return the item data
       return {
@@ -85,7 +89,8 @@ export const useBlockDrag = (
         type: ItemTypes.EXISTING_BLOCK, // *** FIX: Set type explicitly ***
         originalType: block.type, // *** ADD: Store original type ***
         content: block.content,
-        sourceDropAreaId: block.dropAreaId,
+        sourceLayoutId: layoutId,
+        sourceZoneId: zoneId,
         originalIndex: index, // Include the index
         // Include heading level if present
         ...(block.headingLevel && { headingLevel: block.headingLevel }),
@@ -111,10 +116,10 @@ export const useBlockDrag = (
         .toString(36)
         .substring(2, 9)}`;
 
-      const itemToUntrack = item ?? block; // Use block as fallback if item is undefined during untrack
+      const itemToUntrack = item ?? { id: block.id }; // Use block.id as fallback
 
-      if (!itemToUntrack) {
-        console.warn(`[useBlockDrag:end ${dragId}] No item or block available for untracking.`);
+      if (!itemToUntrack || !itemToUntrack.id) {
+        console.warn(`[useBlockDrag:end ${dragId}] No item or block ID available for untracking.`);
         // Versuche trotzdem, den globalen Zustand zurückzusetzen, falls ein Drag stattgefunden hat
         useBlocksStore.getState().resetAllHoverStates(); // NEU: Immer Reset über Store
         return;

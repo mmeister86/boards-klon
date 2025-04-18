@@ -3,7 +3,15 @@
 
 import { useEffect, useState } from "react"; // Import useState
 import { useBlocksStore } from "@/store/blocks-store";
-import type { BlockType } from "@/lib/types";
+import type {
+  BlockType,
+  ImageBlock as ImageBlockType,
+  VideoBlock as VideoBlockType,
+  AudioBlock as AudioBlockType,
+  DocumentBlock as DocumentBlockType,
+  HeadingBlock as HeadingBlockType,
+  ParagraphBlock as ParagraphBlockType,
+} from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { Trash2, Move } from "@/lib/icons"; // Removed Split import
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
@@ -18,6 +26,8 @@ interface CanvasBlockProps {
   block: BlockType;
   viewport?: ViewportType;
   index: number; // Add index prop
+  layoutId: string; // NEU: ID des Layout-Blocks
+  zoneId: string; // NEU: ID der Content-Zone
   // Removed onSplit, canSplit props
   isOnlyBlockInArea?: boolean;
 }
@@ -25,6 +35,8 @@ interface CanvasBlockProps {
 export function CanvasBlock({
   block,
   index, // Destructure index
+  layoutId, // NEU
+  zoneId, // NEU
   viewport = "desktop",
   // Removed onSplit, canSplit props
   isOnlyBlockInArea = false,
@@ -32,8 +44,8 @@ export function CanvasBlock({
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
   const isSelected = selectedBlockId === block.id;
   // Pass index to useBlockDrag
-  // Use the drag hook directly - our tracking system will prevent duplicate drags
-  const { isDragging, drag } = useBlockDrag(block, index);
+  // Verwende die neuen layoutId und zoneId für den Drag Hook
+  const { isDragging, drag } = useBlockDrag(block, index, layoutId, zoneId);
   const [isHovering, setIsHovering] = useState(false); // Add hover state
 
   // Clear selection when dragging starts
@@ -51,7 +63,8 @@ export function CanvasBlock({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteBlock(block.id, block.dropAreaId);
+    // Verwende layoutId und zoneId statt block.dropAreaId
+    deleteBlock(block.id, layoutId, zoneId);
     selectBlock(null);
   };
 
@@ -71,7 +84,7 @@ export function CanvasBlock({
         onMouseEnter={() => setIsHovering(true)} // Add mouse enter handler
         onMouseLeave={() => setIsHovering(false)} // Add mouse leave handler
         data-id={block.id}
-        data-drop-area-id={block.dropAreaId}
+        data-drop-area-id={layoutId}
       >
         {/* Conditionally render controls based on hover or selection */}
         {(isHovering || isSelected) && (
@@ -84,7 +97,7 @@ export function CanvasBlock({
           />
         )}
         <div>
-          <BlockContent block={block} viewport={viewport} />
+          <BlockContent block={block} layoutId={layoutId} zoneId={zoneId} />
         </div>
       </div>
     </div>
@@ -140,110 +153,121 @@ function BlockControls({
 // Extracted component for block content
 interface BlockContentProps {
   block: BlockType;
-  viewport: ViewportType;
+  layoutId: string;
+  zoneId: string;
 }
 
-function BlockContent({ block, viewport }: BlockContentProps) {
+function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
   const { updateBlockContent } = useBlocksStore();
 
+  // Handle Heading Change (angepasst für spezifischen Typ)
   const handleHeadingChange = (data: { level: number; content: string }) => {
-    // Ensure the level is valid before updating
-    const validLevels = [1, 2, 3, 4, 5, 6] as const;
-    type ValidHeadingLevel = (typeof validLevels)[number];
-    const validatedLevel = validLevels.includes(data.level as ValidHeadingLevel)
-      ? (data.level as ValidHeadingLevel)
-      : 1;
-
     // Update block content and heading level
-    updateBlockContent(block.id, block.dropAreaId, data.content, {
-      headingLevel: validatedLevel,
+    // Stelle sicher, dass block.content hier als string behandelt wird
+    // (was für HeadingBlock korrekt sein sollte)
+    updateBlockContent(block.id, layoutId, zoneId, data.content, {
+      headingLevel: data.level as HeadingBlockType["headingLevel"],
     });
   };
 
   // Render different block types
   if (block.type === "heading") {
+    const headingBlock = block as HeadingBlockType;
     // Import the HeadingBlock dynamically (to avoid circular dependencies)
-    // Using dynamic import with React.lazy would be better, but for simplicity we'll handle it this way
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { HeadingBlock } = require("@/components/blocks/heading-block");
 
     // Validate heading level before passing to component
     const validLevels = [1, 2, 3, 4, 5, 6] as const;
-    type ValidHeadingLevel = (typeof validLevels)[number];
-    const headingLevel = block.headingLevel;
-    const validatedLevel: ValidHeadingLevel =
-      headingLevel && validLevels.includes(headingLevel as ValidHeadingLevel)
-        ? (headingLevel as ValidHeadingLevel)
+    const validatedLevel =
+      headingBlock.headingLevel &&
+      validLevels.includes(headingBlock.headingLevel)
+        ? headingBlock.headingLevel
         : 1; // Default to 1 if undefined or invalid
 
     return (
       <HeadingBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
+        // Props für HeadingBlock prüfen und anpassen
+        blockId={headingBlock.id}
+        layoutId={layoutId} // Behalten, falls intern benötigt
+        zoneId={zoneId} // Behalten, falls intern benötigt
         level={validatedLevel}
-        content={block.content}
+        content={headingBlock.content} // content ist string
         onChange={handleHeadingChange}
       />
     );
   }
 
   if (block.type === "image") {
+    const imageBlock = block as ImageBlockType;
     return (
-      <ImageBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
-        content={block.content}
-        altText={block.altText}
+      <ImageBlock // Verwendet jetzt die vereinfachte Komponente
+        // Keine blockId, layoutId, zoneId mehr nötig
+        src={imageBlock.content.src} // Korrekt: src aus content
+        altText={imageBlock.content.alt} // Korrekt: alt aus content
       />
     );
   }
 
   if (block.type === "video") {
+    const videoBlock = block as VideoBlockType;
     return (
       <VideoBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
-        content={block.content}
+        blockId={videoBlock.id}
+        layoutId={layoutId}
+        zoneId={zoneId}
+        // Annahme: VideoBlock erwartet src-String in content-Prop
+        content={videoBlock.content.src}
       />
     );
   }
 
   if (block.type === "audio") {
+    const audioBlock = block as AudioBlockType;
     return (
       <AudioBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
-        content={block.content}
+        blockId={audioBlock.id}
+        layoutId={layoutId}
+        zoneId={zoneId}
+        // Annahme: AudioBlock erwartet src-String in content-Prop
+        content={audioBlock.content.src}
       />
     );
   }
 
   if (block.type === "document") {
+    const documentBlock = block as DocumentBlockType;
     return (
       <DocumentBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
-        content={block.content}
-        fileName={block.fileName}
+        blockId={documentBlock.id}
+        layoutId={layoutId}
+        zoneId={zoneId}
+        // Annahme: DocumentBlock erwartet src-String in content-Prop
+        content={documentBlock.content.src}
+        // Übergebe fileName aus content
+        fileName={documentBlock.content.fileName}
       />
     );
   }
 
   if (block.type === "paragraph") {
+    const paragraphBlock = block as ParagraphBlockType;
     return (
       <ParagraphBlock
-        blockId={block.id}
-        dropAreaId={block.dropAreaId}
-        content={block.content}
-        viewport={viewport}
+        blockId={paragraphBlock.id}
+        layoutId={layoutId}
+        zoneId={zoneId}
+        content={paragraphBlock.content} // content ist string
       />
     );
   }
 
-  // Default fallback
+  // Default fallback für unbekannte oder 'never' Typen
+  // Dies sollte den Linter-Fehler beheben
+  console.warn("Rendering fallback for unknown block type:", block);
   return (
     <div className="p-4 bg-red-50 text-red-500 rounded">
-      Unknown block type: {block.type}
+      Unbekannter Block-Typ.
     </div>
   );
 }

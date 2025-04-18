@@ -1,20 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
-import type { DropAreaType } from "@/lib/types";
-import type { ProjectData } from "@/lib/types";
+// import type { DropAreaType } from "@/lib/types"; // Veraltet
+// Importiere die neuen Typen
+import type { ProjectData, Project, LayoutBlockType } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "./database.types";
 import { v4 as uuidv4 } from 'uuid';
-
-// Define the Project type for UI display
-interface Project {
-  id: string;
-  title: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-  blocks: number;
-  thumbnail?: string;
-}
 
 // We now use the ProjectData type from lib/types
 
@@ -250,38 +240,30 @@ export async function listProjectsFromStorage(userId: string): Promise<Project[]
       loadPromises.push(loadProjectFromStorage(projectId, userId));
     }
 
-    // Lade Projekte parallel
-    const loadedProjectData = await Promise.all(loadPromises);
+    // Wait for all projects to load
+    const loadedProjectsData = await Promise.all(loadPromises);
 
-    for (const projectData of loadedProjectData) {
-       // Prüfung hinzugefügt: Nur Projekte mit gültiger ID und Daten hinzufügen
-      if (projectData && projectData.id) {
-        let thumbnail: string | undefined = undefined;
-        try {
-          // TODO: getProjectThumbnail muss evtl. auch userId verwenden?
-          thumbnail = await getProjectThumbnail(projectData.id);
-        } catch { /* Ignore thumbnail errors */ }
-
-        projects.push({
-          id: projectData.id, // Ist hier sicher ein string
+    // Convert ProjectData to Project, handling nulls
+    for (const projectData of loadedProjectsData) {
+      if (projectData) {
+        const project: Project = {
+          id: projectData.id ?? uuidv4(), // Fallback auf neue UUID, wenn ID fehlt
           title: projectData.title,
           description: projectData.description,
           createdAt: projectData.createdAt,
           updatedAt: projectData.updatedAt,
-          blocks: countBlocks(projectData.dropAreas),
-          thumbnail,
-        });
+          // Verwende die neue countBlocks Funktion mit layoutBlocks
+          blocks: countBlocks(projectData.layoutBlocks ?? []), // Geändert von dropAreas
+          // thumbnail: Needs separate handling if required
+        };
+        projects.push(project);
       }
     }
 
-    console.log(`[ListStorage] Returning ${projects.length} projects for user ${userId}.`);
-    // Sortiere hier nach updatedAt, da die Storage-Sortierung unsicher ist
-    projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
+    console.log(`[ListStorage] Successfully loaded ${projects.length} projects.`);
     return projects;
-
   } catch (e) {
-     console.error(`[ListStorage] Unexpected error listing projects for user ${userId}:`, e);
+    console.error("[ListStorage] Unexpected error:", e);
     return [];
   }
 }
@@ -401,70 +383,76 @@ export async function getProjectThumbnail(
   }
 }
 
-/**
- * Helper function to count the total number of blocks in a project
- */
+// Helper function to count blocks in the new layout structure
+function countBlocks(layoutBlocks: LayoutBlockType[]): number {
+  let count = 0;
+  if (!layoutBlocks) return 0;
+
+  for (const layoutBlock of layoutBlocks) {
+    if (layoutBlock.zones && Array.isArray(layoutBlock.zones)) {
+      for (const zone of layoutBlock.zones) {
+        if (zone.blocks && Array.isArray(zone.blocks)) {
+          count += zone.blocks.length;
+        }
+      }
+    }
+  }
+  return count;
+}
+
+/* // Veraltete countBlocks Funktion
 function countBlocks(dropAreas: DropAreaType[]): number {
   let count = 0;
 
   for (const area of dropAreas) {
-    // Count blocks in this area
     count += area.blocks.length;
-
-    // Count blocks in split areas recursively
     if (area.isSplit && area.splitAreas.length > 0) {
       count += countBlocks(area.splitAreas);
     }
   }
-
   return count;
 }
+*/
 
 // Update the migrateMockProjects function to handle errors better
 export async function migrateMockProjects(
   mockProjects: Project[]
 ): Promise<boolean> {
-  try {
-    // Initialize storage first
-    await initializeStorage();
+  console.log("[MigrateMock] Starting migration of mock projects...");
+  let allSuccess = true;
 
-    let successCount = 0;
+  for (const project of mockProjects) {
+    try {
+      // Construct ProjectData from mock Project
+      const projectData: ProjectData = {
+        id: project.id,
+        title: project.title,
+        description: project.description,
+        layoutBlocks: [
+          {
+            id: "layout-block-1",
+            type: "single-column",
+            zones: [{ id: "zone-1", blocks: [] }],
+          },
+        ],
+        createdAt: project.createdAt || new Date().toISOString(),
+        updatedAt: project.updatedAt || new Date().toISOString(),
+      };
 
-    // For each mock project, create a storage entry
-    for (const project of mockProjects) {
-      try {
-        // Create a basic project structure
-        const projectData: ProjectData = {
-          id: project.id,
-          title: project.title,
-          description: project.description,
-          dropAreas: [
-            {
-              id: "drop-area-1",
-              blocks: [],
-              isSplit: false,
-              splitAreas: [],
-              splitLevel: 0,
-            },
-          ],
-          createdAt: project.createdAt,
-          updatedAt: project.updatedAt,
-        };
-
-        // Save the project to storage
-        const saved = await saveProjectToStorage(projectData);
-        if (saved) {
-          successCount++;
-        }
-      } catch {
-        continue;
+      // Save each mock project to storage
+      const success = await saveProjectToStorage(projectData);
+      if (!success) {
+        console.warn(`[MigrateMock] Failed to save mock project ${project.id} to storage.`);
+        allSuccess = false;
       }
+    } catch (error) {
+      console.error(`[MigrateMock] Error migrating mock project ${project.id}:`, error);
+      allSuccess = false;
     }
-
-    return successCount > 0;
-  } catch {
-    return true;
   }
+
+  console.log("[MigrateMock] Mock project migration finished.");
+  return allSuccess;
 }
 
 // Constants for supported media types and their corresponding buckets

@@ -18,10 +18,11 @@ import "tippy.js/dist/tippy.css";
 
 interface ParagraphBlockProps {
   blockId: string;
-  dropAreaId: string;
+  layoutId: string;
+  zoneId: string;
   content: string;
   viewport?: "mobile" | "tablet" | "desktop";
-  readOnly?: boolean; // Add readOnly prop
+  readOnly?: boolean;
 }
 
 // Color picker component (Copied from heading-block.tsx)
@@ -286,10 +287,11 @@ const TiptapToolbar = ({ editor }: { editor: Editor }) => {
 
 export function ParagraphBlock({
   blockId,
-  dropAreaId,
+  layoutId,
+  zoneId,
   content,
   viewport = "desktop",
-  readOnly = false, // Destructure readOnly prop
+  readOnly = false,
 }: ParagraphBlockProps) {
   const { updateBlockContent } = useBlocksStore();
   const { setFocus, resetFormats } = useEditorStore();
@@ -334,10 +336,9 @@ export function ParagraphBlock({
     ],
     content: content,
     onUpdate: ({ editor }) => {
-      // Only update if not readOnly
       if (!readOnly) {
         const html = editor.getHTML();
-        updateBlockContent(blockId, dropAreaId, html);
+        updateBlockContent(blockId, layoutId, zoneId, html);
       }
     },
     onFocus: () => {

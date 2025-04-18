@@ -7,3 +7,17 @@ memory-bank
 .supabase
 *.js.map
 *.d.ts
+coverage
+test-results
+playwright-report
+.playwright
+__tests__
+*.test.*
+*.spec.*
+vitest.config.*
+playwright.config.*
+**/vendor-chunks/**
+**/static/chunks/**
+**/react-icons/**
+**/pdfjs-dist/**
+**/emoji-picker-react/**

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useDrag, DragPreviewImage } from "react-dnd";
-import { ItemTypes } from "@/lib/item-types";
+import { ItemTypes } from "@/lib/dnd/itemTypes";
 
 // Lokale Interface-Definition, die der Struktur aus editor-right-sidebar entspricht
 // Wird jetzt exportiert, damit sie in useDropArea wiederverwendet werden kann
@@ -31,7 +31,7 @@ export function DraggableMediaItem({
 }: DraggableMediaItemProps) {
   const [{ isDragging }, drag, preview] = useDrag(
     () => ({
-      type: ItemTypes.MEDIA,
+      type: ItemTypes.MEDIA_ITEM,
       // Das item wird direkt übergeben, react-dnd fügt intern 'type' hinzu
       item: item,
       collect: (monitor) => ({

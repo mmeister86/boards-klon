@@ -1,20 +1,106 @@
 // import type { DropResult } from "react-beautiful-dnd"; // Removed unused import
 import type { Level } from "@tiptap/extension-heading"; // Import Level type
+// Alte Store-Import entfernt, da Typen jetzt hier leben und exportiert werden
+// import type { LayoutBlockType } from "../store/blocks-store";
 
-export interface BlockType {
-  id: string;
-  type: 'heading' | 'paragraph' | 'image' | 'video' | 'audio' | 'document';
-  content: string;
-  dropAreaId: string;
-  // Additional properties for specific block types
-  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
-  altText?: string; // For images
-  fileName?: string; // For documents
-  thumbnailUrl?: string; // NEU: For document previews
-  previewUrl?: string; // Added preview URL
-  // Add more properties for other block types as needed
+// --- Block Typ Definitionen --- START ---
+
+// Interface für den Inhalt eines Bild-Blocks
+export interface ImageContent {
+  src: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+  // Ggf. mediaItemId?: string; // Optionale Referenz zum Media Item
 }
 
+// Neuer Union Type für die Namen der Blocktypen
+export type BlockTypeUnion =
+  | "heading"
+  | "paragraph"
+  | "image"
+  | "video"
+  | "audio"
+  | "document";
+
+// Basis BlockType (allgemeiner content)
+export interface BaseBlockType {
+  id: string;
+  type: BlockTypeUnion;
+  content: unknown; // Allgemeiner Typ für die Basis
+}
+
+// Spezifische Typen, die BaseBlockType erweitern
+export interface HeadingBlock extends BaseBlockType {
+  type: "heading";
+  content: string; // Spezifischer Typ für heading
+  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+}
+
+export interface ParagraphBlock extends BaseBlockType {
+  type: "paragraph";
+  content: string; // Spezifischer Typ für paragraph
+}
+
+export interface ImageBlock extends BaseBlockType {
+  type: "image";
+  content: ImageContent; // Spezifischer Typ für image
+}
+
+// TODO: Spezifische Typen für video, audio, document hinzufügen
+export interface VideoBlock extends BaseBlockType {
+  type: "video";
+  content: { src: string; thumbnailUrl?: string }; // Beispielstruktur
+}
+export interface AudioBlock extends BaseBlockType {
+  type: "audio";
+  content: { src: string }; // Beispielstruktur
+}
+export interface DocumentBlock extends BaseBlockType {
+  type: "document";
+  content: { src: string; fileName?: string; thumbnailUrl?: string }; // Beispielstruktur
+}
+
+// Union Type aller möglichen spezifischen Block-Typen
+export type BlockType =
+  | HeadingBlock
+  | ParagraphBlock
+  | ImageBlock
+  | VideoBlock
+  | AudioBlock
+  | DocumentBlock;
+
+// --- Block Typ Definitionen --- ENDE ---
+
+// --- NEUE TYPEN --- Hier hinzugefügt und exportiert
+export type LayoutType =
+  | "single-column"
+  | "two-columns"
+  | "three-columns"
+  | "grid-2x2"
+  | "layout-1-2" // Beispiel: Eine Spalte links (1/3), eine rechts (2/3)
+  | "layout-2-1"; // Beispiel: Eine Spalte links (2/3), eine rechts (1/3)
+
+// Typ für eine Inhaltszone innerhalb eines Layoutblocks
+export interface ContentDropZoneType {
+  id: string; // Eindeutige ID für die Zone innerhalb des Layoutblocks
+  blocks: BlockType[]; // Verwenden das bestehende BlockType Array
+}
+
+// Typ für einen Layoutblock auf dem Canvas
+export interface LayoutBlockType {
+  id: string; // Eindeutige ID für den Layoutblock
+  type: LayoutType; // Der Typ des Layouts (z.B. 'two-columns')
+  zones: ContentDropZoneType[]; // Die Inhaltszonen, die dieses Layout definiert
+  customClasses?: { // Optionale benutzerdefinierte CSS-Klassen
+    margin?: string;
+    padding?: { top?: string; right?: string; bottom?: string; left?: string };
+    backgroundColor?: string;
+  };
+}
+// --- ENDE NEUE TYPEN ---
+
+/* // Veraltet, wird durch LayoutBlockType ersetzt
 export interface DropAreaType {
   id: string;
   blocks: BlockType[];
@@ -23,12 +109,14 @@ export interface DropAreaType {
   splitLevel: number;
   parentId?: string | null; // Added parent ID
 }
+*/
 
 export interface ProjectData {
-  id?: string;
+  id?: string; // ID ist optional, da sie bei der Erstellung noch nicht existiert
   title: string;
   description?: string;
-  dropAreas: DropAreaType[];
+  // dropAreas: DropAreaType[]; // Ersetzt
+  layoutBlocks: LayoutBlockType[]; // Neuer Schlüssel für die Layout-Struktur
   createdAt: string;
   updatedAt: string;
 }
@@ -72,7 +160,7 @@ export interface BaseBlock {
   id: string;
   type: BlockType['type'];
   content: string | null;
-  dropAreaId: string;
+  // dropAreaId: string; // Entfernt
 }
 
 // Specific Block Types extending BaseBlock

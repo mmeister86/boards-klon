@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"; // Added Input component
 import { Button } from "@/components/ui/button"; // Added Button component
 import { toast } from "sonner"; // Added toast notifications
 import UpLoader from "@/components/uploading"; // Import the loading indicator
-import { findBlockById } from "@/lib/utils/drop-area-utils"; // Helper to find block data
+import { findContentBlockInLayout } from "../../lib/utils/layout-block-utils"; // NEU (relativer Pfad)
 
 // --- Hilfsfunktion zum Bereinigen von Dateinamen (für zukünftige Upload-Logik) ---
 const sanitizeFilename = (filename: string): string => {
@@ -39,7 +39,8 @@ const sanitizeFilename = (filename: string): string => {
 
 interface VideoBlockProps {
   blockId: string;
-  dropAreaId: string;
+  layoutId: string;
+  zoneId: string;
   content: string | null; // Allow content to be null for placeholder state
   isSelected?: boolean;
   onSelect?: () => void;
@@ -47,7 +48,8 @@ interface VideoBlockProps {
 
 export function VideoBlock({
   blockId,
-  dropAreaId,
+  layoutId,
+  zoneId,
   content,
   isSelected,
   onSelect,
@@ -68,11 +70,16 @@ export function VideoBlock({
   const [placeholderError, setPlaceholderError] = useState<string | null>(null);
 
   // Zustand store and Supabase hook
-  const { updateBlockContent, dropAreas } = useBlocksStore();
+  const { updateBlockContent, layoutBlocks } = useBlocksStore();
   const { supabase: supabaseClient, user } = useSupabase();
 
   // Get block data from store to access thumbnailUrl
-  const { block: blockData } = findBlockById(dropAreas, blockId); // Find the block's data
+  const blockData = findContentBlockInLayout(
+    layoutBlocks,
+    layoutId,
+    zoneId,
+    blockId
+  );
   const thumbnailUrlFromStore =
     blockData?.type === "video" ? blockData.thumbnailUrl : undefined;
 
@@ -90,7 +97,8 @@ export function VideoBlock({
       id: blockId,
       type: "video",
       content,
-      sourceDropAreaId: dropAreaId,
+      sourceLayoutId: layoutId,
+      sourceZoneId: zoneId,
     },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
@@ -168,7 +176,7 @@ export function VideoBlock({
       }
 
       // --- Update block in Zustand store ---
-      updateBlockContent(blockId, dropAreaId, videoUrl);
+      updateBlockContent(blockId, layoutId, zoneId, videoUrl);
 
       toast.dismiss(loadingToastId);
       toast.success("Video erfolgreich hochgeladen und optimiert!");
@@ -234,11 +242,12 @@ export function VideoBlock({
 
       // Update block content with video URL and potentially the thumbnail URL
       const additionalProps = thumbnailUrl ? { thumbnailUrl } : {};
-      updateBlockContent(blockId, dropAreaId, url, additionalProps);
+      updateBlockContent(blockId, layoutId, zoneId, url, additionalProps);
 
       setVideoUrlInput("");
       setIsLoading(true);
-    } catch (_) {
+    } catch (error) {
+      console.error("Error parsing video URL or updating block:", error);
       setPlaceholderError(
         "Die eingegebene URL ist ungültig oder wird nicht unterstützt."
       );
@@ -284,18 +293,26 @@ export function VideoBlock({
     setError(null);
   };
 
-  const handleError = (e: any) => {
+  const handleError = (e: Error | string | { type: string; data: unknown }) => {
     console.error(
       `[VideoBlock ${blockId}] Player Error (handleError called):`,
       e
     );
     setIsLoading(false);
-    // Check if the error is due to the content URL itself
-    if (typeof e === "string" && e.includes("fetching")) {
-      setError("Fehler beim Laden des Videos von der URL.");
-    } else {
-      setError("Fehler beim Laden des Videos.");
+    let errorMessage = "Fehler beim Laden des Videos.";
+    if (typeof e === "string") {
+      if (e.includes("fetching")) {
+        errorMessage = "Fehler beim Laden des Videos von der URL.";
+      } else {
+        errorMessage = e;
+      }
+    } else if (e instanceof Error) {
+      errorMessage = e.message;
+    } else if (typeof e === "object" && e !== null && "type" in e) {
+      // Handle potential ReactPlayer error objects
+      errorMessage = `Player Error: ${e.type}`;
     }
+    setError(errorMessage);
   };
 
   // --- Render Logic ---

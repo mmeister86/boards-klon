@@ -30,7 +30,8 @@ const sanitizeFilename = (filename: string): string => {
 
 interface DocumentBlockProps {
   blockId: string;
-  dropAreaId: string;
+  layoutId: string;
+  zoneId: string;
   content: string; // URL to the document
   fileName?: string;
   isSelected?: boolean;
@@ -39,7 +40,8 @@ interface DocumentBlockProps {
 
 export function DocumentBlock({
   blockId,
-  dropAreaId,
+  layoutId,
+  zoneId,
   content,
   fileName,
   isSelected,
@@ -53,7 +55,9 @@ export function DocumentBlock({
       id: blockId,
       type: "document",
       content,
-      sourceDropAreaId: dropAreaId,
+      fileName,
+      sourceLayoutId: layoutId,
+      sourceZoneId: zoneId,
     },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),

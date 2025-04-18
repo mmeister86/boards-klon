@@ -1,39 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react"; // Added hooks
+import React, { useState, useEffect } from "react"; // Added React
 import { useBlocksStore } from "@/store/blocks-store";
 import { useViewport } from "@/lib/hooks/use-viewport";
-import { PreviewDropArea } from "./preview-drop-area";
-// Removed getViewportStyles import
-import { filterNonEmptyDropAreas } from "@/lib/utils/drop-area-utils";
-// Removed PhoneMockup and TabletMockup imports
-import { Signal, Wifi, Battery } from "lucide-react"; // Added icons
+import { RenderLayoutBlock } from "../public/RenderLayoutBlock";
+import { Signal, Wifi, Battery, Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getViewportStyles } from "@/lib/utils/viewport-utils"; // Importiere wieder
 
-export default function Preview() {
-  const { dropAreas } = useBlocksStore();
+// ===== PreviewContent Component =====
+function PreviewContent() {
+  const { layoutBlocks } = useBlocksStore();
   const { viewport } = useViewport();
-  const [time, setTime] = useState(
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  );
 
-  // Filter out empty drop areas for preview
-  const nonEmptyDropAreas = filterNonEmptyDropAreas(dropAreas);
-
-  // Update time every minute (moved from mockups)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(
-        new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Determine dynamic styles and classes
   const getFrameStyles = () => {
     switch (viewport) {
       case "mobile":
@@ -44,17 +23,16 @@ export default function Preview() {
       case "tablet":
         return {
           width: "min(95vw, 834px)",
-          height: "auto", // Let content determine height
-          minHeight: "600px", // Match desktop minHeight
-          maxHeight: "85vh", // Update max height constraint to 85vh
+          height: "auto",
+          minHeight: "600px",
+          maxHeight: "85vh",
         };
-      case "desktop":
       default:
         return {
-          width: "1400px", // Explicit width instead of 100%
-          maxWidth: "1400px", // Keep max width for consistency
-          height: "auto", // Let content determine height
-          minHeight: "600px", // Ensure a minimum height
+          width: "1400px",
+          maxWidth: "1400px",
+          height: "auto",
+          minHeight: "600px",
         };
     }
   };
@@ -69,9 +47,8 @@ export default function Preview() {
       case "tablet":
         classes += " rounded-[2rem] border-[14px] border-black";
         break;
-      case "desktop":
       default:
-        classes += " rounded-[2rem] shadow-lg"; // Add shadow for desktop
+        classes += " rounded-[2rem] shadow-lg";
         break;
     }
     return classes;
@@ -80,23 +57,35 @@ export default function Preview() {
   const getContentPadding = () => {
     switch (viewport) {
       case "mobile":
-        return "px-4"; // Only horizontal padding needed below status bar
+        return "px-4";
       case "tablet":
         return "p-6";
-      case "desktop":
       default:
         return "p-8";
     }
   };
 
+  const [time, setTime] = useState(
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  );
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTime(
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto p-6 flex justify-center items-start">
-      {/* Single container for frame/screen - now also the flex container */}
+    <div className="flex-1 bg-gray-50 overflow-auto p-6 flex justify-center items-center">
       <div
-        className={`${getFrameClasses()} flex flex-col`} // Added flex flex-col here
+        className={`${getFrameClasses()} flex flex-col`}
         style={getFrameStyles()}
       >
-        {/* Status Bar (Conditional) - Now direct child */}
         {(viewport === "mobile" || viewport === "tablet") && (
           <div
             className={`flex justify-between items-center text-xs font-medium pb-2 bg-gray-700 text-white mb-2 ${
@@ -115,30 +104,316 @@ export default function Preview() {
               />
               <Battery
                 className={viewport === "mobile" ? "w-4 h-4" : "w-5 h-5"}
-                stroke="white" // Weißer Umriss für das Batterie-Icon
-                fill="green" // Grüne Füllung für das Batterie-Icon
+                stroke="white"
+                fill="green"
               />
             </div>
           </div>
         )}
-
-        {/* Content Area - Now direct child */}
         <div
-          className={`flex-1 overflow-y-auto min-h-0 relative ${getContentPadding()}`} // Keep scrolling here
+          className={`flex-1 overflow-y-auto min-h-0 relative ${getContentPadding()}`}
         >
           <div
             className={`${viewport === "desktop" ? "space-y-6" : "space-y-4"}`}
           >
-            {nonEmptyDropAreas.map((dropArea) => (
-              <PreviewDropArea
-                key={dropArea.id}
-                dropArea={dropArea}
+            {layoutBlocks.map((layoutBlock) => (
+              <RenderLayoutBlock
+                key={layoutBlock.id}
+                layoutBlock={layoutBlock}
                 viewport={viewport}
               />
             ))}
+            {layoutBlocks.length === 0 && (
+              <div className="text-center py-10 text-gray-400">
+                Kein Inhalt vorhanden.
+              </div>
+            )}
           </div>
         </div>
-        {/* Removed intermediate div */}
+      </div>
+    </div>
+  );
+}
+
+// ===== Main Canvas/Preview Component =====
+// Importiere zusätzliche benötigte Komponenten und Hooks für den Editor-Modus
+import { LayoutBlock } from "../canvas/LayoutBlock";
+import { ViewportSelector } from "../canvas/viewport-selector";
+import { useRef, createRef } from "react"; // Hinzugefügt für Editor-Refs
+import { useDrop } from "react-dnd"; // Hinzugefügt für Editor-Drop
+import { ItemTypes } from "@/lib/dnd/itemTypes"; // Hinzugefügt für Editor-Drop
+import type { LayoutType, BlockType } from "@/lib/types"; // Hinzugefügt für Editor-Drop
+
+// Typen für Editor-Drop (kopiert aus vorheriger Canvas-Version)
+interface NewLayoutDragItem {
+  layoutType: LayoutType;
+}
+interface NewBlockDragItem {
+  type: BlockType["type"];
+  content: string;
+}
+interface ExistingBlockDragItem {
+  id: string;
+  index: number;
+  layoutId: string;
+  zoneId: string;
+  type: string;
+}
+interface ExistingLayoutDragItem {
+  id: string;
+  index: number;
+  type: string;
+}
+type AcceptedCanvasDropItem =
+  | NewLayoutDragItem
+  | NewBlockDragItem
+  | ExistingBlockDragItem
+  | ExistingLayoutDragItem;
+
+export default function Canvas() {
+  const {
+    previewMode,
+    setPreviewMode,
+    layoutBlocks,
+    addLayoutBlock,
+    moveLayoutBlock,
+    canvasHoveredInsertionIndex,
+    setCanvasHoveredInsertionIndex,
+  } = useBlocksStore();
+  const { viewport } = useViewport(); // Wird hier und in PreviewContent benötigt
+
+  // State und Refs für den Editor-Modus (kopiert aus vorheriger Canvas-Version)
+  const layoutBlockRefs = useRef<React.RefObject<HTMLDivElement>[]>([]);
+  const hideIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    layoutBlockRefs.current = layoutBlocks.map(
+      (_, i) => layoutBlockRefs.current[i] ?? createRef<HTMLDivElement>()
+    );
+  }, [layoutBlocks]);
+
+  useEffect(() => {
+    return () => {
+      const hideIndicatorTimeout = hideIndicatorTimeoutRef.current;
+      if (hideIndicatorTimeout) {
+        clearTimeout(hideIndicatorTimeout);
+      }
+    };
+  }, []);
+
+  // Drop-Handler für den Editor-Modus (kopiert aus vorheriger Canvas-Version)
+  const [, drop] = useDrop<AcceptedCanvasDropItem, void, { isOver: boolean }>(
+    {
+      accept: [ItemTypes.LAYOUT_BLOCK, ItemTypes.EXISTING_LAYOUT_BLOCK],
+      hover: (item, monitor) => {
+        const clientOffset = monitor.getClientOffset();
+        if (!clientOffset) return;
+        if (!monitor.isOver({ shallow: true })) {
+          if (
+            canvasHoveredInsertionIndex !== null &&
+            !hideIndicatorTimeoutRef.current
+          ) {
+            hideIndicatorTimeoutRef.current = setTimeout(() => {
+              setCanvasHoveredInsertionIndex(null);
+              hideIndicatorTimeoutRef.current = null;
+            }, 150);
+          }
+          return;
+        }
+        let currentHoveredIndex: number | null = null;
+        const layoutCount = layoutBlocks.length;
+        if (layoutCount > 0 && layoutBlockRefs.current[0]?.current) {
+          const firstRect =
+            layoutBlockRefs.current[0].current.getBoundingClientRect();
+          if (clientOffset.y < firstRect.top + firstRect.height / 2) {
+            currentHoveredIndex = 0;
+          }
+        }
+        if (currentHoveredIndex === null) {
+          for (let i = 0; i < layoutCount - 1; i++) {
+            const topBlockRef = layoutBlockRefs.current[i];
+            const bottomBlockRef = layoutBlockRefs.current[i + 1];
+            if (!topBlockRef?.current || !bottomBlockRef?.current) continue;
+            const topRect = topBlockRef.current.getBoundingClientRect();
+            const bottomRect = bottomBlockRef.current.getBoundingClientRect();
+            const gapThreshold = 20;
+            const midPointY =
+              topRect.bottom + (bottomRect.top - topRect.bottom) / 2;
+            if (Math.abs(clientOffset.y - midPointY) < gapThreshold) {
+              const gapLeft = Math.min(topRect.left, bottomRect.left);
+              const gapRight = Math.max(topRect.right, bottomRect.right);
+              if (clientOffset.x >= gapLeft && clientOffset.x <= gapRight) {
+                currentHoveredIndex = i + 1;
+                break;
+              }
+            }
+          }
+        }
+        if (currentHoveredIndex === null && layoutCount > 0) {
+          const lastBlockRef = layoutBlockRefs.current[layoutCount - 1];
+          if (lastBlockRef?.current) {
+            const lastRect = lastBlockRef.current.getBoundingClientRect();
+            if (clientOffset.y > lastRect.top + lastRect.height / 2) {
+              currentHoveredIndex = layoutCount;
+            }
+          }
+        }
+        if (currentHoveredIndex !== null) {
+          if (hideIndicatorTimeoutRef.current) {
+            clearTimeout(hideIndicatorTimeoutRef.current);
+            hideIndicatorTimeoutRef.current = null;
+          }
+          if (currentHoveredIndex !== canvasHoveredInsertionIndex) {
+            setCanvasHoveredInsertionIndex(currentHoveredIndex);
+          }
+        } else {
+          if (
+            canvasHoveredInsertionIndex !== null &&
+            !hideIndicatorTimeoutRef.current
+          ) {
+            hideIndicatorTimeoutRef.current = setTimeout(() => {
+              setCanvasHoveredInsertionIndex(null);
+              hideIndicatorTimeoutRef.current = null;
+            }, 150);
+          }
+        }
+      },
+      drop: (item, monitor) => {
+        if (hideIndicatorTimeoutRef.current) {
+          clearTimeout(hideIndicatorTimeoutRef.current);
+          hideIndicatorTimeoutRef.current = null;
+        }
+        const targetIndex = canvasHoveredInsertionIndex;
+        setCanvasHoveredInsertionIndex(null);
+        if (targetIndex === null) {
+          console.log("Canvas: Drop nicht in gültigem Bereich.");
+          return undefined;
+        }
+        const itemType = monitor.getItemType();
+        if (itemType === ItemTypes.LAYOUT_BLOCK) {
+          const layoutInput = item as NewLayoutDragItem;
+          if (layoutInput.layoutType) {
+            console.log(
+              `Canvas: Neues Layout ${layoutInput.layoutType} an Index ${targetIndex} hinzufügen.`
+            );
+            addLayoutBlock(layoutInput.layoutType, targetIndex);
+          } else {
+            console.error(
+              "Canvas: Fehlendes layoutType im NewLayoutDragItem",
+              item
+            );
+          }
+        } else if (itemType === ItemTypes.EXISTING_LAYOUT_BLOCK) {
+          console.log(
+            `Canvas: Drop von bestehendem LayoutBlock (wurde bereits durch hover verschoben).`
+          );
+        } else {
+          console.log(
+            `Canvas: Unerwarteter Item-Typ gedropped: ${itemType?.toString()}`
+          );
+          console.log("Dropped Item Data:", item);
+        }
+        return undefined;
+      },
+      collect: (monitor) => ({ isOver: !!monitor.isOver({ shallow: true }) }),
+    },
+    [
+      layoutBlocks,
+      addLayoutBlock,
+      moveLayoutBlock,
+      canvasHoveredInsertionIndex,
+      setCanvasHoveredInsertionIndex,
+    ]
+  );
+
+  const dropRefCallback = (node: HTMLDivElement | null) => {
+    if (node) {
+      drop(node);
+    }
+  };
+
+  // ----- MODUS-AUSWAHL -----
+  if (previewMode) {
+    return (
+      <div className="flex flex-col flex-1 h-full relative bg-gray-50">
+        <div className="px-6 pt-6">
+          <div className="relative flex justify-center items-center mb-6">
+            <ViewportSelector />
+            <div className="absolute right-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewMode(false)}
+                className="bg-white/80 hover:bg-white"
+              >
+                <EyeOff className="h-4 w-4 mr-2" />
+                Vorschau beenden
+              </Button>
+            </div>
+          </div>
+        </div>
+        <PreviewContent />
+      </div>
+    );
+  }
+
+  // ----- EDITOR-MODUS -----
+  return (
+    <div
+      className="flex-1 bg-muted h-full pt-24 overflow-y-auto"
+      data-drop-container="true"
+      ref={dropRefCallback} // Drop-Zone für Editor
+    >
+      <div className="px-6">
+        <div className="relative flex justify-center items-center mb-6">
+          <ViewportSelector />
+          <div className="absolute right-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewMode(true)} // Button zum Starten der Vorschau
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Vorschau
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="mx-auto transition-all duration-300 ease-in-out relative pb-20"
+        style={getViewportStyles(viewport)} // Verwende Editor-Viewport Styles
+      >
+        {layoutBlocks.map((block, index) => (
+          <React.Fragment key={block.id}>
+            {canvasHoveredInsertionIndex === index && index !== 0 && (
+              <div className="h-2 bg-blue-500 rounded my-1"></div>
+            )}
+            {canvasHoveredInsertionIndex === 0 && index === 0 && (
+              <div className="h-2 bg-blue-500 rounded my-1"></div>
+            )}
+            <LayoutBlock // Editor-Komponente
+              ref={layoutBlockRefs.current[index]}
+              key={block.id}
+              layoutBlock={block}
+              index={index}
+              moveLayoutBlock={moveLayoutBlock}
+            />
+            {canvasHoveredInsertionIndex === layoutBlocks.length &&
+              index === layoutBlocks.length - 1 && (
+                <div className="h-2 bg-blue-500 rounded my-1"></div>
+              )}
+          </React.Fragment>
+        ))}
+        {layoutBlocks.length === 0 && (
+          <div className="text-center py-20 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+            <p className="text-gray-500 dark:text-gray-400">
+              Ziehen Sie ein Layout aus der Seitenleiste hierhin,
+              <br />
+              um zu beginnen.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
