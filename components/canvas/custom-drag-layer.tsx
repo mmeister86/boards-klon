@@ -1,143 +1,141 @@
 "use client";
 
 import React from "react";
-import { useDragLayer, DragLayerMonitor } from "react-dnd"; // Import DragLayerMonitor
-import { ItemTypes } from "@/lib/item-types";
-import { Move } from "@/lib/icons";
-import { getBlockStyle } from "@/lib/utils/block-utils";
-// Import the actual block components
-import { HeadingBlock } from "@/components/blocks/heading-block";
-import { ParagraphBlock } from "@/components/blocks/paragraph-block";
-import type { Level } from "@tiptap/extension-heading"; // Import Level type
+import { useDragLayer, DragLayerMonitor } from "react-dnd";
+import { ItemTypes as ContentItemTypes } from "@/lib/item-types"; // e.g., EXISTING_BLOCK, CONTENT_BLOCK
+import { ItemTypes as DndItemTypes } from "@/lib/dnd/itemTypes"; // e.g., EXISTING_LAYOUT_BLOCK, LAYOUT_BLOCK, MEDIA_ITEM
+import { Move, GripVertical } from "lucide-react"; // Import GripVertical
+import type { LucideIcon } from "lucide-react"; // Import LucideIcon
+import { cn } from "@/lib/utils"; // Import cn for styling sidebar previews
+import type { MediaItemInput } from "@/components/media/draggable-media-item";
 
 // Define specific types for the dragged items
-interface SidebarDragItem {
-  type: string; // The block type (e.g., 'heading')
-  content: string;
-  isSidebarItem: true;
+// Interface for items dragged FROM the sidebar
+interface SidebarContentDragItem {
+  type: typeof DndItemTypes.CONTENT_BLOCK;
+  blockType: string;
+  content?: string | null;
+  // Props needed for preview that match DraggableBlock
+  icon?: LucideIcon;
+  label?: string;
 }
 
-interface BlockDragItem {
+interface SidebarLayoutDragItem {
+  type: typeof DndItemTypes.LAYOUT_BLOCK;
+  layoutType: string;
+  // Props needed for preview that match DraggableLayoutItem
+  icon?: LucideIcon;
+  label?: string;
+}
+
+// Interface for EXISTING content blocks dragged ON the canvas
+interface ExistingBlockDragItem {
   id: string;
-  type: typeof ItemTypes.EXISTING_BLOCK;
-  originalType: string; // The actual block type (e.g., 'heading')
-  content: string;
-  sourceDropAreaId: string;
+  type: typeof ContentItemTypes.EXISTING_BLOCK;
+  originalType: string;
+  content: unknown;
+  sourceLayoutId: string;
+  sourceZoneId: string;
   originalIndex: number;
   headingLevel?: number;
 }
 
+// Interface for EXISTING layout blocks dragged ON the canvas
+interface ExistingLayoutDragItem {
+  id: string;
+  index: number;
+  type: typeof DndItemTypes.EXISTING_LAYOUT_BLOCK;
+}
+
 // Union type for the item collected by the drag layer
-type DragLayerItem = SidebarDragItem | BlockDragItem;
+type DragLayerItem =
+  | SidebarContentDragItem
+  | SidebarLayoutDragItem
+  | ExistingBlockDragItem
+  | ExistingLayoutDragItem
+  | MediaItemInput;
 
 // Preview component rendering logic
-function BlockPreview({
+function ItemPreview({
   item,
   itemType,
 }: {
-  item: DragLayerItem; // Use the specific union type
+  item: DragLayerItem;
   itemType: string | symbol | null;
 }) {
-  const isExistingBlock = itemType === ItemTypes.EXISTING_BLOCK;
-  // Determine the type based on whether it's an existing block or a sidebar item
-  const blockTypeToRender = isExistingBlock
-    ? (item as BlockDragItem).originalType
-    : item.type;
-  // Get base style - remove 'as any' cast
-  const blockStyle = getBlockStyle(item, "desktop");
-
-  // Render actual components for existing blocks
-  if (isExistingBlock) {
-    const existingItem = item as BlockDragItem; // Type assertion
-    if (blockTypeToRender === "heading") {
-      // Validate and cast headingLevel to Level
-      const validLevels: Level[] = [1, 2, 3, 4, 5, 6];
-      const level = (
-        validLevels.includes((existingItem.headingLevel || 1) as Level)
-          ? existingItem.headingLevel || 1
-          : 1
-      ) as Level;
-
-      return (
-        <HeadingBlock
-          blockId={existingItem.id}
-          dropAreaId={existingItem.sourceDropAreaId}
-          content={existingItem.content}
-          level={level} // Pass validated level
-          readOnly={true}
-          onChange={() => {}} // Dummy onChange for readOnly
-        />
-      );
-    }
-    if (blockTypeToRender === "paragraph") {
-      return (
-        <ParagraphBlock
-          blockId={existingItem.id}
-          dropAreaId={existingItem.sourceDropAreaId}
-          content={existingItem.content}
-          readOnly={true}
-          // viewport prop might not be needed for preview
-        />
-      );
-    }
-    // Add cases for other existing block types if needed
-  }
-
-  // --- Fallback / Sidebar Item Previews ---
-  const sidebarItem = item as SidebarDragItem; // Type assertion
-
-  // Image block (applies to both sidebar and existing if not handled above)
-  if (blockTypeToRender === "image") {
+  // Render preview for EXISTING Content Blocks (from Canvas)
+  if (itemType === ContentItemTypes.EXISTING_BLOCK) {
+    const existingItem = item as ExistingBlockDragItem;
     return (
-      <div className="bg-gray-100 aspect-video flex items-center justify-center rounded-md">
-        <span className="text-muted-foreground">Bild</span>
+      <div className="p-2 border rounded bg-white shadow text-xs flex items-center gap-1">
+        <Move size={14} /> {existingItem.originalType}
       </div>
     );
   }
 
-  // Sidebar Heading/Paragraph Preview (simple HTML)
-  if (
-    !isExistingBlock &&
-    (blockTypeToRender === "heading" || blockTypeToRender === "paragraph")
-  ) {
+  // Render preview for EXISTING Layout Blocks (from Canvas)
+  if (itemType === DndItemTypes.EXISTING_LAYOUT_BLOCK) {
     return (
-      <div
-        className={
-          blockTypeToRender === "heading"
-            ? `${blockStyle} prose prose-sm max-w-none`
-            : "prose prose-sm max-w-none"
-        }
-        dangerouslySetInnerHTML={{
-          __html:
-            sidebarItem.content ||
-            (blockTypeToRender === "heading"
-              ? "Überschrift"
-              : "Paragraph text"),
-        }}
-      />
+      <div className="bg-blue-500 text-white p-1.5 rounded-full shadow-md opacity-75">
+        <GripVertical size={16} />
+      </div>
     );
   }
 
-  // Default for other block types (e.g., button, form, divider from sidebar)
-  // Or fallback for existing blocks not explicitly handled above
-  return (
-    <div className={blockStyle}>{sidebarItem.content || blockTypeToRender}</div>
-  );
-}
+  // Render preview for NEW Content Blocks (from Sidebar)
+  if (itemType === DndItemTypes.CONTENT_BLOCK) {
+    const sidebarItem = item as SidebarContentDragItem;
+    const Icon = sidebarItem.icon;
+    // Replicate DraggableBlock appearance
+    return (
+      <div
+        className={`aspect-square flex flex-col items-center justify-center gap-1 p-2 !bg-[#fef9ef]/80 border border-border rounded-lg shadow-sm opacity-75 w-[90px] h-[90px]`}
+      >
+        {Icon && <Icon className="h-8 w-8 text-slate-500" />}
+        {sidebarItem.label && (
+          <span className="text-xs text-center text-slate-500">
+            {sidebarItem.label}
+          </span>
+        )}
+      </div>
+    );
+  }
 
-// Simple preview for the drag handle itself (fallback or other types)
-function HandlePreview() {
-  return (
-    <div className="bg-primary text-primary-foreground p-1.5 rounded-full shadow-md opacity-75">
-      <Move size={14} />
-    </div>
-  );
+  // Render preview for NEW Layout Blocks (from Sidebar)
+  if (itemType === DndItemTypes.LAYOUT_BLOCK) {
+    const sidebarItem = item as SidebarLayoutDragItem;
+    const Icon = sidebarItem.icon;
+    // Replicate DraggableLayoutItem appearance
+    return (
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center p-3 border rounded-lg bg-background shadow-sm opacity-75 w-[90px] h-[90px]"
+        )}
+      >
+        {Icon && <Icon className="w-6 h-6 mb-1.5 text-muted-foreground" />}
+        {sidebarItem.label && (
+          <span className="text-xs font-medium text-center text-foreground">
+            {sidebarItem.label}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Render minimal preview for MEDIA_ITEM to prevent fallback text
+  if (itemType === DndItemTypes.MEDIA_ITEM) {
+    // Render a tiny, transparent div to occupy the preview slot
+    return <div style={{ width: 1, height: 1, opacity: 0 }} />;
+  }
+
+  // Fallback/Default preview
+  return <div className="p-1 border rounded bg-gray-200 text-xs">Preview</div>;
 }
 
 const layerStyles: React.CSSProperties = {
   position: "fixed",
   pointerEvents: "none",
-  zIndex: 100, // Ensure it's above everything else
+  zIndex: 100,
   left: 0,
   top: 0,
   width: "100%",
@@ -149,29 +147,16 @@ function getItemStyles(
   currentOffset: { x: number; y: number } | null
 ) {
   if (!initialOffset || !currentOffset) {
-    return {
-      display: "none",
-    };
+    return { display: "none" };
   }
-
   const { x, y } = currentOffset;
-
-  // Use a smaller offset to keep it close to the cursor
-  const offsetX = 10;
-  const offsetY = 5;
-
-  const transform = `translate(${x + offsetX}px, ${y + offsetY}px)`;
-  return {
-    transform,
-    WebkitTransform: transform,
-  };
+  const transform = `translate(${x + 10}px, ${y + 5}px)`; // Small offset from cursor
+  return { transform, WebkitTransform: transform };
 }
 
 export function CustomDragLayer() {
   const { itemType, isDragging, item, initialOffset, currentOffset } =
     useDragLayer((monitor: DragLayerMonitor<DragLayerItem>) => ({
-      // Use specific item type
-      // Use DragLayerMonitor type
       item: monitor.getItem(),
       itemType: monitor.getItemType(),
       initialOffset: monitor.getInitialSourceClientOffset(),
@@ -179,40 +164,16 @@ export function CustomDragLayer() {
       isDragging: monitor.isDragging(),
     }));
 
-  // Re-enable the condition to only show the layer when dragging an existing block
-  // or potentially other types if needed in the future.
-  // For now, we only care about EXISTING_BLOCK previews being accurate.
-  // Only render preview for existing blocks being dragged on the canvas
-  if (!isDragging || itemType !== ItemTypes.EXISTING_BLOCK) {
+  // Render the layer ONLY if dragging is in progress
+  if (!isDragging) {
     return null;
-  }
-
-  function renderPreview() {
-    // Check item and itemType before rendering BlockPreview
-    if (item && itemType) {
-      // Render the preview within the styled container
-      return (
-        <div
-          className="p-4 bg-background border rounded-lg shadow-lg relative border-border"
-          style={{
-            width: "300px", // Fixed width for preview
-            maxHeight: "200px", // Max height
-            overflow: "hidden", // Hide overflow
-            // Add pointer-events: none? Maybe not needed due to layerStyles
-          }}
-        >
-          <BlockPreview item={item} itemType={itemType} />
-        </div>
-      );
-    }
-    // Fallback if item/itemType is somehow invalid during drag
-    return <HandlePreview />;
   }
 
   return (
     <div style={layerStyles}>
       <div style={getItemStyles(initialOffset, currentOffset)}>
-        {renderPreview()}
+        {/* Render the appropriate preview based on item type */}
+        {item && itemType && <ItemPreview item={item} itemType={itemType} />}
       </div>
     </div>
   );

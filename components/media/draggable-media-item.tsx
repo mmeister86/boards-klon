@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useDrag, DragPreviewImage } from "react-dnd";
+import { useDrag } from "react-dnd";
 import { ItemTypes } from "@/lib/dnd/itemTypes";
 
 // Lokale Interface-Definition, die der Struktur aus editor-right-sidebar entspricht
@@ -29,7 +29,7 @@ export function DraggableMediaItem({
   item,
   children,
 }: DraggableMediaItemProps) {
-  const [{ isDragging }, drag, preview] = useDrag(
+  const [{ isDragging }, drag] = useDrag(
     () => ({
       type: ItemTypes.MEDIA_ITEM,
       // Das item wird direkt übergeben, react-dnd fügt intern 'type' hinzu
@@ -41,25 +41,15 @@ export function DraggableMediaItem({
     [item]
   );
 
-  // Verwende preview_url_128 für die Vorschau, wenn vorhanden
-  const previewImageSrc = item.preview_url_128 || "";
-
   return (
-    <>
-      {/* Stelle sicher, dass die Vorschau nur gerendert wird, wenn ein Bild vorhanden ist */}
-      {previewImageSrc && (
-        <DragPreviewImage connect={preview} src={previewImageSrc} />
-      )}
-      {/* Das eigentliche Element, das gezogen werden kann */}
-      <div
-        // @ts-expect-error // Korrekter Typ-Ignore für ref={drag}
-        ref={drag} // Verbindet das DOM-Element mit dem Drag-Source-Handler
-        style={{ opacity: isDragging ? 0.5 : 1 }} // Visuelles Feedback beim Ziehen
-        className="cursor-grab" // Zeigt an, dass das Element greifbar ist
-        title={`Ziehen: ${item.file_name}`} // Tooltip mit korrektem Feldnamen
-      >
-        {children}
-      </div>
-    </>
+    <div
+      // @ts-expect-error // Korrekter Typ-Ignore für ref={drag}
+      ref={drag} // Verbindet das DOM-Element mit dem Drag-Source-Handler
+      style={{ opacity: isDragging ? 0.5 : 1 }} // Visuelles Feedback beim Ziehen
+      className="cursor-grab" // Zeigt an, dass das Element greifbar ist
+      title={`Ziehen: ${item.file_name}`} // Tooltip mit korrektem Feldnamen
+    >
+      {children}
+    </div>
   );
 }

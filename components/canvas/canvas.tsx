@@ -87,7 +87,7 @@ export default function Canvas() {
           isOver: monitor.isOver(),
           isOverCurrent: monitor.isOver({ shallow: true }),
           didDrop: monitor.didDrop(),
-          item
+          item,
         });
 
         const clientOffset = monitor.getClientOffset();
@@ -118,12 +118,13 @@ export default function Canvas() {
 
         if (layoutCount === 0) {
           if (placeholderRef.current) {
-            const placeholderRect = placeholderRef.current.getBoundingClientRect();
+            const placeholderRect =
+              placeholderRef.current.getBoundingClientRect();
             const extendedRect = {
               top: placeholderRect.top - 50,
               bottom: placeholderRect.bottom + 50,
               left: placeholderRect.left - 50,
-              right: placeholderRect.right + 50
+              right: placeholderRect.right + 50,
             };
 
             if (
@@ -211,7 +212,7 @@ export default function Canvas() {
           isOverCurrent: monitor.isOver({ shallow: true }),
           didDrop: monitor.didDrop(),
           item,
-          targetIndex: canvasHoveredInsertionIndex
+          targetIndex: canvasHoveredInsertionIndex,
         });
 
         if (hideIndicatorTimeoutRef.current) {
@@ -235,11 +236,14 @@ export default function Canvas() {
           if (layoutInput.layoutType) {
             console.log("DnD Event: Füge neues Layout hinzu", {
               type: layoutInput.layoutType,
-              index: targetIndex
+              index: targetIndex,
             });
             addLayoutBlock(layoutInput.layoutType, targetIndex);
           } else {
-            console.error("DnD Event: Fehlendes layoutType im NewLayoutDragItem", item);
+            console.error(
+              "DnD Event: Fehlendes layoutType im NewLayoutDragItem",
+              item
+            );
           }
         } else if (itemType === ItemTypes.EXISTING_LAYOUT_BLOCK) {
           console.log("DnD Event: Verschiebe bestehendes Layout");
@@ -275,17 +279,25 @@ export default function Canvas() {
 
   if (previewMode) {
     return (
-      <div className="flex-1 h-full bg-background text-foreground">
-        <div className="absolute top-4 right-4 z-50">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPreviewMode(false)}
-          >
-            <EyeOff className="h-4 w-4 mr-2" />
-            Vorschau beenden
-          </Button>
+      <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col overflow-auto">
+        {/* Controls container: give background, border, padding, z-index */}
+        <div className="px-6 py-4 border-b bg-background sticky top-0 z-10">
+          <div className="relative flex justify-center items-center">
+            <ViewportSelector />
+            {/* Adjusted button positioning */}
+            <div className="absolute right-0 flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewMode(false)}
+              >
+                <EyeOff className="h-4 w-4 mr-2" />
+                Vorschau beenden
+              </Button>
+            </div>
+          </div>
         </div>
+        {/* Preview component takes remaining space (it has flex-1 internally) */}
         <Preview />
       </div>
     );
@@ -323,9 +335,7 @@ export default function Canvas() {
               <div
                 className={clsx(
                   "h-16 border-2 border-dashed rounded-lg my-1 transition-colors",
-                  isOver
-                    ? "border-blue-500 bg-blue-100"
-                    : "border-transparent"
+                  isOver ? "border-blue-500 bg-blue-100" : "border-transparent"
                 )}
               ></div>
             )}
@@ -333,9 +343,7 @@ export default function Canvas() {
               <div
                 className={clsx(
                   "h-16 border-2 border-dashed rounded-lg my-1 transition-colors",
-                  isOver
-                    ? "border-blue-500 bg-blue-100"
-                    : "border-transparent"
+                  isOver ? "border-blue-500 bg-blue-100" : "border-transparent"
                 )}
               ></div>
             )}

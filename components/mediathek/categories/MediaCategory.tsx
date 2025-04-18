@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { FileText, Loader2, X } from "lucide-react";
+import { FileText, Loader2, X, Trash2 } from "lucide-react";
 import type { MediaItem } from "@/hooks/useMediaLibrary";
 import {
   Dialog,
@@ -148,7 +148,7 @@ export default function MediaCategory({
                     onDelete(item);
                   }}
                   disabled={deletingItemId === item.id}
-                  className={`absolute top-1 right-1 p-1.5 rounded-full bg-red-500/90 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/90 ${
+                  className={`absolute top-2 right-2 p-1.5 rounded-full bg-red-500/90 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600/90 ${
                     deletingItemId === item.id
                       ? "cursor-not-allowed opacity-50"
                       : ""
@@ -158,19 +158,7 @@ export default function MediaCategory({
                   {deletingItemId === item.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+                    <Trash2 className="w-4 h-4" />
                   )}
                 </button>
               </div>

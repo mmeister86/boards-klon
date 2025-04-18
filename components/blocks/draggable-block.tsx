@@ -3,6 +3,8 @@
 import { useDrag } from "react-dnd";
 import { ItemTypes } from "@/lib/dnd/itemTypes";
 import type { LucideIcon } from "lucide-react";
+import { useEffect } from "react";
+import { getEmptyImage } from "react-dnd-html5-backend";
 
 interface DraggableBlockProps {
   blockType: string;
@@ -19,16 +21,22 @@ export function DraggableBlock({
   description,
   label,
 }: DraggableBlockProps) {
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, drag, dragPreview] = useDrag({
     type: ItemTypes.CONTENT_BLOCK,
     item: {
       blockType,
       content,
+      icon: Icon,
+      label,
     },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
   });
+
+  useEffect(() => {
+    dragPreview(getEmptyImage(), { captureDraggingState: true });
+  }, [dragPreview]);
 
   return (
     <div

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react"; // Import useState
+import { useEffect, useState, useRef } from "react"; // Import useState and useRef
 import { useBlocksStore } from "@/store/blocks-store";
 import type {
   BlockType,
@@ -13,7 +13,7 @@ import type {
   ParagraphBlock as ParagraphBlockType,
 } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
-import { Trash2, Move } from "@/lib/icons"; // Removed Split import
+import { Trash2, GripVertical } from "lucide-react";
 import { useBlockDrag } from "@/lib/hooks/use-block-drag";
 import { ParagraphBlock } from "./paragraph-block";
 import { ImageBlock } from "./image-block"; // Import the new component
@@ -43,10 +43,37 @@ export function CanvasBlock({
 }: CanvasBlockProps) {
   const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
   const isSelected = selectedBlockId === block.id;
-  // Pass index to useBlockDrag
-  // Verwende die neuen layoutId und zoneId für den Drag Hook
-  const { isDragging, drag } = useBlockDrag(block, index, layoutId, zoneId);
-  const [isHovering, setIsHovering] = useState(false); // Add hover state
+  const [isHovering, setIsHovering] = useState(false);
+  const [canDragContent, setCanDragContent] = useState(false);
+
+  // Verwende useBlockDrag mit canDrag und setCanDrag
+  const { isDragging, drag } = useBlockDrag(
+    block,
+    index,
+    layoutId,
+    zoneId,
+    canDragContent, // Pass state
+    setCanDragContent // Pass setter
+  );
+
+  // Ref für den Hauptcontainer (um den Drag-Connector anzuwenden)
+  const blockRef = useRef<HTMLDivElement>(null);
+
+  // Verbinde Drag-Source mit dem Hauptcontainer
+  drag(blockRef);
+
+  // Globaler MouseUp-Listener zum Zurücksetzen von canDragContent
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (canDragContent) {
+        setCanDragContent(false);
+      }
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [canDragContent]);
 
   // Clear selection when dragging starts
   useEffect(() => {
@@ -54,7 +81,7 @@ export function CanvasBlock({
       selectBlock(null);
     }
   }, [isDragging, isSelected, selectBlock]);
-  
+
   // Force hover state in dev mode for debugging
   useEffect(() => {
     // Log block info on mount
@@ -62,9 +89,9 @@ export function CanvasBlock({
       id: block.id,
       type: block.type,
       layoutId,
-      zoneId
+      zoneId,
     });
-    
+
     // Uncomment the line below to force hover state for all blocks (testing only)
     // setIsHovering(true);
   }, [block.id, block.type, layoutId, zoneId]);
@@ -81,23 +108,31 @@ export function CanvasBlock({
       blockId: block.id,
       layoutId,
       zoneId,
-      blockType: block.type
+      blockType: block.type,
     });
     // Verwende layoutId und zoneId statt block.dropAreaId
     deleteBlock(block.id, layoutId, zoneId);
     selectBlock(null);
   };
 
+  // MouseDown-Handler für den Handle
+  const handleMouseDownOnHandle = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Verhindert handleBlockClick
+    setCanDragContent(true); // Erlaube das Ziehen
+  };
+
   return (
-    <div className="mb-3"> {/* Added margin for spacing between blocks */}
+    <div className="mb-3">
+      {" "}
+      {/* Added margin for spacing between blocks */}
       {/* Main styled container - already has position: relative */}
       <div
+        ref={blockRef} // Wende Ref hier an
         className={`p-4 bg-background border rounded-lg shadow-sm relative group
         ${
           isSelected ? "border-primary ring-2 ring-primary/20" : "border-border"
         }
         ${viewport === "mobile" ? "text-sm" : ""}
-        ${isDragging ? "opacity-60" : "opacity-100"}
         transition-all duration-200 hover:shadow-md hover:border-blue-400
       `}
         onClick={handleBlockClick}
@@ -114,14 +149,12 @@ export function CanvasBlock({
         data-layout-id={layoutId}
         data-zone-id={zoneId}
       >
-        {/* Conditionally render controls based on hover or selection */}
-        {(isHovering || isSelected) && (
+        {/* Controls nur anzeigen, wenn nicht gezogen wird */}
+        {!isDragging && (isHovering || isSelected) && (
           <BlockControls
             onDelete={handleDelete}
-            // Removed onSplit and canSplit props
-            isDragging={isDragging}
-            drag={drag as any} // Pass drag ref down
             showDeleteButton={!isOnlyBlockInArea}
+            handleMouseDownOnHandle={handleMouseDownOnHandle}
           />
         )}
         <div>
@@ -135,28 +168,21 @@ export function CanvasBlock({
 // Extracted component for block controls
 function BlockControls({
   onDelete,
-  // Removed onSplit, canSplit
-  isDragging,
-  drag, // Destructure the passed drag ref
-  showDeleteButton = true, // New prop with default value
+  showDeleteButton = true,
+  handleMouseDownOnHandle,
 }: {
   onDelete: (e: React.MouseEvent) => void;
-  // Removed onSplit, canSplit types
-  isDragging: boolean;
-  drag: React.Ref<HTMLButtonElement>;
-  showDeleteButton?: boolean; // Add to type definition
+  showDeleteButton?: boolean;
+  handleMouseDownOnHandle: (e: React.MouseEvent) => void;
 }) {
-  // Don't show controls while dragging
-  if (isDragging) return null;
-
   console.log("Rendering BlockControls, showDeleteButton:", showDeleteButton);
 
   return (
     <>
-      {/* Delete button is now always shown, ignoring showDeleteButton prop */}
+      {/* Delete button */}
       <button
         className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md
-                hover:bg-red-600 transition-colors duration-200 z-30" // Increased z-index
+                hover:bg-red-600 transition-colors duration-200 z-30"
         onClick={(e) => {
           e.stopPropagation();
           console.log("Delete button clicked");
@@ -169,14 +195,12 @@ function BlockControls({
 
       {/* Move handle */}
       <button
-        ref={drag}
-        className="absolute -top-2 -left-2 bg-primary text-primary-foreground p-2 rounded-full
-                  shadow-md hover:bg-primary/90 cursor-grab active:cursor-grabbing
-                  ring-4 ring-background pulse-animation transition-colors z-10" // Lower z-index than delete button
+        onMouseDown={handleMouseDownOnHandle}
+        className="absolute -top-2 -left-2 cursor-move p-1.5 text-white rounded-full bg-blue-500 hover:bg-blue-600 shadow-md transition-all duration-200 z-10"
         title="Zum Verschieben ziehen"
-        onClick={(e) => e.stopPropagation()} // Keep stopPropagation here
+        onClick={(e) => e.stopPropagation()}
       >
-        <Move size={16} />
+        <GripVertical size={16} />
       </button>
     </>
   );
@@ -219,12 +243,11 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
 
     return (
       <HeadingBlock
-        // Props für HeadingBlock prüfen und anpassen
         blockId={headingBlock.id}
-        layoutId={layoutId} // Behalten, falls intern benötigt
-        zoneId={zoneId} // Behalten, falls intern benötigt
+        layoutId={layoutId}
+        zoneId={zoneId}
         level={validatedLevel}
-        content={headingBlock.content} // content ist string
+        content={headingBlock.content}
         onChange={handleHeadingChange}
       />
     );
@@ -233,10 +256,21 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
   if (block.type === "image") {
     const imageBlock = block as ImageBlockType;
     return (
-      <ImageBlock // Verwendet jetzt die vereinfachte Komponente
-        // Keine blockId, layoutId, zoneId mehr nötig
-        src={imageBlock.content.src} // Korrekt: src aus content
-        altText={imageBlock.content.alt} // Korrekt: alt aus content
+      <ImageBlock
+        blockId={imageBlock.id}
+        layoutId={layoutId}
+        zoneId={zoneId}
+        content={
+          typeof imageBlock.content === "string"
+            ? imageBlock.content
+            : imageBlock.content?.src
+        }
+        altText={
+          typeof imageBlock.content === "object"
+            ? imageBlock.content?.alt
+            : undefined
+        }
+        isSelected={false}
       />
     );
   }
@@ -248,7 +282,6 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
         blockId={videoBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        // Annahme: VideoBlock erwartet src-String in content-Prop
         content={videoBlock.content.src}
       />
     );
@@ -261,7 +294,6 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
         blockId={audioBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        // Annahme: AudioBlock erwartet src-String in content-Prop
         content={audioBlock.content.src}
       />
     );
@@ -274,9 +306,7 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
         blockId={documentBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        // Annahme: DocumentBlock erwartet src-String in content-Prop
         content={documentBlock.content.src}
-        // Übergebe fileName aus content
         fileName={documentBlock.content.fileName}
       />
     );
@@ -289,7 +319,7 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
         blockId={paragraphBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        content={paragraphBlock.content} // content ist string
+        content={paragraphBlock.content}
       />
     );
   }

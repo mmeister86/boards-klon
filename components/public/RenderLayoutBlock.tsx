@@ -71,7 +71,7 @@ export function RenderLayoutBlock({
   // }
 
   return (
-    <div className="mb-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm export-layout-block">
+    <div className="mb-4 bg-white p-4 rounded-lg shadow-sm export-layout-block">
       {/* Übergebe viewport an die Hilfsfunktionen */}
       <div className={` ${getLayoutClasses(layoutBlock.type, viewport)}`}>
         {layoutBlock.zones.map((zone, zoneIndex) => (

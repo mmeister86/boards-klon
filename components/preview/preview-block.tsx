@@ -17,7 +17,7 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
 
   // Helper function to render the appropriate heading tag
   const renderHeadingContent = () => {
-    const level = block.headingLevel || 1;
+    const level = block.type === "heading" ? block.headingLevel || 1 : 1;
     const textSizeClass =
       viewport === "mobile"
         ? "text-base"
@@ -37,6 +37,7 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
 
   // Helper function to render paragraph content with HTML
   const renderParagraphContent = () => {
+    const content = block.type === "paragraph" ? block.content : "";
     const textSizeClass =
       viewport === "mobile"
         ? "text-base"
@@ -47,7 +48,7 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
     return (
       <div
         className={`preview-content ${textSizeClass} whitespace-normal break-words not-prose`} // Added not-prose
-        dangerouslySetInnerHTML={{ __html: block.content }}
+        dangerouslySetInnerHTML={{ __html: content }}
       />
     );
   };
@@ -57,17 +58,17 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
     // Render only the image for image blocks, without the wrapper div
     return (
       <img
-        src={block.content} // Use block content as image URL
-        alt={block.altText || ""} // Use altText or empty string
-        className="block w-full h-auto rounded-lg object-cover" // Basic styling, ensure it fills container if needed
-        loading="lazy" // Add lazy loading
+        src={block.content.src}
+        alt={block.content.alt || ""}
+        className="block w-full h-auto rounded-lg object-cover"
+        loading="lazy"
       />
     );
   }
 
   // --- Spezielle Behandlung für Audio, kein Wrapper Div mehr ---
   if (block.type === "audio") {
-    return <ModernAudioPlayer url={block.content} />;
+    return <ModernAudioPlayer url={block.content.src} />;
   }
 
   // For other block types, render with the wrapper div
@@ -86,11 +87,11 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         <div className="player-wrapper relative pt-[56.25%] rounded-md overflow-hidden">
           <ReactPlayer
             className="absolute top-0 left-0"
-            url={block.content}
+            url={block.content.src}
             width="100%"
             height="100%"
             controls={true}
-            light={(block.type === "video" && block.thumbnailUrl) || true}
+            light={block.content.thumbnailUrl || true}
             config={{
               youtube: {
                 playerVars: {
@@ -103,36 +104,31 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         </div>
       ) : // --- NEU: Spezifische Behandlung für Dokument-Blöcke ---
       block.type === "document" ? (
-        block.previewUrl ? (
-          // Wenn eine Vorschau-URL vorhanden ist, zeige sie als Bild an und verlinke auf die eigentliche PDF
-          <a href={block.content} target="_blank" rel="noopener noreferrer">
+        block.content.thumbnailUrl ? (
+          <a href={block.content.src} target="_blank" rel="noopener noreferrer">
             <img
-              // Verwende previewUrl als Bildquelle
-              src={block.previewUrl}
-              // Aktualisierter Alt-Text
-              alt={`Vorschau von ${block.fileName || "Dokument"}`}
-              className="block w-full h-auto rounded-lg object-contain border border-gray-200" // object-contain, damit ganze Seite sichtbar ist
+              src={block.content.thumbnailUrl}
+              alt={`Vorschau von ${block.content.fileName || "Dokument"}`}
+              className="block w-full h-auto rounded-lg object-contain border border-gray-200"
               loading="lazy"
             />
           </a>
         ) : (
-          // Wenn kein Vorschaubild vorhanden ist, zeige den Link wie bisher
           <a
-            href={block.content}
+            href={block.content.src}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:underline flex items-center space-x-2"
           >
-            {/* Optional: Icon hinzufügen, muss aber importiert werden */}
-            {/* <FileText className="h-5 w-5 flex-shrink-0" /> */}
             <span>
-              {block.fileName || block.content.split("/").pop() || "Document"}
+              {block.content.fileName ||
+                block.content.src.split("/").pop() ||
+                "Document"}
             </span>
           </a>
         )
       ) : (
-        // Default rendering for other types (if any)
-        <div className="preview-content">{block.content}</div>
+        <div className="preview-content text-red-500">Unbekannter Blocktyp</div>
       )}
     </div>
   );

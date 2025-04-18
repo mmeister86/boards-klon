@@ -5,7 +5,8 @@ import { ItemTypes } from "@/lib/dnd/itemTypes";
 import type { LayoutType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
-import React from "react";
+import React, { useEffect, useRef } from "react";
+import { getEmptyImage } from "react-dnd-html5-backend";
 
 interface DraggableLayoutItemProps {
   type: LayoutType;
@@ -20,18 +21,28 @@ export function DraggableLayoutItem({
   label,
   description,
 }: DraggableLayoutItemProps) {
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const ref = useRef<HTMLDivElement>(null);
+  const [{ isDragging }, drag, dragPreview] = useDrag(() => ({
     type: ItemTypes.LAYOUT_BLOCK,
-    item: { layoutType: type },
+    item: {
+      layoutType: type,
+      icon: Icon,
+      label,
+    },
     collect: (monitor: DragSourceMonitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
   }));
 
+  drag(ref);
+
+  useEffect(() => {
+    dragPreview(getEmptyImage(), { captureDraggingState: true });
+  }, [dragPreview]);
+
   return (
-    // @ts-expect-error - Type mismatch for react-dnd drag ref, but functionally correct.
     <div
-      ref={drag}
+      ref={ref}
       className={cn(
         "flex flex-col items-center justify-center p-3 border rounded-lg cursor-grab bg-background hover:bg-muted transition-colors",
         isDragging ? "opacity-50 ring-2 ring-primary" : ""

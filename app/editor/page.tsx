@@ -28,6 +28,7 @@ export default function EditorPage() {
     isLoading,
     createNewProject,
     checkPublishStatus,
+    previewMode,
   } = useBlocksStore();
 
   const searchParams = useSearchParams();
@@ -160,6 +161,8 @@ export default function EditorPage() {
     );
   }
 
+  // previewMode is now extracted at the top with other hooks
+
   return (
     <ViewportProvider>
       <div className="flex flex-col h-screen">
@@ -169,13 +172,13 @@ export default function EditorPage() {
           onTitleChange={setProjectTitle}
         />
         <div className="flex flex-1 overflow-hidden">
-          <LeftSidebar />
-          <div className="flex-1 bg-muted overflow-auto flex flex-col">
+          {/* Only show sidebars when not in preview mode */}
+          {!previewMode && <LeftSidebar />}
+          <div className={`flex-1 bg-muted flex flex-col ${previewMode ? 'overflow-visible' : 'overflow-auto'}`}>
             <Canvas />
           </div>
-          {/* <RightSidebar /> */}
-          {/* <PropertiesPanel /> */}
-          <EditorRightSidebar /> {/* Use the combined sidebar */}
+          {/* Only show right sidebar when not in preview mode */}
+          {!previewMode && <EditorRightSidebar />}
         </div>
       </div>
     </ViewportProvider>
