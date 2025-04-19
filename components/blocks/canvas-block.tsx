@@ -11,6 +11,7 @@ import type {
   DocumentBlock as DocumentBlockType,
   HeadingBlock as HeadingBlockType,
   ParagraphBlock as ParagraphBlockType,
+  GifBlock,
 } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { Trash2, GripVertical } from "lucide-react";
@@ -20,6 +21,7 @@ import { ImageBlock } from "./image-block"; // Import the new component
 import { VideoBlock } from "./video-block";
 import { AudioBlock } from "./audio-block";
 import { DocumentBlock } from "./document-block";
+import { GifBlockComponent } from "./gif-block";
 import React from "react";
 
 interface CanvasBlockProps {
@@ -30,6 +32,7 @@ interface CanvasBlockProps {
   zoneId: string; // NEU: ID der Content-Zone
   // Removed onSplit, canSplit props
   isOnlyBlockInArea?: boolean;
+  isSelected: boolean; // NEU: Füge isSelected hinzu
 }
 
 export function CanvasBlock({
@@ -40,9 +43,9 @@ export function CanvasBlock({
   viewport = "desktop",
   // Removed onSplit, canSplit props
   isOnlyBlockInArea = false,
+  isSelected, // NEU: Füge isSelected hinzu
 }: CanvasBlockProps) {
-  const { selectedBlockId, selectBlock, deleteBlock } = useBlocksStore();
-  const isSelected = selectedBlockId === block.id;
+  const { selectBlock, deleteBlock } = useBlocksStore();
   const [isHovering, setIsHovering] = useState(false);
   const [canDragContent, setCanDragContent] = useState(false);
 
@@ -158,7 +161,12 @@ export function CanvasBlock({
           />
         )}
         <div>
-          <BlockContent block={block} layoutId={layoutId} zoneId={zoneId} />
+          <BlockContent
+            block={block}
+            layoutId={layoutId}
+            zoneId={zoneId}
+            isSelected={isSelected}
+          />
         </div>
       </div>
     </div>
@@ -211,9 +219,15 @@ interface BlockContentProps {
   block: BlockType;
   layoutId: string;
   zoneId: string;
+  isSelected: boolean; // Füge isSelected hinzu
 }
 
-function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
+function BlockContent({
+  block,
+  layoutId,
+  zoneId,
+  isSelected,
+}: BlockContentProps) {
   const { updateBlockContent } = useBlocksStore();
 
   // Handle Heading Change (angepasst für spezifischen Typ)
@@ -270,7 +284,7 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
             ? imageBlock.content?.alt
             : undefined
         }
-        isSelected={false}
+        isSelected={isSelected}
       />
     );
   }
@@ -320,6 +334,28 @@ function BlockContent({ block, layoutId, zoneId }: BlockContentProps) {
         layoutId={layoutId}
         zoneId={zoneId}
         content={paragraphBlock.content}
+      />
+    );
+  }
+
+  // NEU: Rendern für GIF-Blöcke
+  if (block.type === "gif") {
+    const gifBlock = block as GifBlock; // Typ-Assertion
+
+    // Funktion zum Aktualisieren des GIF-Blocks
+    const handleGifChange = (newContent: GifBlock["content"]) => {
+      // Verwende additionalProps für das komplexe Content-Objekt
+      updateBlockContent(block.id, layoutId, zoneId, "", {
+        // Leerer String für content
+        content: newContent,
+      });
+    };
+
+    return (
+      <GifBlockComponent
+        block={gifBlock}
+        onChange={handleGifChange}
+        isSelected={isSelected} // Übergebe isSelected
       />
     );
   }

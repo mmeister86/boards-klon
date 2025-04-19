@@ -70,7 +70,18 @@ export function RenderBlock({ block }: { block: BlockType }) {
         pdfjsLibRef.current = pdfjs;
       }
 
-      const loadingTask = pdfjsLibRef.current.getDocument(block.content);
+      // Prüfen, ob content ein Objekt mit 'src' ist, bevor darauf zugegriffen wird
+      const pdfSrc =
+        typeof block.content === "object" &&
+        block.content &&
+        "src" in block.content
+          ? block.content.src
+          : null;
+      if (!pdfSrc || typeof pdfSrc !== "string") {
+        throw new Error("Invalid PDF source provided.");
+      }
+
+      const loadingTask = pdfjsLibRef.current.getDocument(pdfSrc);
       const pdf = await loadingTask.promise;
       setPdfDoc(pdf);
       setNumPages(pdf.numPages);
@@ -130,43 +141,92 @@ export function RenderBlock({ block }: { block: BlockType }) {
 
     case "image":
       // Use width=0, height=0, sizes, and style for responsive auto-height image
-      return (
-        <Image
-          src={block.content}
-          alt={block.altText || ""}
-          width={0} // Required for Next.js, but overridden by style
-          height={0} // Required for Next.js, but overridden by style
-          sizes="100vw" // Inform optimizer about expected size
-          style={{ width: "100%", height: "auto" }} // Let browser determine height
-          priority={false}
-          className="rounded-lg shadow-sm md:shadow-md shadow-slate-500/70"
-        />
-      );
+      if (
+        block.content &&
+        typeof block.content === "object" &&
+        "src" in block.content
+      ) {
+        return (
+          <Image
+            src={block.content.src}
+            alt={block.content.alt || "Bild"}
+            width={0}
+            height={0}
+            sizes="100vw"
+            style={{ width: "100%", height: "auto" }}
+            priority={false}
+            className="rounded-lg shadow-sm md:shadow-md shadow-slate-500/70"
+          />
+        );
+      }
+      return <div>Ungültiger Bild-Inhalt</div>;
 
     case "video":
-      return (
-        <div className="player-wrapper relative pt-[56.25%] rounded-lg overflow-hidden shadow-md">
-          <ReactPlayer
-            className="absolute top-0 left-0"
-            url={block.content}
-            width="100%"
-            height="100%"
-            controls={true}
-            light={(block.type === "video" && block.thumbnailUrl) || true}
-            config={{
-              youtube: {
-                playerVars: {
-                  origin:
-                    typeof window !== "undefined" ? window.location.origin : "",
+      if (
+        block.content &&
+        typeof block.content === "object" &&
+        "src" in block.content
+      ) {
+        return (
+          <div className="player-wrapper relative pt-[56.25%] rounded-lg overflow-hidden shadow-md">
+            <ReactPlayer
+              className="absolute top-0 left-0"
+              url={block.content.src}
+              width="100%"
+              height="100%"
+              controls={true}
+              light={block.content.thumbnailUrl || true}
+              config={{
+                youtube: {
+                  playerVars: {
+                    origin:
+                      typeof window !== "undefined"
+                        ? window.location.origin
+                        : "",
+                  },
                 },
-              },
-            }}
-          />
-        </div>
-      );
+              }}
+            />
+          </div>
+        );
+      }
+      return <div>Ungültiger Video-Inhalt</div>;
 
     case "audio":
-      return <ModernAudioPlayer url={block.content} />;
+      if (
+        block.content &&
+        typeof block.content === "object" &&
+        "src" in block.content
+      ) {
+        return <ModernAudioPlayer url={block.content.src} />;
+      }
+      return <div>Ungültiger Audio-Inhalt</div>;
+
+    case "gif":
+      if (
+        block.content &&
+        typeof block.content === "object" &&
+        "images" in block.content
+      ) {
+        const stillUrl =
+          block.content.images?.fixed_height_still?.url ||
+          block.content.images?.original?.url;
+        const altText =
+          block.content.altText || block.content.title || "Animiertes GIF";
+        return (
+          <Image
+            src={stillUrl}
+            alt={altText}
+            width={0}
+            height={0}
+            sizes="100vw"
+            style={{ width: "100%", height: "auto" }}
+            className="rounded-lg shadow-sm md:shadow-md shadow-slate-500/70"
+            priority={false}
+          />
+        );
+      }
+      return <div>Ungültiger GIF-Inhalt</div>;
 
     case "document":
       if (isPdfVisible) {
@@ -229,7 +289,13 @@ export function RenderBlock({ block }: { block: BlockType }) {
             )}
           </div>
         );
-      } else if (block.previewUrl) {
+      } else if (
+        block.content &&
+        typeof block.content === "object" &&
+        "thumbnailUrl" in block.content &&
+        block.content.thumbnailUrl
+      ) {
+        // Verwende thumbnailUrl als Vorschau, wenn vorhanden
         return (
           <div
             onClick={handlePreviewClick}
@@ -245,8 +311,8 @@ export function RenderBlock({ block }: { block: BlockType }) {
             }}
           >
             <Image
-              src={block.previewUrl}
-              alt={`Vorschau für ${block.fileName || "Dokument"}`}
+              src={block.content.thumbnailUrl}
+              alt={`Vorschau für ${block.content.fileName || "Dokument"}`}
               width={0}
               height={0}
               sizes="100vw"
@@ -265,21 +331,31 @@ export function RenderBlock({ block }: { block: BlockType }) {
             </div>
           </div>
         );
-      } else {
+      } else if (
+        block.content &&
+        typeof block.content === "object" &&
+        "src" in block.content
+      ) {
+        // Fallback auf direkten Link, wenn keine Vorschau vorhanden
         return (
           <a
-            href={block.content}
+            href={block.content.src}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:underline"
           >
-            {block.fileName || "Dokument öffnen"}
+            {block.content.fileName || "Dokument öffnen"}
           </a>
         );
       }
+      return <div>Ungültiger Dokumenten-Inhalt</div>;
 
     default:
-      return <div>{block.content}</div>;
+      // Dieser Fall sollte idealerweise nicht eintreten, wenn alle Blocktypen behandelt werden.
+      // Füge hier eine explizite Behandlung oder einen Fehler hinzu.
+      console.warn("Unbehandelter Blocktyp:", block);
+      // const _exhaustiveCheck: never = block; // Uncomment for exhaustive check
+      return <div>Unbekannter Blocktyp</div>;
   }
 }
 

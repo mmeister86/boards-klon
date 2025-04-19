@@ -196,11 +196,7 @@ export function HeadingBlock({
         class: "focus:outline-none",
       },
       handleDOMEvents: {
-        mousedown: (view) => {
-          // Enable text selection on first click
-          view.dom.style.cursor = "text";
-          return false;
-        },
+        // Removed mousedown handler to fix selection issue
         keydown: (_, event) => {
           // Prevent Enter key from creating new lines
           if (event.key === "Enter") {

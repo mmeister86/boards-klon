@@ -21,7 +21,8 @@ export type BlockTypeUnion =
   | "image"
   | "video"
   | "audio"
-  | "document";
+  | "document"
+  | "gif";
 
 // Basis BlockType (allgemeiner content)
 export interface BaseBlockType {
@@ -61,6 +62,23 @@ export interface DocumentBlock extends BaseBlockType {
   content: { src: string; fileName?: string; thumbnailUrl?: string }; // Beispielstruktur
 }
 
+// NEU: Schnittstelle für GIF-Blöcke
+export interface GifBlock extends BaseBlockType {
+  type: "gif";
+  // Der Inhalt wird wahrscheinlich ein Objekt sein, das die URL und andere Metadaten von Giphy enthält
+  content: {
+    id: string; // Giphy ID
+    url: string; // Direkte URL zum GIF
+    title: string; // Titel/Beschreibung des GIFs
+    images: {
+      original: { url: string; width: string; height: string; }; // Original-GIF
+      fixed_height_still: { url: string; }; // Standbild für Vorschau
+      // Weitere Bildformate von Giphy könnten hier hinzugefügt werden
+    };
+    altText?: string; // Optionaler Alternativtext
+  };
+}
+
 // Union Type aller möglichen spezifischen Block-Typen
 export type BlockType =
   | HeadingBlock
@@ -68,7 +86,8 @@ export type BlockType =
   | ImageBlock
   | VideoBlock
   | AudioBlock
-  | DocumentBlock;
+  | DocumentBlock
+  | GifBlock;
 
 // --- Block Typ Definitionen --- ENDE ---
 

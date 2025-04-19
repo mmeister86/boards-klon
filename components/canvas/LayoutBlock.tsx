@@ -46,12 +46,9 @@ const LayoutBlock = forwardRef<HTMLDivElement, LayoutBlockProps>(
 
     const {
       // Holen der benötigten Funktionen und Zustände aus dem Store
-      selectBlock,
-      selectedBlockId,
       deleteLayoutBlock,
     } = useBlocksStore();
     const { viewport } = useViewport();
-    const isSelected = selectedBlockId === layoutBlock.id;
 
     // react-dnd Hook für das Ziehen des LayoutBlocks
     const [, drag] = useDrag(
@@ -172,15 +169,11 @@ const LayoutBlock = forwardRef<HTMLDivElement, LayoutBlockProps>(
       return "";
     };
 
-    const handleSelect = (e: React.MouseEvent) => {
-      e.preventDefault(); // Verhindert Standardverhalten
-      e.stopPropagation(); // Verhindert Bubbling
-      selectBlock(layoutBlock.id);
-    };
-
     // MouseDown-Handler für den Handle
-    const handleMouseDownOnHandle = (e: React.MouseEvent) => {
-      e.stopPropagation(); // Verhindert, dass handleSelect ausgelöst wird
+    const handleMouseDownOnHandle = () => {
+      // Removed unused parameter
+      // Renamed 'e' to '_e' as it's unused
+      // Removed e.stopPropagation(); to test if it interferes with text selection
       setCanDragLayout(true); // Erlaube das Ziehen des Layout-Blocks
     };
 
@@ -201,12 +194,9 @@ const LayoutBlock = forwardRef<HTMLDivElement, LayoutBlockProps>(
         className={clsx(
           "relative p-2 group rounded-xl border-2 transition-all duration-150 ease-in-out mb-4",
           "bg-white",
-          isSelected
-            ? "border-blue-500 border-solid shadow-lg ring-2 ring-blue-200"
-            : "border-gray-200 border-dashed hover:border-blue-400 hover:shadow-md",
+          "border-gray-200 border-dashed hover:border-blue-400 hover:shadow-md",
           layoutBlock.customClasses?.margin
         )}
-        onClick={handleSelect}
       >
         {/* Drag Handle: Initiiert das Ziehen */}
         <div
@@ -214,8 +204,7 @@ const LayoutBlock = forwardRef<HTMLDivElement, LayoutBlockProps>(
           onMouseDown={handleMouseDownOnHandle} // Hier das Ziehen erlauben
           className={clsx(
             "absolute -top-2 -left-2 cursor-move p-1.5 text-white rounded-full bg-blue-500 hover:bg-blue-600 shadow-md z-20", // Increased z-index
-            "opacity-0 group-hover:opacity-100 transition-all duration-200",
-            isSelected && "opacity-100"
+            "opacity-0 group-hover:opacity-100 transition-all duration-200"
           )}
           title="Layoutblock verschieben"
         >
@@ -230,7 +219,7 @@ const LayoutBlock = forwardRef<HTMLDivElement, LayoutBlockProps>(
           }}
           className={clsx(
             "absolute -top-2 -right-2 p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-full shadow-md transition-all z-10",
-            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            "opacity-0 group-hover:opacity-100"
           )}
           title="Layoutblock löschen"
         >

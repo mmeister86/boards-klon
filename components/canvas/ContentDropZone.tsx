@@ -68,13 +68,21 @@ interface ContentDropZoneProps {
   blocks: BlockType[];
 }
 
-export function ContentDropZone({ zoneId, layoutId, blocks }: ContentDropZoneProps) {
+export function ContentDropZone({
+  zoneId,
+  layoutId,
+  blocks,
+}: ContentDropZoneProps) {
   const { addBlock, moveBlock, reorderBlocks } = useBlocksStore();
   const dropRef = useRef<HTMLDivElement>(null);
 
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
-      accept: [ItemTypes.CONTENT_BLOCK, ItemTypes.EXISTING_BLOCK, ItemTypes.MEDIA_ITEM],
+      accept: [
+        ItemTypes.CONTENT_BLOCK,
+        ItemTypes.EXISTING_BLOCK,
+        ItemTypes.MEDIA_ITEM,
+      ],
       drop: (item: DropItem, monitor) => {
         if (!monitor.didDrop()) {
           const itemType = monitor.getItemType(); // Typ vom Monitor holen!
@@ -201,7 +209,7 @@ export function ContentDropZone({ zoneId, layoutId, blocks }: ContentDropZonePro
                 fileName: mediaItem.file_name,
                 targetLayout: layoutId,
                 targetZone: zoneId,
-                targetIndex
+                targetIndex,
               });
               // Erstelle spezifisch einen 'image' Block
               const blockData: Omit<BlockType, "id"> = {
@@ -419,7 +427,7 @@ export function ContentDropZone({ zoneId, layoutId, blocks }: ContentDropZonePro
         !isOver && canDrop && "border-primary/50",
         "border-2 border-dashed p-2"
       )}
-      onClick={(e) => e.stopPropagation()} // Nur wenn direkt auf die Zone geklickt wird
+      // Removed onClick={(e) => e.stopPropagation()} as it might interfere with child text selection
     >
       {blocks.map((block, index) => (
         <CanvasBlock
@@ -429,6 +437,7 @@ export function ContentDropZone({ zoneId, layoutId, blocks }: ContentDropZonePro
           layoutId={layoutId}
           zoneId={zoneId}
           isOnlyBlockInArea={false} // Always allow deletion of blocks
+          isSelected={false}
         />
       ))}
     </div>

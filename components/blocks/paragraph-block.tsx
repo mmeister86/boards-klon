@@ -359,16 +359,7 @@ export function ParagraphBlock({
         class: `focus:outline-none ${readOnly ? "cursor-default" : ""}`, // Add cursor style for readOnly
       },
       handleDOMEvents: {
-        mousedown: (view, event) => {
-          // Prevent interaction if readOnly
-          if (readOnly) {
-            event.preventDefault();
-            return true;
-          }
-          // Enable text selection on first click
-          view.dom.style.cursor = "text";
-          return false;
-        },
+        // Removed mousedown handler to fix selection issue
         // --- Reverted drag event handlers ---
         // dragover: ... (removed)
         // drop: ... (removed)

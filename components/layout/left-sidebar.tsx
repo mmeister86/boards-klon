@@ -18,6 +18,7 @@ import {
   Grid as GridIcon,
   SquareStack as LayoutIcon,
   type LucideIcon,
+  GiftIcon,
 } from "lucide-react";
 import type { LayoutType } from "@/lib/types"; // Stelle sicher, dass LayoutType importiert ist
 
@@ -43,6 +44,13 @@ const blockTypes = [
     label: "Bild",
     icon: ImageIcon,
     description: "Füge ein Bild ein",
+  },
+  {
+    type: "gif",
+    content: null,
+    label: "GIF",
+    icon: GiftIcon,
+    description: "Füge ein animiertes GIF ein",
   },
   {
     type: "video",
