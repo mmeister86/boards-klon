@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await (await supabase).auth.getUser();
 
     if (authError || !user) {
       console.error("API Route (Audio): Authentication failed.", authError);
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
 
     // Lädt die komprimierte Audiodatei in den 'audio'-Bucket von Supabase Storage hoch.
     // Verwende den Server Client
-    const { data: uploadData, error: uploadError } = await supabase.storage // Geändert: supabase statt supabaseAdmin
+    const { data: uploadData, error: uploadError } = await (await supabase).storage // Geändert: supabase statt supabaseAdmin
       .from('audio') // Changed bucket name to 'audio'
       .upload(storagePath, optimizedFileBuffer, {
         contentType: 'audio/aac', // Set content type explicitly for AAC
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
     // Ruft die öffentliche URL der hochgeladenen Audiodatei von Supabase ab.
     console.log(`Attempting to get public URL for path: ${storagePath}`);
     // Verwende den Server Client
-    const { data: urlData } = supabase.storage // Geändert: supabase statt supabaseAdmin
+    const { data: urlData } = (await supabase).storage // Geändert: supabase statt supabaseAdmin
       .from('audio') // Changed bucket name to 'audio'
       .getPublicUrl(storagePath);
     console.log("getPublicUrl data:", JSON.stringify(urlData, null, 2));

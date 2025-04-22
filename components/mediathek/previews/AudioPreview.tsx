@@ -1,6 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Music } from "lucide-react";
+import { MediaItem } from "@/types/mediathek";
 
-export default function AudioPreview() {
+interface AudioPreviewProps {
+  item: MediaItem;
+}
+
+export default function AudioPreview({ item }: AudioPreviewProps) {
   return (
     <div className="relative aspect-square bg-muted rounded-[30px] overflow-hidden">
       <div className="w-full h-full flex items-center justify-center">

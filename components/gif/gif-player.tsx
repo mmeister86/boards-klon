@@ -22,20 +22,38 @@ export const GifPlayer: React.FC<GifPlayerProps> = ({
 }) => {
   // State für Favoritenstatus (optimistisches UI)
   const [favorite, setFavorite] = useState(false);
-
   // Beim Mount prüfen, ob das GIF Favorit ist
   useEffect(() => {
-    if (showFavoriteButton) {
-      setFavorite(isGifFavorite(gif.id));
+    if (!gif) {
+      // Add null check for gif
+      console.warn("[GifPlayer] useEffect called with null gif.");
+      return;
     }
-  }, [gif.id, showFavoriteButton]);
+    if (showFavoriteButton) {
+      const isFavorite = isGifFavorite(gif.id);
+      console.log(`[GifPlayer] GIF ID ${gif.id} is favorite:`, isFavorite);
+      setFavorite(isFavorite);
+    }
+    console.log("[GifPlayer] Mounted with GIF data:", gif);
+  }, [gif, showFavoriteButton]); // Updated dependency array
 
   // Handler für Favoriten-Button
   const handleToggleFavorite = () => {
+    if (!gif) {
+      // Add null check for gif
+      console.warn("[GifPlayer] handleToggleFavorite called with null gif.");
+      return;
+    }
+    console.log(
+      "[GifPlayer] Toggling favorite status. Current favorite state:",
+      favorite
+    );
     if (favorite) {
+      console.log(`[GifPlayer] Removing favorite GIF ID: ${gif.id}`);
       removeFavoriteGif(gif.id);
       setFavorite(false);
     } else {
+      console.log(`[GifPlayer] Adding favorite GIF ID: ${gif.id}`);
       // Für Favoriten wird ein GifItem benötigt, daher Felder mappen
       addFavoriteGif({
         id: gif.id,
@@ -47,7 +65,14 @@ export const GifPlayer: React.FC<GifPlayerProps> = ({
       });
       setFavorite(true);
     }
+    console.log("[GifPlayer] Favorite state after toggle:", !favorite);
   };
+
+  // Handle case where gif prop is null or undefined
+  if (!gif) {
+    console.error("[GifPlayer] gif prop is null or undefined.");
+    return null; // Or return a loading/error state component
+  }
 
   return (
     <div className="w-full flex flex-col items-center justify-center p-4">

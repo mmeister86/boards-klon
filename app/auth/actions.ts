@@ -5,7 +5,7 @@ import { redirect } from "next/navigation"
 
 // Sign in with magic link
 export async function signIn(formData: FormData) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   const email = formData.get("email") as string
 
   // Request magic link via email
@@ -26,7 +26,7 @@ export async function signIn(formData: FormData) {
 
 // Sign up with magic link
 export async function signUp(formData: FormData) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   const email = formData.get("email") as string
 
   // Send magic link for sign up
@@ -46,13 +46,13 @@ export async function signUp(formData: FormData) {
 }
 
 export async function signOut() {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   await supabase.auth.signOut()
   return redirect("/")
 }
 // Sign in/up with OAuth provider
 export async function signInWithProvider(provider: "google" | "apple") {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   const redirectURL = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({

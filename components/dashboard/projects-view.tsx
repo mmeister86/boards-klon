@@ -90,9 +90,10 @@ export default function ProjectsView() {
           return;
         }
         const loadedProjects = await listProjectsFromStorage(userId);
+        console.log("[ProjectsView] Loaded projects:", loadedProjects); // Added log
         setProjects(loadedProjects || []);
       } catch (error) {
-        console.error("Error loading projects:", error);
+        console.error("[ProjectsView] Error loading projects:", error); // Modified log
         setProjects([]);
         toast.error("Fehler beim Laden", {
           description: "Die Projekte konnten nicht geladen werden.",
@@ -183,6 +184,10 @@ export default function ProjectsView() {
         `[ProjectDelete] Calling deleteProjectFromStorage with projectId: ${projectId}, userId: ${userId}`
       );
       storageDeleted = await deleteProjectFromStorage(projectId, userId);
+      console.log(
+        "[ProjectDelete] deleteProjectFromStorage result:",
+        storageDeleted
+      ); // Added log
 
       if (!storageDeleted) {
         throw new Error("Failed to delete project from storage");
@@ -198,6 +203,10 @@ export default function ProjectsView() {
         `[ProjectDelete] Attempting to delete project ${projectId} from database...`
       );
       databaseDeleted = await deleteProjectFromDatabase(projectId);
+      console.log(
+        "[ProjectDelete] deleteProjectFromDatabase result:",
+        databaseDeleted
+      ); // Added log
 
       if (!databaseDeleted) {
         // Log a warning but don't necessarily throw an error,
@@ -229,14 +238,11 @@ export default function ProjectsView() {
       // Provide more specific error based on which step failed
       let errorMsg = `Das Projekt "${projectTitle}" konnte nicht gelöscht werden.`;
       if (!storageDeleted) {
-        errorMsg = `Das Projekt "${projectTitle}" konnte nicht aus dem Speicher gelöscht werden.`
+        errorMsg = `Das Projekt "${projectTitle}" konnte nicht aus dem Speicher gelöscht werden.`;
       } else if (!databaseDeleted) {
-        errorMsg = `Das Projekt "${projectTitle}" wurde aus dem Speicher gelöscht, aber ein Fehler trat beim Bereinigen der Datenbank auf.`
+        errorMsg = `Das Projekt "${projectTitle}" wurde aus dem Speicher gelöscht, aber ein Fehler trat beim Bereinigen der Datenbank auf.`;
       }
-      showErrorToast(
-        "Fehler beim Löschen",
-        errorMsg
-      );
+      showErrorToast("Fehler beim Löschen", errorMsg);
     } finally {
       // Let the loadProjects effect handle setting isLoading to false after refresh
     }

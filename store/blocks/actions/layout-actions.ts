@@ -32,18 +32,13 @@ const createZonesForLayout = (layoutType: LayoutType) => {
   }
 };
 
-export type LayoutActions = Pick<BlocksState,
-  | 'addLayoutBlock'
-  | 'deleteLayoutBlock'
-  | 'moveLayoutBlock'
->;
+export type LayoutActions = {
+  addLayoutBlock: (type: LayoutType, targetIndex?: number) => string;
+  deleteLayoutBlock: (id: string) => void;
+  moveLayoutBlock: (sourceIndex: number, targetIndex: number) => void;
+};
 
-export const createLayoutActions: StateCreator<
-  BlocksState,
-  [],
-  [],
-  LayoutActions
-> = (set, get) => ({
+export const createLayoutActions: StateCreator<BlocksState, [], [], LayoutActions> = (set, get) => ({
   addLayoutBlock: (type, targetIndex) => {
     const state = get();
     const newLayoutBlockId = crypto.randomUUID();

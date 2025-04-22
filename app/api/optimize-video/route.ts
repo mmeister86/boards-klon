@@ -6,7 +6,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid'; // For unique temporary filenames
 // Import Supabase client
 import { createServerClient } from "@/lib/supabase/server"; // Hinzugefügt: Server Client
-import { updateProgress } from './progress/route';
+import { setProgress } from './progress/progress-utils';
 
 // --- Supabase Client Setup ---
 // Ensure env variables are loaded (Next.js does this automatically in API routes)
@@ -126,13 +126,13 @@ async function generateAndUploadPreviews(
 
   // Upload both previews to the previews bucket with the new naming pattern
   const [preview512Upload, preview128Upload] = await Promise.all([
-    supabase.storage
+    (await supabase).storage
       .from('previews')
       .upload(preview512StoragePath, preview512Buffer, {
         contentType: 'image/jpeg',
         upsert: false,
       }),
-    supabase.storage
+    (await supabase).storage
       .from('previews')
       .upload(preview128StoragePath, preview128Buffer, {
         contentType: 'image/jpeg',
@@ -144,8 +144,8 @@ async function generateAndUploadPreviews(
   if (preview128Upload.error) throw new Error(`Failed to upload 128x128 preview: ${preview128Upload.error.message}`);
 
   // Get public URLs from the previews bucket
-  const preview512Url = supabase.storage.from('previews').getPublicUrl(preview512StoragePath).data.publicUrl;
-  const preview128Url = supabase.storage.from('previews').getPublicUrl(preview128StoragePath).data.publicUrl;
+  const preview512Url = (await supabase).storage.from('previews').getPublicUrl(preview512StoragePath).data.publicUrl;
+  const preview128Url = (await supabase).storage.from('previews').getPublicUrl(preview128StoragePath).data.publicUrl;
 
   // Cleanup local preview files
   await Promise.all([
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await (await supabase).auth.getUser();
 
     if (authError || !user) {
       console.error("API Route (Video): Authentication failed.", authError);
@@ -242,36 +242,30 @@ export async function POST(request: Request) {
     console.log(`Optimizing video for user: ${userId}`);
     console.log(`Local output path: ${localOutputPath}`);
 
-    // --- FFmpeg Processing (Compression Only) ---
+    // Process the video with fluent-ffmpeg
     await new Promise<void>((resolve, reject) => {
-      ffmpeg(tempInputPath as string)
-        .videoCodec('libx264')
-        .outputOptions([
-          '-crf 28',
-          '-movflags +faststart',
-          '-pix_fmt yuv420p'
-        ])
-        .toFormat('mp4')
-        .on('start', (cmd) => {
-          console.log('FFmpeg started (compress only):', cmd);
-          updateProgress(0);
-        })
-        .on('progress', (p) => {
-          const percent = p.percent ? Math.floor(p.percent) : 0;
-          console.log(`Processing: ${percent}% done`);
-          updateProgress(percent);
+      console.log(`[Optimize Video API] Starting video optimization...`);
+      // Initialize progress
+      setProgress(0);
+
+      // Setup ffmpeg command
+      ffmpeg(tempInputPath!)
+        .outputOptions('-c:v libx264') // H.264 codec
+        .on('progress', (progress) => {
+          const percent = Math.min(100, Math.round(progress.percent ?? 0)); // Cap at 100% and handle undefined
+          console.log(`[Optimize Video API] Progress: ${percent}%`);
+          setProgress(percent);
         })
         .on('end', () => {
-          console.log('FFmpeg compression finished successfully.');
-          updateProgress(100);
+          console.log('[Optimize Video API] Video optimization complete');
+          setProgress(100);
           resolve();
         })
         .on('error', (err) => {
-          console.error('FFmpeg error:', err.message);
-          console.error('FFmpeg error details:', err);
-          reject(new Error(`FFmpeg compression failed: ${err.message}`));
+          console.error('[Optimize Video API] Error during optimization:', err);
+          reject(err);
         })
-        .save(localOutputPath as string);
+        .save(localOutputPath!);
     });
 
     // Generate and upload preview images
@@ -304,7 +298,7 @@ export async function POST(request: Request) {
     console.log(`Uploading optimized video file to Supabase Storage at: videos/${storagePath}`); // Bucket 'videos'
 
     // Verwende den Server Client
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await (await supabase).storage
       .from('videos') // Bucket name 'videos'
       .upload(storagePath, optimizedFileBuffer, {
         contentType: 'video/mp4',
@@ -321,7 +315,7 @@ export async function POST(request: Request) {
     // --- Get Public URL from Supabase ---
     console.log(`Attempting to get public URL for path: ${storagePath}`);
     // Verwende den Server Client
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = (await supabase).storage
       .from('videos')
       .getPublicUrl(storagePath);
     console.log("getPublicUrl data:", JSON.stringify(urlData, null, 2));

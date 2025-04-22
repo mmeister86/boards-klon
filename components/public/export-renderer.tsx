@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { BlockType } from "@/lib/types";
+import type { BlockType, LayoutBlockType, LayoutType } from "@/lib/types";
 import Image from "next/image";
 import { Loader2, AlertCircle } from "lucide-react";
 import ReactPlayer from "react-player/lazy";
@@ -122,6 +122,51 @@ export function RenderBlock({ block }: { block: BlockType }) {
     };
   }, [pdfDoc]);
 
+  // Type-safe rendering function for video blocks
+  const renderVideoContent = (block: BlockType) => {
+    if (block.type !== "video" || !block.content) {
+      return <div>Ungültiger Video-Inhalt</div>;
+    }
+
+    // Now TypeScript knows we're dealing with a VideoBlock
+    const videoBlock = block as import("@/lib/types").VideoBlock;
+    const videoUrl =
+      typeof videoBlock.content === "string" ? videoBlock.content : "";
+
+    return (
+      <div className="player-wrapper relative pt-[56.25%] rounded-lg overflow-hidden shadow-md">
+        <ReactPlayer
+          className="absolute top-0 left-0"
+          url={videoUrl}
+          width="100%"
+          height="100%"
+          controls={true}
+          light={videoBlock.thumbnailUrl || true}
+          config={{
+            youtube: {
+              playerVars: {
+                origin:
+                  typeof window !== "undefined" ? window.location.origin : "",
+              },
+            },
+          }}
+        />
+      </div>
+    );
+  };
+
+  // Type-safe rendering function for audio blocks
+  const renderAudioContent = (block: BlockType) => {
+    if (block.type !== "audio" || !block.content) {
+      return <div>Ungültiger Audio-Inhalt</div>;
+    }
+
+    // Now TypeScript knows we're dealing with an AudioBlock
+    const audioUrl = typeof block.content === "string" ? block.content : "";
+
+    return <ModernAudioPlayer url={audioUrl} />;
+  };
+
   switch (block.type) {
     case "heading": {
       const Tag = `h${block.headingLevel || 1}` as keyof JSX.IntrinsicElements;
@@ -164,45 +209,10 @@ export function RenderBlock({ block }: { block: BlockType }) {
       return <div>Ungültiger Bild-Inhalt</div>;
 
     case "video":
-      if (
-        block.content &&
-        typeof block.content === "object" &&
-        "src" in block.content
-      ) {
-        return (
-          <div className="player-wrapper relative pt-[56.25%] rounded-lg overflow-hidden shadow-md">
-            <ReactPlayer
-              className="absolute top-0 left-0"
-              url={block.content.src}
-              width="100%"
-              height="100%"
-              controls={true}
-              light={block.content.thumbnailUrl || true}
-              config={{
-                youtube: {
-                  playerVars: {
-                    origin:
-                      typeof window !== "undefined"
-                        ? window.location.origin
-                        : "",
-                  },
-                },
-              }}
-            />
-          </div>
-        );
-      }
-      return <div>Ungültiger Video-Inhalt</div>;
+      return renderVideoContent(block);
 
     case "audio":
-      if (
-        block.content &&
-        typeof block.content === "object" &&
-        "src" in block.content
-      ) {
-        return <ModernAudioPlayer url={block.content.src} />;
-      }
-      return <div>Ungültiger Audio-Inhalt</div>;
+      return renderAudioContent(block);
 
     case "gif":
       if (
@@ -425,5 +435,54 @@ function PdfPage({ pdfDoc, pageNumber, containerWidth }: PdfPageProps) {
       ref={canvasRef}
       className="pdf-page-canvas block mx-auto my-2 shadow-md"
     />
+  );
+}
+
+// Layout-Rendering Komponente
+export function PublicLayoutRenderer({
+  layoutBlock,
+}: {
+  layoutBlock: LayoutBlockType;
+}) {
+  const getLayoutClasses = (type: LayoutType): string => {
+    switch (type) {
+      case "single-column":
+        return "grid grid-cols-1 gap-4";
+      case "two-columns":
+        return "grid grid-cols-1 md:grid-cols-2 gap-4";
+      case "three-columns":
+        return "grid grid-cols-1 md:grid-cols-3 gap-4";
+      case "grid-2x2":
+        return "grid grid-cols-1 md:grid-cols-2 gap-4";
+      case "layout-1-2":
+        return "grid grid-cols-1 md:grid-cols-3 gap-4";
+      case "layout-2-1":
+        return "grid grid-cols-1 md:grid-cols-3 gap-4";
+      default:
+        return "grid grid-cols-1 gap-4";
+    }
+  };
+
+  const getZoneClasses = (type: LayoutType, zoneIndex: number): string => {
+    switch (type) {
+      case "layout-1-2":
+        return zoneIndex === 0 ? "md:col-span-1" : "md:col-span-2";
+      case "layout-2-1":
+        return zoneIndex === 0 ? "md:col-span-2" : "md:col-span-1";
+      default:
+        return "";
+    }
+  };
+
+  return (
+    <div className={getLayoutClasses(layoutBlock.type)}>
+      {layoutBlock.zones.map((zone, index) => (
+        <div key={zone.id} className={getZoneClasses(layoutBlock.type, index)}>
+          {zone.blocks.map((block) => (
+            <RenderBlock key={block.id} block={block} />
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

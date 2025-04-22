@@ -1,125 +1,80 @@
-import type { BlockType, DropAreaType, LayoutType, ContentDropZoneType, LayoutBlockType } from "@/lib/types";
+import type { LayoutType, ContentDropZoneType, LayoutBlockType } from "@/lib/types";
 
 // Debounce helper function
-export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
+export function debounce<T extends (...args: unknown[]) => void>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: NodeJS.Timeout;
 
-  return function (...args: Parameters<T>) {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
   };
 }
 
-export const findDropAreaById = (
-  dropAreas: DropAreaType[],
-  id: string
-): DropAreaType | null => {
-  for (const area of dropAreas) {
-    if (area.id === id) return area;
-  }
-  return null;
+// Helper function to check if a zone is empty
+export const isZoneEmpty = (zone: ContentDropZoneType): boolean => {
+  return zone.blocks.length === 0;
 };
 
-export const findBlockById = (
-  dropAreas: DropAreaType[],
-  blockId: string
-): BlockType | null => {
-  for (const area of dropAreas) {
-    const block = area.blocks.find((block: BlockType) => block.id === blockId);
-    if (block) return block;
-  }
-  return null;
+// Helper function to check if a layout block is empty
+export const isLayoutBlockEmpty = (layoutBlock: LayoutBlockType): boolean => {
+  return layoutBlock.zones.every(isZoneEmpty);
 };
 
-export const isDropAreaEmpty = (dropArea: DropAreaType): boolean => {
-  return dropArea.blocks.length === 0 && !dropArea.isSplit;
+// Helper function to check if a project is empty
+export const isEmptyProject = (layoutBlocks: LayoutBlockType[]): boolean => {
+  return layoutBlocks.every(isLayoutBlockEmpty);
 };
 
-export const isEmptyProject = (dropAreas: DropAreaType[]): boolean => {
-  return dropAreas.length === 1 && isDropAreaEmpty(dropAreas[0]);
-};
-
-export const canMergeAreas = (
-  firstArea: DropAreaType,
-  secondArea: DropAreaType
-): boolean => {
-  return firstArea.splitLevel === secondArea.splitLevel;
-};
-
-// Helper function to create a new empty drop area
-export function createEmptyDropArea(id: string): DropAreaType {
+// Helper function to create an empty content zone
+export function createEmptyZone(id: string): ContentDropZoneType {
   return {
     id,
     blocks: [],
-    isSplit: false,
-    splitAreas: [],
-    splitLevel: 0,
   };
 }
 
-// Helper function to create a trace ID for logging
-export function createTraceId(operation: string): string {
-  return `${operation}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+// Helper function to create an empty layout block
+export function createEmptyLayoutBlock(id: string, type: LayoutType): LayoutBlockType {
+  const numZones = type === "single-column" ? 1 :
+                  type === "two-columns" || type === "layout-1-2" || type === "layout-2-1" ? 2 :
+                  type === "three-columns" ? 3 :
+                  type === "grid-2x2" ? 4 : 1;
+
+  return {
+    id,
+    type,
+    zones: Array.from({ length: numZones }, (_, i) => createEmptyZone(`${id}-zone-${i}`)),
+  };
 }
 
 // Helper function to find a layout block and zone by their IDs
-export const findLayoutBlockAndZone = (
+export function findLayoutBlockAndZone(
   layoutBlocks: LayoutBlockType[],
   layoutId: string,
   zoneId: string
-): { layoutBlock: LayoutBlockType | null; zone: ContentDropZoneType | null } => {
-  const layoutBlock = layoutBlocks.find((block) => block.id === layoutId) || null;
-  const zone = layoutBlock?.zones.find((zone) => zone.id === zoneId) || null;
-  return { layoutBlock, zone };
-};
+): { layoutBlock?: LayoutBlockType; zone?: ContentDropZoneType } {
+  const layoutBlock = layoutBlocks.find(block => block.id === layoutId);
+  if (!layoutBlock) return { layoutBlock: undefined, zone: undefined };
 
-// Helper function to update a layout block
-export const updateLayoutBlock = (
+  const zone = layoutBlock.zones.find(zone => zone.id === zoneId);
+  return { layoutBlock, zone };
+}
+
+// Helper function to update a layout block with new properties
+export function updateLayoutBlock(
   layoutBlocks: LayoutBlockType[],
   layoutId: string,
   updates: Partial<LayoutBlockType>
-): LayoutBlockType[] => {
-  return layoutBlocks.map((block) =>
+): LayoutBlockType[] {
+  return layoutBlocks.map(block =>
     block.id === layoutId ? { ...block, ...updates } : block
   );
-};
-
-// Helper zum Erstellen von Zonen für Layouts
-export const createZonesForLayout = (layoutType: LayoutType): ContentDropZoneType[] => {
-  let zones: ContentDropZoneType[] = [];
-  switch (layoutType) {
-    case "single-column":
-      zones = [{ id: crypto.randomUUID(), blocks: [] }];
-      break;
-    case "two-columns":
-    case "layout-1-2":
-    case "layout-2-1":
-      zones = [
-        { id: crypto.randomUUID(), blocks: [] },
-        { id: crypto.randomUUID(), blocks: [] },
-      ];
-      break;
-    case "three-columns":
-      zones = [
-        { id: crypto.randomUUID(), blocks: [] },
-        { id: crypto.randomUUID(), blocks: [] },
-        { id: crypto.randomUUID(), blocks: [] },
-      ];
-      break;
-    case "grid-2x2":
-      zones = [
-        { id: crypto.randomUUID(), blocks: [] },
-        { id: crypto.randomUUID(), blocks: [] },
-        { id: crypto.randomUUID(), blocks: [] },
-        { id: crypto.randomUUID(), blocks: [] },
-      ];
-      break;
-    default:
-      console.warn(`Unknown layout type: ${layoutType}. Defaulting to single column.`);
-      zones = [{ id: crypto.randomUUID(), blocks: [] }];
-  }
-  return zones;
 }

@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   let localOutputPath: string | null = null; // Define local output path variable
   let tempGsOutputPath: string | null = null; // Deklariere tempGsOutputPath außerhalb des try-blocks
   let tempPngOutputPath: string | null = null; // Hinzugefügt: Pfad für temporäre PNG-Vorschau
-  const supabase = createServerClient(); // Hinzugefügt: Server Client Instanz
+  const supabase = await createServerClient(); // Hinzugefügt: Server Client Instanz
 
   try {
     // +++ Hinzugefügt: Authentifizierung prüfen +++

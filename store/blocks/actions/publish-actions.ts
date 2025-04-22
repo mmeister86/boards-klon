@@ -7,9 +7,12 @@ import {
   getPublishedBoard,
 } from '@/lib/supabase/database';
 
-// Singleton-Instanz des Supabase-Clients
+// Get a fresh Supabase client instance each time to avoid stale auth state
 const getSupabase = () => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") {
+    console.warn("getSupabase should only be called in browser environment");
+    return null;
+  }
   return createClient();
 };
 
@@ -46,17 +49,24 @@ export const createPublishActions: StateCreator<BlocksState, [], [], PublishActi
 
       const supabase = getSupabase();
       if (!supabase) {
-        console.error("[publishBoard] Supabase client not available");
-        throw new Error("Supabase client not available");
+        console.error("Failed to initialize Supabase client");
+        set({ isPublishing: false });
+        return false;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (!sessionData.session || sessionError) {
         console.error("[publishBoard] User not authenticated");
         throw new Error("User not authenticated");
       }
 
+      const user = sessionData.session.user;
+
       const dbIdToPublish = get().currentProjectDatabaseId;
+      if (!dbIdToPublish) {
+        throw new Error("Database ID unexpectedly null after initial check");
+      }
+
       console.log("[publishBoard] Publishing board", {
         projectId: dbIdToPublish,
         title: currentProjectTitle,
@@ -65,7 +75,7 @@ export const createPublishActions: StateCreator<BlocksState, [], [], PublishActi
       });
 
       const success = await publishBoardDb(
-        dbIdToPublish,
+        dbIdToPublish as string,
         currentProjectTitle,
         user.user_metadata?.full_name || "Anonymous",
         user.id

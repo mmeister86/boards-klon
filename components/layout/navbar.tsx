@@ -178,9 +178,9 @@ export default function Navbar({
       e.preventDefault();
       // Ensure toggleAutoSave function exists before calling
       if (!toggleAutoSave) return;
-      toggleAutoSave(!autoSaveEnabled);
+      toggleAutoSave();
     },
-    [toggleAutoSave, autoSaveEnabled] // Keep toggleAutoSave in deps
+    [toggleAutoSave] // Keep toggleAutoSave in deps
   );
 
   const handlePublish = useCallback(async () => {

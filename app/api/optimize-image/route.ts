@@ -39,7 +39,7 @@ async function generateAndUploadPreview(
       .toBuffer();
 
     console.log(`Uploading ${size}x${size} preview to Supabase: ${previewFileName}`);
-    const { error: previewUploadError } = await supabase.storage
+    const { error: previewUploadError } = await (await supabase).storage
       .from('previews') // In den 'previews'-Bucket hochladen
       .upload(previewFileName, previewBuffer, {
         contentType: 'image/webp',
@@ -52,7 +52,7 @@ async function generateAndUploadPreview(
     }
 
     // Öffentliche URL für die Vorschau abrufen
-    const { data: previewUrlData } = supabase.storage
+    const { data: previewUrlData } = (await supabase).storage
       .from('previews')
       .getPublicUrl(previewFileName);
 
@@ -78,7 +78,7 @@ export async function POST(
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await (await supabase).auth.getUser();
 
     if (authError || !user) {
       console.error("API Route: Authentication failed.", authError);
@@ -127,7 +127,7 @@ export async function POST(
     console.log(
       `Uploading optimized image to Supabase storage at path: ${uniqueFileName} with contentType: ${optimizedContentType}`
     );
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await (await supabase).storage
       .from("images")
       .upload(uniqueFileName, optimizedBuffer, {
         contentType: optimizedContentType,
@@ -144,12 +144,12 @@ export async function POST(
     // 7. Öffentliche URL des Hauptbildes von Supabase abrufen
     const {
       data: { publicUrl },
-    } = supabase.storage.from("images").getPublicUrl(uploadData.path);
+    } = (await supabase).storage.from("images").getPublicUrl(uploadData.path);
 
     if (!publicUrl) {
       console.error("Failed to get public URL from Supabase for:", uploadData.path);
       // Hier könnten wir versuchen, die bereits hochgeladene Datei wieder zu löschen
-      await supabase.storage.from("images").remove([uploadData.path]);
+      await (await supabase).storage.from("images").remove([uploadData.path]);
       throw new Error("Konnte die öffentliche URL für das Hauptbild nicht abrufen.");
     }
 

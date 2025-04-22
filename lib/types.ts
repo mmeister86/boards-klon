@@ -52,11 +52,12 @@ export interface ImageBlock extends BaseBlockType {
 // TODO: Spezifische Typen für video, audio, document hinzufügen
 export interface VideoBlock extends BaseBlockType {
   type: "video";
-  content: { src: string; thumbnailUrl?: string } | null; // Allow null
+  content: string | null; // Allow null
+  thumbnailUrl?: string; // Neues Feld für Videovorschaubild
 }
 export interface AudioBlock extends BaseBlockType {
   type: "audio";
-  content: { src: string } | null; // Allow null
+  content: string | null; // Allow null
 }
 export interface DocumentBlock extends BaseBlockType {
   type: "document";

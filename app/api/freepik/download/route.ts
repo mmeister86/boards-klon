@@ -42,7 +42,7 @@ async function generateAndUploadPreview(
       .toBuffer();
 
     console.log(`Uploading ${size}x${size} preview to Supabase: ${previewFileName}`);
-    const { error: previewUploadError } = await supabase.storage
+    const { error: previewUploadError } = await (await supabase).storage
       .from('previews')
       .upload(previewFileName, previewBuffer, {
         contentType: 'image/webp',
@@ -55,7 +55,7 @@ async function generateAndUploadPreview(
     }
 
     // Öffentliche URL für die Vorschau abrufen
-    const { data: previewUrlData } = supabase.storage
+    const { data: previewUrlData } = (await supabase).storage
       .from('previews')
       .getPublicUrl(previewFileName);
 
@@ -71,7 +71,7 @@ async function generateAndUploadPreview(
 // POST /api/freepik/download
 export async function POST(request: Request) {
   console.log("--- ENTERING /api/freepik/download POST handler ---");
-  
+
   try {
     console.log("Validating API key...");
     validateApiKey();
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     // Authentifizierungsprüfung
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await (await supabase).auth.getSession();
 
     // Nutzer muss angemeldet sein
     if (!session) {
@@ -123,13 +123,13 @@ export async function POST(request: Request) {
         `Freepik API error response: ${response.status} ${response.statusText}`,
         errorBody
       );
-      
+
       // Fehlerbehandlung für alle API-Fehler
       return NextResponse.json(
-        { 
-          error: "API_ERROR", 
-          message: `Fehler: ${response.statusText}` 
-        }, 
+        {
+          error: "API_ERROR",
+          message: `Fehler: ${response.statusText}`
+        },
         { status: response.status }
       );
     }
@@ -148,24 +148,24 @@ export async function POST(request: Request) {
     // Bestimme den MIME-Typ
     const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
     console.log("Image content type:", contentType);
-    
+
     // Bild in einen Buffer umwandeln
     const imageArrayBuffer = await imageResponse.arrayBuffer();
     const imageBuffer = Buffer.from(imageArrayBuffer);
     const filename = data.data.filename || `freepik-${id}.jpg`;
     const mediaId = uuidv4();
     const bucketName = 'images';
-    
+
     // Bild optimieren
     console.log("Optimizing image with Sharp...");
-    const { optimizedBuffer, contentType: optimizedContentType } = 
+    const { optimizedBuffer, contentType: optimizedContentType } =
       await optimizeImageWithSharp(imageBuffer, contentType);
-    
+
     // Optimiertes Bild hochladen
     console.log(`Uploading optimized image to user's storage bucket...`);
     const filePath = `${userId}/${mediaId}.webp`; // Immer .webp für optimierte Bilder
-    
-    const { error: uploadError } = await supabase.storage
+
+    const { error: uploadError } = await (await supabase).storage
       .from(bucketName)
       .upload(filePath, optimizedBuffer, {
         contentType: optimizedContentType,
@@ -179,14 +179,14 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-    
+
     // URL zum hochgeladenen Bild abrufen
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = (await supabase).storage
       .from(bucketName)
       .getPublicUrl(filePath);
-    
+
     const publicUrl = urlData.publicUrl;
-    
+
     // Vorschaubilder generieren
     console.log("Generating preview images...");
     const previewUrl512 = await generateAndUploadPreview(
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
       512,
       75
     );
-    
+
     const previewUrl128 = await generateAndUploadPreview(
       supabase,
       imageBuffer,
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
     );
 
     // In die Medienbibliothek des Nutzers einfügen
-    const { data: mediaItem, error: dbError } = await supabase
+    const { data: mediaItem, error: dbError } = await (await supabase)
       .from('media_items')
       .insert({
         id: mediaId,
@@ -239,7 +239,7 @@ export async function POST(request: Request) {
     }
 
     console.log("Media successfully added with ID:", mediaId);
-    
+
     // Vollständige Antwort mit Mediendaten und Vorschaubildern
     return NextResponse.json({
       downloadUrl: publicUrl,
@@ -252,7 +252,7 @@ export async function POST(request: Request) {
         preview_url_128: mediaItem.preview_url_128
       }
     });
-    
+
   } catch (error) {
     console.error("Freepik download error:", error);
     return NextResponse.json(

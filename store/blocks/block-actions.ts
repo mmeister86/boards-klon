@@ -56,7 +56,7 @@ export const createBlockActions = (
     const updatedBlocks = [...zone.blocks];
     updatedBlocks.splice(index, 0, newBlock);
 
-    const updatedZones = layoutBlock.zones.map((z) =>
+    const updatedZones = layoutBlock.zones.map((z: ContentDropZoneType) =>
       z.id === zoneId ? { ...z, blocks: updatedBlocks } : z
     );
 
@@ -236,8 +236,4 @@ export const createBlockActions = (
   },
 
   selectBlock: (id: string | null): void => set((state) => ({ ...state, selectedBlockId: id })),
-
-  addLayoutBlock: (_layoutType: LayoutType, _index: number): void => { /* Implementation pending */ },
-  deleteLayoutBlock: (_layoutId: string): void => { /* Implementation pending */ },
-  moveLayoutBlock: (_dragIndex: number, _hoverIndex: number): void => { /* Implementation pending */ },
 });

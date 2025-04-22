@@ -1,9 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr"
-import { createClient as createServerClient } from "@supabase/supabase-js"
-import { Database } from "./database.types"
+import type { Database } from "./database.types"
 
 /**
- * Creates a Supabase client that works in both browser and server environments
+ * Creates a Supabase client for browser environment
  */
 export function createClient() {
   // Check if environment variables are available
@@ -11,13 +10,9 @@ export function createClient() {
     throw new Error("Supabase URL or Anon Key not found")
   }
 
-  // Create client based on environment
+  // Ensure we're only calling this on the client side
   if (typeof window === "undefined") {
-    // Server-side: Use regular client
-    return createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
+    throw new Error("createClient should only be called in the browser. For server-side code, use getSupabaseServerClient.")
   }
 
   // Browser-side: Use browser client

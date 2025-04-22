@@ -10,7 +10,7 @@ import {
   saveProjectToStorage,
   loadProjectFromStorage,
 } from '@/lib/supabase/storage';
-import { debounce } from '../utils';
+import { debounce, createEmptyLayoutBlock } from '../utils';
 
 // Singleton-Instanz des Supabase-Clients
 const getSupabase = () => {
@@ -22,9 +22,10 @@ export type StorageActions = Pick<BlocksState,
   | 'loadProject'
   | 'saveProject'
   | 'createNewProject'
-  | 'triggerAutoSave'
   | 'setProjectTitle'
->;
+> & {
+  triggerAutoSave: () => void;
+};
 
 export const createStorageActions: StateCreator<BlocksState, [], [], StorageActions> = (set, get) => {
   // Create a debounced version of the save function
@@ -82,7 +83,7 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
       const blocksToSave = JSON.parse(JSON.stringify(layoutBlocks));
 
       const projectData: ProjectData = {
-        id: currentProjectDatabaseId || currentProjectId,
+        id: currentProjectDatabaseId || currentProjectId || undefined,
         title: currentProjectTitle,
         description: "",
         layoutBlocks: blocksToSave,
@@ -130,11 +131,17 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
         lastSaved: success ? new Date() : get().lastSaved,
         isSaving: false,
       });
-    } catch (error: any) {
-      console.error(`Auto-save error: ${error.message}`);
+    } catch (error: unknown) {
+      console.error(`Auto-save error: ${error instanceof Error ? error.message : error}`);
       set({ isSaving: false });
     }
   }, 2000);
+
+  // Implement triggerAutoSave here
+  const triggerAutoSave = () => {
+    if (!get().autoSaveEnabled) return;
+    debouncedSave();
+  };
 
   return {
     loadProject: async (projectId: string) => {
@@ -187,9 +194,9 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
           console.error(`Project ${projectId} not found.`);
           return false;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         set({ isLoading: false });
-        console.error(`Error loading project: ${error.message}`);
+        console.error(`Error loading project: ${error instanceof Error ? error.message : error}`);
         return false;
       }
     },
@@ -199,192 +206,149 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
         currentProjectId,
         currentProjectDatabaseId,
         layoutBlocks,
-        isSaving,
+        currentProjectTitle,
       } = get();
 
-      console.log("Save Project called:", {
-        currentProjectId,
-        currentProjectDatabaseId,
-        isSaving,
-        blocksCount: layoutBlocks.length
-      });
-
-      if (isSaving) {
-        console.log("Save aborted: Already saving");
-        return false;
-      }
       if (!currentProjectId) {
-        console.error("Cannot save project without a currentProjectId");
+        console.warn("Cannot save project: No currentProjectId available.");
         return false;
       }
 
       set({ isSaving: true });
+
       const now = new Date().toISOString();
       const supabase = getSupabase();
 
+      // Clone to avoid mutating state directly
       const blocksToSave = JSON.parse(JSON.stringify(layoutBlocks));
 
       const projectData: ProjectData = {
-        id: currentProjectDatabaseId || currentProjectId,
-        title: projectTitle,
+        id: currentProjectDatabaseId || currentProjectId || undefined,
+        title: currentProjectTitle,
         description: description,
         layoutBlocks: blocksToSave,
         createdAt: now,
         updatedAt: now,
       };
 
-      try {
-        let success = false;
-        let finalDbId: string | null = null;
-        const supabaseUser = supabase ? (await supabase.auth.getUser()).data.user : null;
+      let success = false;
+      let finalDbId: string | null = null;
+      const supabaseUser = supabase ? (await supabase.auth.getUser()).data.user : null;
 
-        // Versuche zuerst in der Datenbank zu speichern
-        if (supabase && supabaseUser) {
-          const dbResult = await saveProjectToDatabase(
-            projectData,
-            supabaseUser.id
-          );
-          success = dbResult.success;
-          finalDbId = dbResult.projectId;
-          console.log("Saved to database:", success, "DB ID:", finalDbId);
-        } else {
-          console.log("Supabase client or user not available, attempting storage save only.");
-        }
-
-        // Wenn DB-Speichern nicht erfolgreich ODER keine DB-Verbindung, versuche Local Storage
-        if (!success) {
-          console.log("Attempting to save to local storage with ID:", currentProjectId);
-          success = await saveProjectToStorage(projectData);
-          console.log("Saved to storage:", success);
-          if (finalDbId && !success) finalDbId = null;
-        } else {
-          // Wenn DB erfolgreich, synchronisiere optional Storage
-          if (finalDbId) {
-            await saveProjectToStorage({ ...projectData, id: finalDbId });
-            console.log("Synchronized local storage with DB ID:", finalDbId);
-          }
-        }
-
-        console.log("Save completed with result:", {
-          success,
-          finalDbId,
-          timestamp: new Date().toISOString()
-        });
-
-        set({
-          currentProjectTitle: projectTitle,
-          currentProjectDatabaseId: finalDbId,
-          currentProjectId: finalDbId || currentProjectId,
-          lastSaved: success ? new Date() : get().lastSaved,
-          isSaving: false,
-        });
-        return success;
-      } catch (error: any) {
-        set({ isSaving: false });
-        console.error(`Error saving project: ${error.message}`);
-        return false;
+      // Try database save first
+      if (supabase && supabaseUser) {
+        const dbResult = await saveProjectToDatabase(
+          projectData,
+          supabaseUser.id
+        );
+        success = dbResult.success;
+        finalDbId = dbResult.projectId;
+        console.log("Save to database:", success, "DB ID:", finalDbId);
+      } else {
+        console.log("Supabase client or user not available, attempting storage save only.");
       }
+
+      // If DB save not successful OR no DB connection, try local storage
+      if (!success) {
+        console.log("Attempting to save to local storage with ID:", currentProjectId);
+        success = await saveProjectToStorage(projectData);
+        console.log("Save to storage:", success);
+        if (finalDbId && !success) finalDbId = null;
+      } else {
+        // If DB successful, optionally sync storage
+        if (finalDbId) {
+          await saveProjectToStorage({ ...projectData, id: finalDbId });
+          console.log("Synchronized local storage with DB ID:", finalDbId);
+        }
+      }
+
+      set({
+        currentProjectTitle: projectTitle, // Update title on save
+        currentProjectDatabaseId: finalDbId,
+        currentProjectId: finalDbId || currentProjectId, // Use DB ID if available
+        lastSaved: success ? new Date() : get().lastSaved,
+        isSaving: false,
+      });
+
+      console.log(`Save completed with result: ${success ? 'success' : 'failed'}`);
+
+      return success;
     },
 
     createNewProject: async (title: string, description = "") => {
-      console.log("[Store] Creating new project:", { title, description });
       set({ isLoading: true });
       const supabase = getSupabase();
-      const now = new Date().toISOString();
-      const initialLayout = [];
+      const supabaseUser = supabase ? (await supabase.auth.getUser()).data.user : null;
+      const userId = supabaseUser?.id;
 
-      const projectData: Omit<ProjectData, "id"> = {
-        title: title,
-        description: description,
+      const newProjectId = crypto.randomUUID();
+      let finalDbId: string | null = null;
+      let success = false;
+
+      const initialLayout: LayoutBlockType[] = [createEmptyLayoutBlock(`layout-${Date.now()}`, "single-column")] as LayoutBlockType[];
+
+      const projectData: ProjectData = {
+        id: newProjectId,
+        title,
+        description,
         layoutBlocks: initialLayout,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
-      try {
-        let newProjectId: string | null = null;
-        let newDbId: string | null = null;
-        const supabaseUser = supabase ? (await supabase.auth.getUser()).data.user : null;
+      // Try database save first if user is logged in
+      if (supabase && userId) {
+        const dbResult = await saveProjectToDatabase(
+          projectData,
+          userId
+        );
+        success = dbResult.success;
+        finalDbId = dbResult.projectId;
+        console.log("Create project in database:", success, "DB ID:", finalDbId);
+      } else {
+        console.log("Supabase client or user not available, creating project in storage only.");
+      }
 
-        // Versuche zuerst in der Datenbank zu erstellen
-        if (supabase && supabaseUser) {
-          console.log("[Store] Attempting to create project in database");
-          const dbResult = await saveProjectToDatabase(
-            projectData,
-            supabaseUser.id
-          );
-          if (dbResult.success && dbResult.projectId) {
-            newDbId = dbResult.projectId;
-            newProjectId = newDbId;
-            console.log("[Store] Created project in database:", { newDbId, newProjectId });
-            await saveProjectToStorage({ ...projectData, id: newProjectId });
-          } else {
-            console.error("[Store] Failed to create project in database:", dbResult);
-          }
+      // If DB save not successful OR no DB connection, save to local storage
+      if (!success) {
+        console.log("Attempting to save new project to local storage with ID:", newProjectId);
+        success = await saveProjectToStorage(projectData);
+        console.log("Create project in storage:", success);
+        if (finalDbId && !success) finalDbId = null; // If DB save failed, clear DB ID
+      } else {
+        // If DB successful, optionally sync storage
+         if (finalDbId) {
+          await saveProjectToStorage({ ...projectData, id: finalDbId });
+          console.log("Synchronized new project to local storage with DB ID:", finalDbId);
         }
+      }
 
-        // Wenn DB fehlgeschlagen oder nicht verfügbar, erstelle im Local Storage
-        if (!newProjectId) {
-          newProjectId = `local-${crypto.randomUUID()}`;
-          console.log("[Store] Creating project in local storage:", newProjectId);
-          const success = await saveProjectToStorage({ ...projectData, id: newProjectId });
-          if (!success) throw new Error("Failed to save new project to storage");
-          console.log("[Store] Created project in local storage:", newProjectId);
-        }
-
-        // Setze den State
-        const newState = {
+      if (success) {
+        set({
           layoutBlocks: initialLayout,
-          currentProjectId: newProjectId,
-          currentProjectDatabaseId: newDbId,
+          currentProjectId: finalDbId || newProjectId, // Use DB ID if available
+          currentProjectDatabaseId: finalDbId,
           currentProjectTitle: title,
-          isLoading: false,
           lastSaved: new Date(),
-          isPublished: false,
-          publishedUrl: null,
-        };
-        console.log("[Store] Setting new project state:", newState);
-        set(newState);
-
-        return newProjectId;
-      } catch (error: any) {
-        console.error("[Store] Error creating new project:", error);
+          isLoading: false,
+        });
+         // Nach dem Erstellen den Publish-Status prüfen (für DB-Projekte)
+         if (finalDbId) {
+            get().checkPublishStatus();
+          }
+        return finalDbId || newProjectId; // Return the actual project ID (DB or local)
+      } else {
         set({ isLoading: false });
+        console.error("Failed to create new project.");
         return null;
       }
-    },
-
-    triggerAutoSave: () => {
-      const state = get();
-      const { autoSaveEnabled, isSaving, currentProjectId } = state;
-
-      console.log("AutoSave Trigger:", {
-        autoSaveEnabled,
-        isSaving,
-        currentProjectId
-      });
-
-      if (!autoSaveEnabled) {
-        console.log("AutoSave not triggered: autoSaveEnabled is false");
-        return;
-      }
-
-      if (!currentProjectId) {
-        console.log("AutoSave not triggered: no currentProjectId");
-        return;
-      }
-
-      if (isSaving) {
-        console.log("AutoSave deferred: already saving");
-      }
-
-      console.log("Initiating debounced save sequence");
-      debouncedSave();
     },
 
     setProjectTitle: (title: string) => {
       set({ currentProjectTitle: title });
       get().triggerAutoSave();
     },
+
+    triggerAutoSave,
   };
 };

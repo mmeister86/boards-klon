@@ -292,7 +292,7 @@ function BlockContent({
         blockId={videoBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        content={videoBlock.content?.src ?? null}
+        content={videoBlock.content}
       />
     );
   }
@@ -304,7 +304,7 @@ function BlockContent({
         blockId={audioBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        content={audioBlock.content?.src ?? null}
+        content={audioBlock.content}
       />
     );
   }

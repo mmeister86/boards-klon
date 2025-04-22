@@ -5,10 +5,19 @@ import type { ProjectData } from "@/lib/types"
 // Importiere den neuen Typ direkt oder über den Store (hier direkt, falls verschoben wird)
 import type { LayoutBlockType } from "@/lib/types"; // Nur LayoutBlockType importieren
 
-// Create a singleton instance of the Supabase client
+// Get a fresh Supabase client instance each time to avoid stale auth state
 const getSupabase = () => {
-  if (typeof window === "undefined") return null
-  return createClient()
+  if (typeof window === "undefined") {
+    console.warn("getSupabase from database.ts should only be called in browser environment. For server-side operations, use server.ts directly.");
+    return null;
+  }
+
+  try {
+    return createClient();
+  } catch (error) {
+    console.error("Error creating Supabase client:", error);
+    return null;
+  }
 }
 
 /**

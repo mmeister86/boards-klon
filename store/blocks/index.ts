@@ -1,47 +1,21 @@
 import { create } from "zustand";
 import type { BlocksState, BlocksBaseState } from "./types";
-import { createBlockActions } from "./block-actions";
-import { createDropAreaActions } from "./drop-area-actions";
-import { createProjectActions } from "./project-actions";
-import { createUIStateActions } from "./ui-state-actions";
-import { createPublishActions } from "./publish-actions";
+import { createBlockActions } from "./actions/block-actions";
+import { createStorageActions } from "./actions/storage-actions";
+import { createUIActions } from "./actions/ui-actions";
+import { createPublishActions } from "./actions/publish-actions";
+import { createLayoutActions } from "./actions/layout-actions";
+import { createEmptyLayoutBlock } from "./utils";
 
-// Auto-save debounce time in milliseconds
-const AUTO_SAVE_DEBOUNCE = 2000;
-
-export const useBlocksStore = create<BlocksState>((set, get) => {
-  // Create a debounced auto-save function
-  let autoSaveTimeout: NodeJS.Timeout | null = null;
-  const triggerAutoSave = () => {
-    if (!get().autoSaveEnabled) return;
-
-    if (autoSaveTimeout) {
-      clearTimeout(autoSaveTimeout);
-    }
-
-    autoSaveTimeout = setTimeout(async () => {
-      const { currentProjectTitle } = get();
-      if (currentProjectTitle) {
-        await get().saveProject(currentProjectTitle);
-      }
-    }, AUTO_SAVE_DEBOUNCE);
-  };
-
+export const useBlocksStore = create<BlocksState>()((set, get, api) => {
   // Initial state
   const initialState: BlocksBaseState = {
-    layoutBlocks: [],
-    dropAreas: [
-      {
-        id: "drop-area-1",
-        blocks: [],
-        isSplit: false,
-        splitAreas: [],
-        splitLevel: 0,
-      },
-    ],
+    layoutBlocks: [createEmptyLayoutBlock(`layout-${Date.now()}`, "single-column")],
     currentProjectId: null,
     currentProjectDatabaseId: null,
     currentProjectTitle: "Untitled Project",
+    projectJustDeleted: false, // Added initial value
+    deletedProjectTitle: null, // Added initial value
     selectedBlockId: null,
     previewMode: false,
     viewport: "desktop",
@@ -49,35 +23,26 @@ export const useBlocksStore = create<BlocksState>((set, get) => {
     isSaving: false,
     autoSaveEnabled: true,
     lastSaved: null,
-    triggerAutoSave,
     isPublishing: false,
     isPublished: false,
     publishedUrl: null,
-  };
-
-  // Create actions
-  const blockActions = createBlockActions(set, get);
-  const dropAreaActions = createDropAreaActions(set, get);
-  const projectActions = createProjectActions(set, get);
-  const uiStateActions = createUIStateActions(set, get);
-  const publishActions = createPublishActions(set, get);
-
-  // Additional UI state and actions
-  const uiState = {
     canvasHoveredInsertionIndex: null,
-    setCanvasHoveredInsertionIndex: (index: number | null) =>
-      set({ canvasHoveredInsertionIndex: index }),
-    resetAllHoverStates: () =>
-      set({ canvasHoveredInsertionIndex: null }),
   };
 
+  // Create actions, passing set, get, and api
+  const blockActions = createBlockActions(set, get, api);
+  const storageActions = createStorageActions(set, get, api);
+  const uiActions = createUIActions(set, get, api);
+  const publishActions = createPublishActions(set, get, api);
+  const layoutActions = createLayoutActions(set, get, api);
+
+  // Combine initial state and actions
   return {
     ...initialState,
     ...blockActions,
-    ...dropAreaActions,
-    ...projectActions,
-    ...uiStateActions,
+    ...storageActions,
+    ...uiActions,
     ...publishActions,
-    ...uiState,
+    ...layoutActions,
   };
 });

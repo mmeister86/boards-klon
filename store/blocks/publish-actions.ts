@@ -1,12 +1,7 @@
 import { StateCreator } from 'zustand';
 import { BlocksState, PublishActions } from './types';
 
-export const createPublishActions: StateCreator<
-  BlocksState,
-  [],
-  [],
-  PublishActions
-> = (set) => ({
+export const createPublishActions: StateCreator<BlocksState, [], [], PublishActions> = (set) => ({
   publishBoard: async () => {
     set({ isPublishing: true });
     try {

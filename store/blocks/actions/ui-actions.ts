@@ -1,13 +1,21 @@
 import { StateCreator } from 'zustand';
-import { BlocksState } from '../types';
+import { BlocksState, ViewportType } from '../types';
 
-export type UIActions = Pick<BlocksState,
-  | 'setPreviewMode'
-  | 'togglePreviewMode'
-  | 'toggleAutoSave'
-  | 'setCanvasHoveredInsertionIndex'
-  | 'resetAllHoverStates'
->;
+export type UIActions = {
+  setSelectedBlockId: (blockId: string | null) => void;
+  setPreviewMode: (enabled: boolean) => void;
+  togglePreviewMode: () => void;
+  setAutoSaveEnabled: (enabled: boolean) => void;
+  toggleAutoSave: () => void;
+  setViewport: (viewport: ViewportType) => void;
+  setIsLoading: (isLoading: boolean) => void;
+  setIsSaving: (isSaving: boolean) => void;
+  setLastSaved: (lastSaved: Date | null) => void;
+  setCanvasHoveredInsertionIndex: (index: number | null) => void;
+  resetAllHoverStates: () => void;
+  setProjectJustDeleted: (deleted: boolean) => void; // Added
+  setDeletedProjectTitle: (title: string | null) => void; // Added
+};
 
 export const createUIActions: StateCreator<
   BlocksState,
@@ -15,19 +23,19 @@ export const createUIActions: StateCreator<
   [],
   UIActions
 > = (set) => ({
-  // Toggle preview mode
-  setPreviewMode: (enabled: boolean) => set({ previewMode: enabled }),
+  setSelectedBlockId: (blockId) => set({ selectedBlockId: blockId }),
+  setPreviewMode: (enabled) => set({ previewMode: enabled }),
   togglePreviewMode: () => set((state) => ({ previewMode: !state.previewMode })),
-
-  // Auto-save handling
+  setAutoSaveEnabled: (enabled) => set({ autoSaveEnabled: enabled }),
   toggleAutoSave: () => set((state) => ({ autoSaveEnabled: !state.autoSaveEnabled })),
-
-  // Canvas hover states
-  setCanvasHoveredInsertionIndex: (index: number | null) =>
-    set({ canvasHoveredInsertionIndex: index }),
-
-  // Reset all hover states
+  setViewport: (viewport) => set({ viewport }),
+  setIsLoading: (isLoading) => set({ isLoading }),
+  setIsSaving: (isSaving) => set({ isSaving }),
+  setLastSaved: (lastSaved) => set({ lastSaved }),
+  setCanvasHoveredInsertionIndex: (index) => set({ canvasHoveredInsertionIndex: index }),
   resetAllHoverStates: () => set({
-    canvasHoveredInsertionIndex: null
-  })
+    canvasHoveredInsertionIndex: null,
+  }),
+  setProjectJustDeleted: (deleted) => set({ projectJustDeleted: deleted }), // Added
+  setDeletedProjectTitle: (title) => set({ deletedProjectTitle: title }), // Added
 });

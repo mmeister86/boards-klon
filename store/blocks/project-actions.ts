@@ -4,7 +4,8 @@ import {
   saveProjectToStorage,
   loadProjectFromStorage,
 } from "@/lib/supabase/storage";
-import { isEmptyProject } from "./utils";
+import { isEmptyProject, createEmptyLayoutBlock } from "./utils";
+import { createClient } from "@/lib/supabase/client";
 
 export const createProjectActions = (
   set: (fn: (state: BlocksState) => Partial<BlocksState>) => void,
@@ -15,17 +16,31 @@ export const createProjectActions = (
     console.log(`Loading project: ${projectId}`);
 
     try {
-      const projectData = await loadProjectFromStorage(projectId);
+      const supabase = createClient();
+      if (!supabase) {
+        console.error("Supabase client not available");
+        set((state) => ({ ...state, isLoading: false }));
+        return false;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("User not authenticated");
+        set((state) => ({ ...state, isLoading: false }));
+        return false;
+      }
+
+      const projectData = await loadProjectFromStorage(projectId, user.id);
       if (!projectData) {
         console.error(`Project ${projectId} not found`);
         set((state) => ({ ...state, isLoading: false }));
         return false;
       }
 
-      const dropAreasCopy = JSON.parse(JSON.stringify(projectData.dropAreas));
+      const layoutBlocksCopy = JSON.parse(JSON.stringify(projectData.layoutBlocks));
       set((state) => ({
         ...state,
-        dropAreas: dropAreasCopy,
+        layoutBlocks: layoutBlocksCopy,
         currentProjectId: projectData.id,
         currentProjectTitle: projectData.title,
         isLoading: false,
@@ -41,7 +56,7 @@ export const createProjectActions = (
   },
 
   saveProject: async (projectTitle: string, description?: string): Promise<boolean> => {
-    const { dropAreas, currentProjectId } = get();
+    const { layoutBlocks, currentProjectId } = get();
     if (!currentProjectId) {
       const newId = await get().createNewProject(projectTitle, description);
       return !!newId;
@@ -49,14 +64,26 @@ export const createProjectActions = (
 
     set((state) => ({ ...state, isSaving: true }));
     try {
-      const existingProjectData = await loadProjectFromStorage(
-        currentProjectId
-      );
+      const supabase = createClient();
+      if (!supabase) {
+        console.error("Supabase client not available");
+        set((state) => ({ ...state, isSaving: false }));
+        return false;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("User not authenticated");
+        set((state) => ({ ...state, isSaving: false }));
+        return false;
+      }
+
+      const existingProjectData = await loadProjectFromStorage(currentProjectId, user.id);
       const projectData: ProjectData = {
         id: currentProjectId,
         title: projectTitle,
         description,
-        dropAreas,
+        layoutBlocks,
         createdAt: existingProjectData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -78,9 +105,9 @@ export const createProjectActions = (
   },
 
   createNewProject: async (title: string, description?: string) => {
-    const { currentProjectId, dropAreas } = get();
+    const { currentProjectId, layoutBlocks } = get();
 
-    if (currentProjectId && isEmptyProject(dropAreas)) {
+    if (currentProjectId && isEmptyProject(layoutBlocks)) {
       set((state) => ({
         ...state,
         currentProjectTitle: title || "Untitled Project",
@@ -96,15 +123,7 @@ export const createProjectActions = (
         id: newProjectId,
         title: title || "Untitled Project",
         description,
-        dropAreas: [
-          {
-            id: "drop-area-1",
-            blocks: [],
-            isSplit: false,
-            splitAreas: [],
-            splitLevel: 0,
-          },
-        ],
+        layoutBlocks: [createEmptyLayoutBlock(`layout-${Date.now()}`, "single-column")],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -117,7 +136,7 @@ export const createProjectActions = (
 
       set((state) => ({
         ...state,
-        dropAreas: projectData.dropAreas,
+        layoutBlocks: projectData.layoutBlocks,
         currentProjectId: newProjectId,
         currentProjectTitle: projectData.title,
         isSaving: false,

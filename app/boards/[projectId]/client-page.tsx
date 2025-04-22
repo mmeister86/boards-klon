@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { PublicDropAreaRenderer } from "@/components/public/export-renderer";
-import type { DropAreaType } from "@/lib/types";
+import { PublicLayoutRenderer } from "@/components/public/export-renderer";
+import type { LayoutBlockType } from "@/lib/types";
 import { useState, useEffect } from "react";
 import { AlertCircle } from "lucide-react";
 
@@ -16,7 +16,7 @@ interface PageProps {
 
 interface ProjectContent {
   title: string;
-  dropAreas: DropAreaType[];
+  layoutBlocks: LayoutBlockType[];
 }
 
 interface PublishedBoard {
@@ -65,7 +65,9 @@ export function ClientPage({ params }: PageProps) {
 
         if (!publishedBoardData) {
           console.log("[PublicBoard] Board not found or not published");
-          setError("Dieses Board wurde nicht gefunden oder ist nicht veröffentlicht.");
+          setError(
+            "Dieses Board wurde nicht gefunden oder ist nicht veröffentlicht."
+          );
           return;
         }
 
@@ -108,7 +110,7 @@ export function ClientPage({ params }: PageProps) {
           const content = JSON.parse(await projectData.text());
           console.log("[PublicBoard] Successfully parsed project data", {
             title: content.title,
-            hasDropAreas: !!content.dropAreas,
+            hasDropAreas: !!content.layoutBlocks,
           });
           setProjectContent(content);
         } catch (parseError) {
@@ -145,7 +147,9 @@ export function ClientPage({ params }: PageProps) {
       <main className="container mx-auto p-4">
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Fehler beim Laden des Boards</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Fehler beim Laden des Boards
+          </h1>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => router.back()}
@@ -162,24 +166,24 @@ export function ClientPage({ params }: PageProps) {
     return null;
   }
 
-  // Filter empty top-level areas
-  console.log("[PublicBoard] Filtering areas");
-  const renderableAreas = projectContent.dropAreas.filter(
-    (area: DropAreaType) => {
-      const hasBlocks = area.blocks.length > 0;
-      const hasSplitContent =
-        area.isSplit &&
-        area.splitAreas.some(
-          (subArea: DropAreaType) => subArea.blocks.length > 0
-        );
-      return hasBlocks || hasSplitContent;
+  // Filter empty top-level blocks
+  console.log("[PublicBoard] Filtering blocks");
+  const renderableBlocks = projectContent.layoutBlocks.filter(
+    (block: LayoutBlockType) => {
+      return block.zones.some((zone) => zone.blocks.length > 0);
     }
   );
 
   console.log("[PublicBoard] Rendering board", {
     title: projectContent.title,
-    areasCount: renderableAreas.length,
+    blocksCount: renderableBlocks.length,
   });
+
+  if (renderableBlocks.length === 0) {
+    console.log("[PublicBoard] No content to display");
+    setError("This board has no content to display.");
+    return null;
+  }
 
   return (
     <main className="w-full min-h-screen flex flex-col items-center gap-8 py-8 px-0 sm:container sm:px-4 sm:mx-auto">
@@ -191,8 +195,8 @@ export function ClientPage({ params }: PageProps) {
       {/* Main content area */}
       <div className="w-full bg-white shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] sm:rounded-lg sm:max-w-[85rem]">
         <div className="board-content space-y-6 p-4 sm:p-8">
-          {renderableAreas.map((area: DropAreaType) => (
-            <PublicDropAreaRenderer key={area.id} dropArea={area} />
+          {renderableBlocks.map((block: LayoutBlockType) => (
+            <PublicLayoutRenderer key={block.id} layoutBlock={block} />
           ))}
         </div>
       </div>

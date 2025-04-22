@@ -1,16 +1,14 @@
-import { createClient } from "@/lib/supabase/client";
+import { createServerClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { ClientPage } from "./client-page";
 import type { PageProps } from "./types";
-
-// Create Supabase client for server-side operations
-const supabase = createClient();
 
 // Generate metadata for the page (server-side)
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { projectId } = params;
+  const supabase = await createServerClient(); // Create Supabase client for server-side operations
 
   try {
     // Check if board is published

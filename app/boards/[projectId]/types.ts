@@ -1,4 +1,4 @@
-import type { DropAreaType } from "@/lib/types";
+import type { LayoutBlockType } from "@/lib/types";
 
 export interface PageProps {
   params: {
@@ -8,7 +8,7 @@ export interface PageProps {
 
 export interface ProjectContent {
   title: string;
-  dropAreas: DropAreaType[];
+  dropAreas: LayoutBlockType[];
 }
 
 export interface PublishedBoard {
@@ -17,4 +17,13 @@ export interface PublishedBoard {
   is_published: boolean;
   project_id: string;
   title: string;
+}
+
+export interface PublicProjectData {
+  id: string;
+  title: string;
+  description?: string;
+  layoutBlocks: LayoutBlockType[];
+  createdAt: string;
+  updatedAt: string;
 }

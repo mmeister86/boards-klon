@@ -1,14 +1,13 @@
-import { createServerClient as createSupaServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient as createSupabaseServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
-// import type { Database } from "@/lib/supabase/types" // TODO: Generate/populate types.ts
 
 /**
- * Creates a Supabase client for server components with cookie handling
+ * Creates a Supabase client for Server Components with proper cookie handling
  */
-export function createServerClient() {
-  const cookieStore = cookies()
+export async function createServerClient() {
+  const cookieStore = await cookies()
 
-  return createSupaServerClient(
+  return createSupabaseServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -20,14 +19,17 @@ export function createServerClient() {
           try {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
-            console.debug('Server Component cookie set error:', error);
+            // This will throw in middleware, but we can ignore it since we're
+            // handling setting cookies in the middleware separately
+            console.debug('Cookie set error in server client:', error);
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
-            cookieStore.set({ name, value: '', ...options })
+            cookieStore.set({ name, value: "", ...options, maxAge: 0 })
           } catch (error) {
-            console.debug('Server Component cookie remove error:', error);
+            // This will throw in middleware, but we can ignore it
+            console.debug('Cookie remove error in server client:', error);
           }
         },
       },

@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
   try {
     // 1. Get Authenticated User
-    const { data: { user }, error: userError } = await supabaseUserClient.auth.getUser();
+    const { data: { user }, error: userError } = await (await supabaseUserClient).auth.getUser();
     if (userError || !user) {
       console.error('Delete API: User not authenticated.', userError);
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });

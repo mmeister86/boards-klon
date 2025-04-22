@@ -80,6 +80,7 @@ export function VideoBlock({
     zoneId,
     blockId
   );
+  // ThumbnailUrl ist jetzt ein Feld auf der Hauptebene des VideoBlock Objekts
   const thumbnailUrlFromStore =
     blockData?.type === "video" ? blockData.thumbnailUrl : undefined;
 
@@ -176,7 +177,11 @@ export function VideoBlock({
       }
 
       // --- Update block in Zustand store ---
-      updateBlockContent(blockId, layoutId, zoneId, videoUrl);
+      // No thumbnailUrl for locally uploaded videos by default
+      const additionalProps = thumbnailUrlFromStore
+        ? { thumbnailUrl: thumbnailUrlFromStore }
+        : undefined;
+      updateBlockContent(blockId, layoutId, zoneId, videoUrl, additionalProps);
 
       toast.dismiss(loadingToastId);
       toast.success("Video erfolgreich hochgeladen und optimiert!");
@@ -241,7 +246,10 @@ export function VideoBlock({
       }
 
       // Update block content with video URL and potentially the thumbnail URL
-      const additionalProps = thumbnailUrl ? { thumbnailUrl } : {};
+      // Das thumbnailUrl-Feld wird jetzt ein direktes Feld auf dem Block-Objekt
+      const additionalProps = thumbnailUrl
+        ? { thumbnailUrl: thumbnailUrl }
+        : undefined;
       updateBlockContent(blockId, layoutId, zoneId, url, additionalProps);
 
       setVideoUrlInput("");

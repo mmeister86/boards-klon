@@ -48,15 +48,19 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         return renderParagraphContent();
       case "video":
         const videoBlock = block as VideoBlock;
+        // Prüfen, ob Content vorhanden ist
+        if (!videoBlock.content) {
+          return <div className="text-amber-600">Kein Video ausgewählt</div>;
+        }
         return (
           <div className="player-wrapper relative pt-[56.25%] rounded-md overflow-hidden">
             <ReactPlayer
               className="absolute top-0 left-0"
-              url={videoBlock.content.src}
+              url={videoBlock.content}
               width="100%"
               height="100%"
               controls={true}
-              light={videoBlock.content.thumbnailUrl || true}
+              light={videoBlock.thumbnailUrl || true}
               config={{
                 youtube: {
                   playerVars: {
@@ -72,9 +76,19 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         );
       case "audio":
         const audioBlock = block as AudioBlock;
-        return <ModernAudioPlayer url={audioBlock.content.src} />;
+        // Prüfen, ob Content vorhanden ist
+        if (!audioBlock.content) {
+          return (
+            <div className="text-amber-600">Keine Audiodatei ausgewählt</div>
+          );
+        }
+        return <ModernAudioPlayer url={audioBlock.content} />;
       case "gif": {
         const gifBlock = block as GifBlock;
+        // Prüfen, ob Content vorhanden ist
+        if (!gifBlock.content) {
+          return <div className="text-amber-600">Kein GIF ausgewählt</div>;
+        }
         // Spielt das GIF animiert ab, abgerundete Ecken im Preview-Modus
         return (
           <div className="rounded-lg overflow-hidden">
@@ -86,14 +100,13 @@ export function PreviewBlock({ block, viewport }: PreviewBlockProps) {
         const freepikBlock = block as FreepikBlock;
         // Zeigt das Freepik-Medium an (Bild oder Video)
         if (!freepikBlock.content) {
-          return <div className="text-amber-600">Kein Freepik-Medium ausgewählt</div>;
+          return (
+            <div className="text-amber-600">Kein Freepik-Medium ausgewählt</div>
+          );
         }
         return (
           <div className="rounded-lg overflow-hidden">
-            <FreepikPlayer 
-              media={freepikBlock.content} 
-              isPreview={true} 
-            />
+            <FreepikPlayer media={freepikBlock.content} isPreview={true} />
           </div>
         );
       }
