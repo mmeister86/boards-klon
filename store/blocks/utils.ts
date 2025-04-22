@@ -86,3 +86,40 @@ export const updateLayoutBlock = (
     block.id === layoutId ? { ...block, ...updates } : block
   );
 };
+
+// Helper zum Erstellen von Zonen für Layouts
+export const createZonesForLayout = (layoutType: LayoutType): ContentDropZoneType[] => {
+  let zones: ContentDropZoneType[] = [];
+  switch (layoutType) {
+    case "single-column":
+      zones = [{ id: crypto.randomUUID(), blocks: [] }];
+      break;
+    case "two-columns":
+    case "layout-1-2":
+    case "layout-2-1":
+      zones = [
+        { id: crypto.randomUUID(), blocks: [] },
+        { id: crypto.randomUUID(), blocks: [] },
+      ];
+      break;
+    case "three-columns":
+      zones = [
+        { id: crypto.randomUUID(), blocks: [] },
+        { id: crypto.randomUUID(), blocks: [] },
+        { id: crypto.randomUUID(), blocks: [] },
+      ];
+      break;
+    case "grid-2x2":
+      zones = [
+        { id: crypto.randomUUID(), blocks: [] },
+        { id: crypto.randomUUID(), blocks: [] },
+        { id: crypto.randomUUID(), blocks: [] },
+        { id: crypto.randomUUID(), blocks: [] },
+      ];
+      break;
+    default:
+      console.warn(`Unknown layout type: ${layoutType}. Defaulting to single column.`);
+      zones = [{ id: crypto.randomUUID(), blocks: [] }];
+  }
+  return zones;
+}

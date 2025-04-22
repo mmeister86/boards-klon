@@ -1,12 +1,44 @@
-import type { BlockType, LayoutBlockType, LayoutType } from "@/lib/types";
+import type { BlockType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
+
+// Neue Typen für Layout-Blöcke definieren
+export interface LayoutBlockType {
+  id: string;
+  type: LayoutType;
+  zones: ContentDropZoneType[];
+}
+
+export type LayoutType =
+  | "single-column"
+  | "two-columns"
+  | "three-columns"
+  | "grid-2x2"
+  | "layout-1-2"
+  | "layout-2-1";
+
+// Typ für eine Inhaltszone innerhalb eines Layoutblocks
+export interface ContentDropZoneType {
+  id: string; // Eindeutige ID für die Zone innerhalb des Layoutblocks
+  blocks: BlockType[]; // Verwenden das bestehende BlockType Array
+}
 
 // Base state without actions
 export interface BlocksBaseState {
   // Project state
   layoutBlocks: LayoutBlockType[];
+  dropAreas: {
+    id: string;
+    blocks: BlockType[];
+    isSplit: boolean;
+    splitAreas: {
+      id: string;
+      blocks: BlockType[];
+    }[];
+    splitLevel: number;
+  }[];
   currentProjectId: string | null;
-  currentProjectTitle: string | null;
+  currentProjectDatabaseId: string | null;
+  currentProjectTitle: string;
 
   // UI state
   selectedBlockId: string | null;
@@ -19,6 +51,11 @@ export interface BlocksBaseState {
   autoSaveEnabled: boolean;
   lastSaved: Date | null;
   triggerAutoSave: () => void;
+
+  // Publishing state
+  isPublishing: boolean;
+  isPublished: boolean;
+  publishedUrl: string | null;
 }
 
 // Actions
@@ -72,6 +109,12 @@ export interface ProjectActions {
   setProjectTitle: (title: string) => void;
 }
 
+export interface PublishActions {
+  publishBoard: () => Promise<boolean>;
+  unpublishBoard: () => Promise<boolean>;
+  checkPublishStatus: () => Promise<void>;
+}
+
 export interface UIStateActions {
   setSelectedBlockId: (blockId: string | null) => void;
   setPreviewMode: (enabled: boolean) => void;
@@ -89,4 +132,13 @@ export type BlocksState = BlocksBaseState &
   BlockActions &
   LayoutActions &
   ProjectActions &
-  UIStateActions;
+  PublishActions &
+  UIStateActions & {
+    // UI State
+    autoSaveEnabled: boolean;
+    canvasHoveredInsertionIndex: number | null;
+
+    // UI Actions
+    setCanvasHoveredInsertionIndex: (index: number | null) => void;
+    resetAllHoverStates: () => void;
+  };
