@@ -1,76 +1,77 @@
-"use client";
-
-import { useState, useRef, useEffect } from "react";
-import type { GifItem } from "@/types/gif";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import type { GifBlock } from "@/lib/types";
+import {
+  isGifFavorite,
+  addFavoriteGif,
+  removeFavoriteGif,
+} from "@/lib/gif-favorites";
 
 interface GifPlayerProps {
-  gif: GifItem;
-  onHeightChange: (height: number) => void;
+  gif: GifBlock["content"];
+  showFavoriteButton?: boolean;
 }
 
-export default function GifPlayer({ gif, onHeightChange }: GifPlayerProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [loadError, setLoadError] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+/**
+ * Zeigt das gewählte GIF groß an und optional einen Favoriten-Button
+ * Favoriten werden global im localStorage gespeichert
+ */
+export const GifPlayer: React.FC<GifPlayerProps> = ({
+  gif,
+  showFavoriteButton = true,
+}) => {
+  // State für Favoritenstatus (optimistisches UI)
+  const [favorite, setFavorite] = useState(false);
 
-  // Effect to update container height when image loads
+  // Beim Mount prüfen, ob das GIF Favorit ist
   useEffect(() => {
-    setIsLoaded(false);
-    setLoadError(false);
-  }, [gif]);
+    if (showFavoriteButton) {
+      setFavorite(isGifFavorite(gif.id));
+    }
+  }, [gif.id, showFavoriteButton]);
 
-  const handleImageLoad = () => {
-    setIsLoaded(true);
-
-    // Calculate and set the appropriate height based on the image's aspect ratio
-    if (imgRef.current && containerRef.current) {
-      const img = imgRef.current;
-      const container = containerRef.current;
-      const containerWidth = container.clientWidth;
-
-      // Calculate height based on aspect ratio
-      const aspectRatio = img.naturalWidth / img.naturalHeight;
-      const calculatedHeight = containerWidth / aspectRatio;
-
-      // Call the callback to update parent component
-      onHeightChange(calculatedHeight);
+  // Handler für Favoriten-Button
+  const handleToggleFavorite = () => {
+    if (favorite) {
+      removeFavoriteGif(gif.id);
+      setFavorite(false);
+    } else {
+      // Für Favoriten wird ein GifItem benötigt, daher Felder mappen
+      addFavoriteGif({
+        id: gif.id,
+        title: gif.title,
+        url: gif.url,
+        previewUrl: gif.images?.fixed_height_still?.url || gif.url,
+        width: Number(gif.images?.original?.width) || 200,
+        height: Number(gif.images?.original?.height) || 200,
+      });
+      setFavorite(true);
     }
   };
 
-  const handleImageError = () => {
-    setLoadError(true);
-    setIsLoaded(true);
-    onHeightChange(300); // Default height for error state
-  };
-
   return (
-    <div
-      ref={containerRef}
-      className="w-full bg-gray-100 flex items-center justify-center overflow-hidden"
-    >
-      {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
-        </div>
-      )}
-
-      {loadError ? (
-        <div className="text-center text-gray-500 p-4">
-          Failed to load GIF. Please try another one.
-        </div>
-      ) : (
-        <img
-          ref={imgRef}
-          src={gif.url || "/placeholder.svg"}
-          alt={gif.title}
-          className={`w-full object-contain ${
-            isLoaded ? "opacity-100" : "opacity-0"
-          } border-b-xl`}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-        />
+    <div className="w-full flex flex-col items-center justify-center p-4">
+      <Image
+        src={gif.url}
+        alt={gif.title || "GIF"}
+        width={0}
+        height={0}
+        sizes="100vw"
+        className="w-full h-auto rounded shadow"
+        style={{ background: "#eee" }}
+      />
+      {showFavoriteButton && (
+        <button
+          className={`mt-2 px-3 py-1 rounded border flex items-center gap-1 text-sm ${
+            favorite
+              ? "bg-yellow-100 border-yellow-400"
+              : "bg-white border-gray-300"
+          }`}
+          onClick={handleToggleFavorite}
+        >
+          <span>{favorite ? "★" : "☆"}</span> Favorite
+        </button>
       )}
     </div>
   );
-}
+};

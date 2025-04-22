@@ -631,12 +631,19 @@ export async function addMediaItemToDatabase(
  * @returns Promise resolving to width and height or undefined if not possible
  */
 async function getImageDimensions(file: File): Promise<{ width: number; height: number } | undefined> {
+  // Serverside-Umgebung erkennen und einen Fallback zurückgeben
+  if (typeof window === 'undefined') {
+    console.log('Image dimensions calculation skipped on server side');
+    return { width: 0, height: 0 }; // Standardwerte zurückgeben
+  }
+  
   return new Promise((resolve) => {
     if (!file.type.startsWith('image/')) {
       resolve(undefined);
       return;
     }
 
+    // Nur im Browser ausführen, wo Image verfügbar ist
     const img = new Image();
     const url = URL.createObjectURL(file);
 

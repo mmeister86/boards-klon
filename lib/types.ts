@@ -22,13 +22,14 @@ export type BlockTypeUnion =
   | "video"
   | "audio"
   | "document"
-  | "gif";
+  | "gif"
+  | "freepik";
 
 // Basis BlockType (allgemeiner content)
 export interface BaseBlockType {
   id: string;
   type: BlockTypeUnion;
-  content: unknown; // Allgemeiner Typ für die Basis
+  content: unknown; // Zurück zu unknown
 }
 
 // Spezifische Typen, die BaseBlockType erweitern
@@ -45,21 +46,21 @@ export interface ParagraphBlock extends BaseBlockType {
 
 export interface ImageBlock extends BaseBlockType {
   type: "image";
-  content: ImageContent; // Spezifischer Typ für image
+  content: ImageContent | null; // Allow null
 }
 
 // TODO: Spezifische Typen für video, audio, document hinzufügen
 export interface VideoBlock extends BaseBlockType {
   type: "video";
-  content: { src: string; thumbnailUrl?: string }; // Beispielstruktur
+  content: { src: string; thumbnailUrl?: string } | null; // Allow null
 }
 export interface AudioBlock extends BaseBlockType {
   type: "audio";
-  content: { src: string }; // Beispielstruktur
+  content: { src: string } | null; // Allow null
 }
 export interface DocumentBlock extends BaseBlockType {
   type: "document";
-  content: { src: string; fileName?: string; thumbnailUrl?: string }; // Beispielstruktur
+  content: { src: string; fileName?: string; thumbnailUrl?: string } | null; // Allow null
 }
 
 // NEU: Schnittstelle für GIF-Blöcke
@@ -76,7 +77,20 @@ export interface GifBlock extends BaseBlockType {
       // Weitere Bildformate von Giphy könnten hier hinzugefügt werden
     };
     altText?: string; // Optionaler Alternativtext
-  };
+  } | null; // Allow null
+}
+
+// NEU: Schnittstelle für Freepik-Blöcke
+export interface FreepikBlock extends BaseBlockType {
+  type: "freepik";
+  content: {
+    id: string;
+    type: "photo";
+    title: string;
+    thumbnail: string;
+    url: string;
+    author?: string;
+  } | null;
 }
 
 // Union Type aller möglichen spezifischen Block-Typen
@@ -87,7 +101,8 @@ export type BlockType =
   | VideoBlock
   | AudioBlock
   | DocumentBlock
-  | GifBlock;
+  | GifBlock
+  | FreepikBlock;
 
 // --- Block Typ Definitionen --- ENDE ---
 
@@ -213,4 +228,19 @@ export interface VideoBlockType extends BaseBlock {
 export interface AudioBlockType extends BaseBlock {
     type: "audio";
     content: string;
+}
+
+// --- GIF API & Favoriten Typen ---
+
+/**
+ * Typ für ein einzelnes GIF-Objekt, wie es von der Giphy API zurückgegeben wird
+ * und für die Favoriten-Logik verwendet wird.
+ */
+export interface GifItem {
+  id: string; // Eindeutige Giphy-ID
+  title: string; // Titel oder Beschreibung des GIFs
+  url: string; // URL zum Original-GIF (für die Anzeige in groß)
+  previewUrl: string; // URL zur kleinen Vorschau (Thumbnail)
+  width: number; // Breite des GIFs (Original)
+  height: number; // Höhe des GIFs (Original)
 }

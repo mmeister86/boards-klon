@@ -1,156 +1,243 @@
-import type { BlockType, DropAreaType } from "@/lib/types";
-import type { BlocksState } from "./types";
-import {
-  findBlockById,
-  updateDropAreaById,
-  isDropAreaEmpty,
-} from "@/lib/utils/drop-area-utils";
-import { createEmptyDropArea, findDropAreaById } from "./utils";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import type { BlockType, LayoutType, ContentDropZoneType, HeadingBlock, ParagraphBlock } from "@/lib/types";
+import type { BlocksState, BlockActions } from "./types";
+import { findLayoutBlockAndZone, updateLayoutBlock } from "./utils";
 
 export const createBlockActions = (
   set: (fn: (state: BlocksState) => Partial<BlocksState>) => void,
   get: () => BlocksState
-) => ({
-  addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => {
-    const { dropAreas } = get();
-    const dropArea = findDropAreaById(dropAreas, dropAreaId);
-    if (!dropArea) return;
-
-    const newBlock: BlockType = {
-      ...block,
-      id: `block-${Date.now()}`,
-      dropAreaId,
-    };
-
-    const newDropAreas = [...dropAreas];
-    const targetAreaIndex = newDropAreas.findIndex(
-      (area) => area.id === dropAreaId
+): BlockActions => ({
+  addBlock: (
+    blockData: Omit<BlockType, "id">,
+    layoutId: string,
+    zoneId: string,
+    index: number
+  ) => {
+    const { layoutBlocks } = get();
+    const { layoutBlock, zone } = findLayoutBlockAndZone(
+      layoutBlocks,
+      layoutId,
+      zoneId
     );
-    if (targetAreaIndex === -1) return;
 
-    newDropAreas[targetAreaIndex] = {
-      ...newDropAreas[targetAreaIndex],
-      blocks: [...newDropAreas[targetAreaIndex].blocks, newBlock],
-    };
+    if (!layoutBlock || !zone) {
+      console.error(`Layout block or zone not found for addBlock: ${layoutId}/${zoneId}`);
+      return;
+    }
 
-    set((state) => ({ ...state, dropAreas: newDropAreas }));
+    let newBlock: BlockType;
+    switch (blockData.type) {
+      case "heading": {
+        const headingData = blockData as Omit<HeadingBlock, "id">;
+        newBlock = {
+          id: `block-${Date.now()}`,
+          type: "heading",
+          content: String(headingData.content || ""),
+          headingLevel: headingData.headingLevel as 1 | 2 | 3 | 4 | 5 | 6 | undefined
+        };
+        break;
+      }
+      case "paragraph": {
+        const paragraphData = blockData as Omit<ParagraphBlock, "id">;
+        newBlock = {
+          id: `block-${Date.now()}`,
+          type: "paragraph",
+          content: String(paragraphData.content || "")
+        };
+        break;
+      }
+      default:
+        newBlock = {
+          ...blockData,
+          id: `block-${Date.now()}`
+        } as BlockType;
+    }
+
+    const updatedBlocks = [...zone.blocks];
+    updatedBlocks.splice(index, 0, newBlock);
+
+    const updatedZones = layoutBlock.zones.map((z) =>
+      z.id === zoneId ? { ...z, blocks: updatedBlocks } : z
+    );
+
+    const updatedLayoutBlocks = updateLayoutBlock(layoutBlocks, layoutId, {
+      zones: updatedZones
+    });
+
+    set((state) => ({ ...state, layoutBlocks: updatedLayoutBlocks }));
     get().triggerAutoSave();
   },
 
-  moveBlock: (blockId: string, sourceAreaId: string, targetAreaId: string) => {
-    const { dropAreas } = get();
-    const sourceArea = findDropAreaById(dropAreas, sourceAreaId);
-    const targetArea = findDropAreaById(dropAreas, targetAreaId);
-    if (!sourceArea || !targetArea) return;
-
-    const blockToMove = sourceArea.blocks.find((block) => block.id === blockId);
-    if (!blockToMove) return;
-
-    const newDropAreas = [...dropAreas];
-    const sourceAreaIndex = newDropAreas.findIndex(
-      (area) => area.id === sourceAreaId
+  moveBlock: (
+    blockId: string,
+    source: { layoutId: string; zoneId: string },
+    target: { layoutId: string; zoneId: string; index: number }
+  ) => {
+    const { layoutBlocks } = get();
+    const { layoutBlock: sourceLayout, zone: sourceZone } = findLayoutBlockAndZone(
+      layoutBlocks,
+      source.layoutId,
+      source.zoneId
     );
-    const targetAreaIndex = newDropAreas.findIndex(
-      (area) => area.id === targetAreaId
+    const { layoutBlock: targetLayout, zone: targetZone } = findLayoutBlockAndZone(
+      layoutBlocks,
+      target.layoutId,
+      target.zoneId
     );
-    if (sourceAreaIndex === -1 || targetAreaIndex === -1) return;
 
-    // Remove block from source area
-    newDropAreas[sourceAreaIndex] = {
-      ...newDropAreas[sourceAreaIndex],
-      blocks: newDropAreas[sourceAreaIndex].blocks.filter(
-        (block) => block.id !== blockId
-      ),
-    };
+    if (!sourceLayout || !sourceZone || !targetLayout || !targetZone) {
+      console.error("Source or target layout/zone not found for move");
+      return;
+    }
 
-    // Add block to target area
-    const movedBlock: BlockType = {
-      ...blockToMove,
-      dropAreaId: targetAreaId,
-    };
+    const blockToMove = sourceZone.blocks.find((block: BlockType) => block.id === blockId);
+    if (!blockToMove) {
+        console.error(`Block ${blockId} not found in source ${source.layoutId}/${source.zoneId}`);
+        return;
+    }
 
-    newDropAreas[targetAreaIndex] = {
-      ...newDropAreas[targetAreaIndex],
-      blocks: [...newDropAreas[targetAreaIndex].blocks, movedBlock],
-    };
+    let updatedLayoutBlocks = [...layoutBlocks];
 
-    set((state) => ({ ...state, dropAreas: newDropAreas }));
+    const sourceBlocks = sourceZone.blocks.filter((block: BlockType) => block.id !== blockId);
+    updatedLayoutBlocks = updateLayoutBlock(
+      updatedLayoutBlocks,
+      source.layoutId,
+      {
+        zones: sourceLayout.zones.map((z: ContentDropZoneType) =>
+          z.id === source.zoneId ? { ...z, blocks: sourceBlocks } : z
+        ),
+      }
+    );
+
+    const { zone: currentTargetZone, layoutBlock: currentTargetLayout } = findLayoutBlockAndZone(
+        updatedLayoutBlocks,
+        target.layoutId,
+        target.zoneId
+      );
+
+    if (!currentTargetZone || !currentTargetLayout) {
+        console.error(`Target zone ${target.layoutId}/${target.zoneId} became invalid after source removal`);
+        return;
+    }
+
+    const targetBlocks = [...currentTargetZone.blocks];
+    const finalIndex = Math.max(0, Math.min(target.index, targetBlocks.length));
+    targetBlocks.splice(finalIndex, 0, blockToMove);
+
+    updatedLayoutBlocks = updateLayoutBlock(
+      updatedLayoutBlocks,
+      target.layoutId,
+      {
+        zones: currentTargetLayout.zones.map((z: ContentDropZoneType) =>
+          z.id === target.zoneId ? { ...z, blocks: targetBlocks } : z
+        ),
+      }
+    );
+
+    set((state) => ({ ...state, layoutBlocks: updatedLayoutBlocks }));
     get().triggerAutoSave();
   },
 
-  deleteBlock: (blockId: string, dropAreaId: string) => {
-    const { dropAreas } = get();
-    const dropArea = findDropAreaById(dropAreas, dropAreaId);
-    if (!dropArea) return;
+  deleteBlock: (blockId: string, layoutId: string, zoneId: string) => {
+    const { layoutBlocks } = get();
+    const { layoutBlock, zone } = findLayoutBlockAndZone(
+      layoutBlocks,
+      layoutId,
+      zoneId
+    );
 
-    const newDropAreas = [...dropAreas];
-    const areaIndex = newDropAreas.findIndex((area) => area.id === dropAreaId);
-    if (areaIndex === -1) return;
+    if (!layoutBlock || !zone) {
+        console.error(`Layout/zone ${layoutId}/${zoneId} not found for delete`);
+        return;
+    }
 
-    newDropAreas[areaIndex] = {
-      ...newDropAreas[areaIndex],
-      blocks: newDropAreas[areaIndex].blocks.filter(
-        (block) => block.id !== blockId
-      ),
-    };
+    const originalLength = zone.blocks.length;
+    const updatedBlocks = zone.blocks.filter((block: BlockType) => block.id !== blockId);
 
-    set((state) => ({ ...state, dropAreas: newDropAreas }));
-    get().triggerAutoSave();
+    if (updatedBlocks.length < originalLength) {
+        const updatedLayoutBlocks = updateLayoutBlock(layoutBlocks, layoutId, {
+          zones: layoutBlock.zones.map((z: ContentDropZoneType) =>
+            z.id === zoneId ? { ...z, blocks: updatedBlocks } : z
+          ),
+        });
+        set((state) => ({ ...state, layoutBlocks: updatedLayoutBlocks }));
+        get().triggerAutoSave();
+    } else {
+        console.warn(`Block ${blockId} not found in zone ${zoneId} for deletion.`);
+    }
   },
 
   updateBlockContent: (
     blockId: string,
-    dropAreaId: string,
-    content: string,
+    layoutId: string,
+    zoneId: string,
+    content: BlockType["content"],
     additionalProps?: Partial<BlockType>
   ) => {
-    const { dropAreas } = get();
-    const dropArea = findDropAreaById(dropAreas, dropAreaId);
-    if (!dropArea) return;
-
-    const newDropAreas = [...dropAreas];
-    const areaIndex = newDropAreas.findIndex((area) => area.id === dropAreaId);
-    if (areaIndex === -1) return;
-
-    const blockIndex = newDropAreas[areaIndex].blocks.findIndex(
-      (block) => block.id === blockId
+    const { layoutBlocks } = get();
+    const { layoutBlock, zone } = findLayoutBlockAndZone(
+      layoutBlocks,
+      layoutId,
+      zoneId
     );
-    if (blockIndex === -1) return;
+    if (!layoutBlock || !zone) {
+        console.error(`Layout/zone ${layoutId}/${zoneId} not found for update`);
+        return;
+    }
 
-    newDropAreas[areaIndex] = {
-      ...newDropAreas[areaIndex],
-      blocks: [
-        ...newDropAreas[areaIndex].blocks.slice(0, blockIndex),
-        {
-          ...newDropAreas[areaIndex].blocks[blockIndex],
-          content,
-          ...additionalProps,
-        },
-        ...newDropAreas[areaIndex].blocks.slice(blockIndex + 1),
-      ],
-    };
-
-    set((state) => ({ ...state, dropAreas: newDropAreas }));
-    get().triggerAutoSave();
-  },
-
-  selectBlock: (id: string | null) => set((state) => ({ ...state, selectedBlockId: id })),
-
-  reorderBlocks: (dropAreaId: string, blocks: BlockType[]) => {
-    set((state) => {
-      const blocksCopy = blocks.map((block) => ({ ...block }));
-      const updated = updateDropAreaById(
-        state.dropAreas,
-        dropAreaId,
-        (area) => ({
-          ...area,
-          blocks: blocksCopy,
-        })
-      );
-
-      return { ...state, dropAreas: updated };
+    let blockUpdated = false;
+    const updatedBlocks = zone.blocks.map((block: BlockType) => {
+      if (block.id === blockId) {
+        blockUpdated = true;
+        const updatedBlock = { ...block, content: content, ...additionalProps };
+        return updatedBlock as BlockType;
+      }
+      return block;
     });
 
+    if (blockUpdated) {
+      const updatedLayoutBlocks = updateLayoutBlock(layoutBlocks, layoutId, {
+        zones: layoutBlock.zones.map((z: ContentDropZoneType): ContentDropZoneType =>
+          z.id === zoneId ? { ...z, blocks: updatedBlocks } : z
+        ),
+      });
+      set((state) => ({ ...state, layoutBlocks: updatedLayoutBlocks }));
+      get().triggerAutoSave();
+    } else {
+        console.warn(`Block ${blockId} not found in zone ${zoneId} for update.`);
+    }
+  },
+
+  reorderBlocks: (layoutId: string, zoneId: string, orderedBlockIds: string[]) => {
+    const { layoutBlocks } = get();
+    const { layoutBlock, zone } = findLayoutBlockAndZone(layoutBlocks, layoutId, zoneId);
+
+    if (!layoutBlock || !zone) {
+        console.error(`Layout/zone ${layoutId}/${zoneId} not found for reorder`);
+        return;
+    }
+
+    const blockMap = new Map(zone.blocks.map((block: BlockType) => [block.id, block]));
+    const reorderedBlocks = orderedBlockIds.map(id => blockMap.get(id)).filter(Boolean) as BlockType[];
+
+    if (reorderedBlocks.length !== zone.blocks.length || orderedBlockIds.length !== zone.blocks.length) {
+        console.error("Block reorder mismatch - lengths differ or block not found");
+        return;
+    }
+
+    const updatedLayoutBlocks = updateLayoutBlock(layoutBlocks, layoutId, {
+      zones: layoutBlock.zones.map((z: ContentDropZoneType) =>
+        z.id === zoneId ? { ...z, blocks: reorderedBlocks } : z
+      )
+    });
+
+    set((state) => ({ ...state, layoutBlocks: updatedLayoutBlocks }));
     get().triggerAutoSave();
   },
+
+  selectBlock: (id: string | null): void => set((state) => ({ ...state, selectedBlockId: id })),
+
+  addLayoutBlock: (_layoutType: LayoutType, _index: number): void => { /* Implementation pending */ },
+  deleteLayoutBlock: (_layoutId: string): void => { /* Implementation pending */ },
+  moveLayoutBlock: (_dragIndex: number, _hoverIndex: number): void => { /* Implementation pending */ },
 });

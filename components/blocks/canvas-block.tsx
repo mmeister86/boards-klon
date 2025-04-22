@@ -12,6 +12,7 @@ import type {
   HeadingBlock as HeadingBlockType,
   ParagraphBlock as ParagraphBlockType,
   GifBlock,
+  FreepikBlock as FreepikBlockType,
 } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 import { Trash2, GripVertical } from "lucide-react";
@@ -22,6 +23,7 @@ import { VideoBlock } from "./video-block";
 import { AudioBlock } from "./audio-block";
 import { DocumentBlock } from "./document-block";
 import { GifBlockComponent } from "./gif-block";
+import { FreepikBlock } from "./freepik-block";
 import React from "react";
 
 interface CanvasBlockProps {
@@ -230,13 +232,17 @@ function BlockContent({
 }: BlockContentProps) {
   const { updateBlockContent } = useBlocksStore();
 
-  // Handle Heading Change (angepasst für spezifischen Typ)
+  // Handle Heading Change
   const handleHeadingChange = (data: { level: number; content: string }) => {
-    // Update block content and heading level
-    // Stelle sicher, dass block.content hier als string behandelt wird
-    // (was für HeadingBlock korrekt sein sollte)
     updateBlockContent(block.id, layoutId, zoneId, data.content, {
       headingLevel: data.level as HeadingBlockType["headingLevel"],
+    });
+  };
+
+  // Handle GIF Change
+  const handleGifChange = (newContent: GifBlock["content"]) => {
+    updateBlockContent(block.id, layoutId, zoneId, "", {
+      content: newContent,
     });
   };
 
@@ -247,22 +253,12 @@ function BlockContent({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { HeadingBlock } = require("@/components/blocks/heading-block");
 
-    // Validate heading level before passing to component
-    const validLevels = [1, 2, 3, 4, 5, 6] as const;
-    const validatedLevel =
-      headingBlock.headingLevel &&
-      validLevels.includes(headingBlock.headingLevel)
-        ? headingBlock.headingLevel
-        : 1; // Default to 1 if undefined or invalid
-
     return (
       <HeadingBlock
-        blockId={headingBlock.id}
-        layoutId={layoutId}
-        zoneId={zoneId}
-        level={validatedLevel}
         content={headingBlock.content}
+        level={headingBlock.headingLevel || 1}
         onChange={handleHeadingChange}
+        isSelected={isSelected}
       />
     );
   }
@@ -277,7 +273,7 @@ function BlockContent({
         content={
           typeof imageBlock.content === "string"
             ? imageBlock.content
-            : imageBlock.content?.src
+            : imageBlock.content?.src ?? null
         }
         altText={
           typeof imageBlock.content === "object"
@@ -296,7 +292,7 @@ function BlockContent({
         blockId={videoBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        content={videoBlock.content.src}
+        content={videoBlock.content?.src ?? null}
       />
     );
   }
@@ -308,7 +304,7 @@ function BlockContent({
         blockId={audioBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        content={audioBlock.content.src}
+        content={audioBlock.content?.src ?? null}
       />
     );
   }
@@ -320,8 +316,8 @@ function BlockContent({
         blockId={documentBlock.id}
         layoutId={layoutId}
         zoneId={zoneId}
-        content={documentBlock.content.src}
-        fileName={documentBlock.content.fileName}
+        content={documentBlock.content?.src || ""}
+        fileName={documentBlock.content?.fileName ?? undefined}
       />
     );
   }
@@ -338,34 +334,25 @@ function BlockContent({
     );
   }
 
-  // NEU: Rendern für GIF-Blöcke
   if (block.type === "gif") {
-    const gifBlock = block as GifBlock; // Typ-Assertion
+    const gifBlock = block as GifBlock;
+    return <GifBlockComponent block={gifBlock} onChange={handleGifChange} />;
+  }
 
-    // Funktion zum Aktualisieren des GIF-Blocks
-    const handleGifChange = (newContent: GifBlock["content"]) => {
-      // Verwende additionalProps für das komplexe Content-Objekt
-      updateBlockContent(block.id, layoutId, zoneId, "", {
-        // Leerer String für content
-        content: newContent,
-      });
-    };
-
+  if (block.type === "freepik") {
+    const freepikBlock = block as FreepikBlockType;
     return (
-      <GifBlockComponent
-        block={gifBlock}
-        onChange={handleGifChange}
-        isSelected={isSelected} // Übergebe isSelected
+      <FreepikBlock
+        blockId={freepikBlock.id}
+        layoutId={layoutId}
+        zoneId={zoneId}
+        content={freepikBlock.content}
+        isSelected={isSelected}
       />
     );
   }
 
-  // Default fallback für unbekannte oder 'never' Typen
-  // Dies sollte den Linter-Fehler beheben
+  // Fallback for unknown block types
   console.warn("Rendering fallback for unknown block type:", block);
-  return (
-    <div className="p-4 bg-red-50 text-red-500 rounded">
-      Unbekannter Block-Typ.
-    </div>
-  );
+  return <div>Unknown block type: {(block as BlockType).type}</div>;
 }

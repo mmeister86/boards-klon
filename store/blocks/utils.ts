@@ -1,4 +1,4 @@
-import type { BlockType, DropAreaType } from "@/lib/types";
+import type { BlockType, DropAreaType, LayoutType, ContentDropZoneType, LayoutBlockType } from "@/lib/types";
 
 // Debounce helper function
 export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
@@ -28,7 +28,7 @@ export const findBlockById = (
   blockId: string
 ): BlockType | null => {
   for (const area of dropAreas) {
-    const block = area.blocks.find((b) => b.id === blockId);
+    const block = area.blocks.find((block: BlockType) => block.id === blockId);
     if (block) return block;
   }
   return null;
@@ -64,3 +64,25 @@ export function createEmptyDropArea(id: string): DropAreaType {
 export function createTraceId(operation: string): string {
   return `${operation}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
+
+// Helper function to find a layout block and zone by their IDs
+export const findLayoutBlockAndZone = (
+  layoutBlocks: LayoutBlockType[],
+  layoutId: string,
+  zoneId: string
+): { layoutBlock: LayoutBlockType | null; zone: ContentDropZoneType | null } => {
+  const layoutBlock = layoutBlocks.find((block) => block.id === layoutId) || null;
+  const zone = layoutBlock?.zones.find((zone) => zone.id === zoneId) || null;
+  return { layoutBlock, zone };
+};
+
+// Helper function to update a layout block
+export const updateLayoutBlock = (
+  layoutBlocks: LayoutBlockType[],
+  layoutId: string,
+  updates: Partial<LayoutBlockType>
+): LayoutBlockType[] => {
+  return layoutBlocks.map((block) =>
+    block.id === layoutId ? { ...block, ...updates } : block
+  );
+};

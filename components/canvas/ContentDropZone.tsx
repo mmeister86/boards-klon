@@ -161,8 +161,7 @@ export function ContentDropZone({
               console.log(
                 "[ContentDropZone Drop] Handling CONTENT_BLOCK (New)"
               );
-              // Annahme: Item aus Sidebar hat 'blockType' und 'content'
-              const newItem = droppedItem as NewContentBlockDragObject; // Sicherer Cast basierend auf Annahme
+              const newItem = droppedItem as NewContentBlockDragObject;
               if (!newItem || typeof newItem.blockType === "undefined") {
                 console.error(
                   "[ContentDropZone Drop] Invalid NewContentBlockDragObject:",
@@ -173,19 +172,44 @@ export function ContentDropZone({
               console.log(
                 `Adding new block of type ${newItem.blockType} to ${layoutId}/${zoneId} at index ${targetIndex}`
               );
-              // Erstelle Blockdaten, stelle sicher dass content ein String ist für textbasierte Typen
+
+              // Determine initial content based on block type
+              let initialContent: BlockType["content"];
+
+              switch (newItem.blockType) {
+                case "heading":
+                case "paragraph":
+                  initialContent =
+                    typeof newItem.content === "string" ||
+                    typeof newItem.content === "number"
+                      ? String(newItem.content)
+                      : "";
+                  break;
+                case "image":
+                case "video":
+                case "audio":
+                case "document":
+                case "gif":
+                case "freepik":
+                  // Assign null directly if the initial content from sidebar is null
+                  if (newItem.content === null) {
+                    initialContent = null;
+                  } else {
+                    // Handle cases where sidebar might provide non-null content for these types (unlikely now but for future)
+                    // For now, default to null if not explicitly null.
+                    initialContent = null;
+                  }
+                  break;
+                default:
+                  // const _exhaustiveCheck: never = newItem.blockType;
+                  initialContent = "";
+              }
+
               const blockData: Omit<BlockType, "id"> = {
                 type: newItem.blockType,
-                // Konvertiere content sicher zu String, falls es kein Objekt ist (Annahme für Text/Heading)
-                content:
-                  typeof newItem.content === "string" ||
-                  typeof newItem.content === "number"
-                    ? String(newItem.content)
-                    : "",
+                content: initialContent, // No 'as any' needed now
               };
-              // WICHTIG: Wenn Blöcke wie 'image' direkt aus der Sidebar gezogen werden könnten,
-              // müsste hier eine komplexere Logik stehen, die den content basierend auf newItem.blockType formt.
-              // Aktuell gehen wir davon aus, dass CONTENT_BLOCK nur textähnliche Typen sind.
+
               addBlock(blockData, layoutId, zoneId, targetIndex);
               break;
             }

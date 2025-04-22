@@ -10,8 +10,8 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
 
   // Check if the request is for a protected route
-  const isProtectedRoute = 
-    request.nextUrl.pathname.startsWith('/dashboard') || 
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/editor')
 
   // If no session and trying to access protected route, redirect to auth page
@@ -37,16 +37,18 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
-     * 
+     *
      * Also match specific protected routes:
      * - /dashboard routes
      * - /editor routes
      * - /auth route (for redirecting logged-in users)
      */
+    // Re-enable the general matcher
     "/((?!_next/static|_next/image|favicon.ico|public).*)",
+
+    // Behalte die spezifischen Matcher für Auth-Logik bei:
     "/dashboard/:path*",
     "/editor/:path*",
     "/auth",
   ],
 }
-

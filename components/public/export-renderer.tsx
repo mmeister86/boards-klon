@@ -6,6 +6,8 @@ import Image from "next/image";
 import { Loader2, AlertCircle } from "lucide-react";
 import ReactPlayer from "react-player/lazy";
 import { ModernAudioPlayer } from "@/components/ui/modern-audio-player";
+import { GifPlayer } from "@/components/gif/gif-player";
+import { FreepikPlayer } from "@/components/freepik/FreepikPlayer";
 
 // Import types directly if needed, but avoid importing the main library statically
 import type {
@@ -208,25 +210,37 @@ export function RenderBlock({ block }: { block: BlockType }) {
         typeof block.content === "object" &&
         "images" in block.content
       ) {
-        const stillUrl =
-          block.content.images?.fixed_height_still?.url ||
-          block.content.images?.original?.url;
-        const altText =
-          block.content.altText || block.content.title || "Animiertes GIF";
+        // Zeige das animierte GIF im Player ohne Favoriten-Button mit abgerundeten Ecken
         return (
-          <Image
-            src={stillUrl}
-            alt={altText}
-            width={0}
-            height={0}
-            sizes="100vw"
-            style={{ width: "100%", height: "auto" }}
-            className="rounded-lg shadow-sm md:shadow-md shadow-slate-500/70"
-            priority={false}
-          />
+          <div className="rounded-lg overflow-hidden">
+            <GifPlayer gif={block.content} showFavoriteButton={false} />
+          </div>
         );
       }
       return <div>Ungültiger GIF-Inhalt</div>;
+
+    case "freepik":
+      if (
+        block.content &&
+        typeof block.content === "object" &&
+        "url" in block.content &&
+        "title" in block.content &&
+        "type" in block.content &&
+        block.content.type === "photo"
+      ) {
+        return (
+          <FreepikPlayer
+            media={{
+              url: block.content.url,
+              title: block.content.title,
+              type: block.content.type,
+              author: block.content.author,
+            }}
+            isPreview={true}
+          />
+        );
+      }
+      return <div>Ungültiger Freepik-Inhalt</div>;
 
     case "document":
       if (isPdfVisible) {
@@ -351,11 +365,12 @@ export function RenderBlock({ block }: { block: BlockType }) {
       return <div>Ungültiger Dokumenten-Inhalt</div>;
 
     default:
-      // Dieser Fall sollte idealerweise nicht eintreten, wenn alle Blocktypen behandelt werden.
-      // Füge hier eine explizite Behandlung oder einen Fehler hinzu.
       console.warn("Unbehandelter Blocktyp:", block);
-      // const _exhaustiveCheck: never = block; // Uncomment for exhaustive check
-      return <div>Unbekannter Blocktyp</div>;
+      return (
+        <div className="p-4 my-2 text-sm text-center text-orange-600 border border-orange-200 rounded bg-orange-50">
+          Unbekannter Blocktyp: {(block as BlockType).type}
+        </div>
+      );
   }
 }
 

@@ -1,10 +1,10 @@
-import type { BlockType, DropAreaType } from "@/lib/types";
+import type { BlockType, LayoutBlockType, LayoutType } from "@/lib/types";
 import type { ViewportType } from "@/lib/hooks/use-viewport";
 
 // Base state without actions
 export interface BlocksBaseState {
   // Project state
-  dropAreas: DropAreaType[];
+  layoutBlocks: LayoutBlockType[];
   currentProjectId: string | null;
   currentProjectTitle: string | null;
 
@@ -23,27 +23,43 @@ export interface BlocksBaseState {
 
 // Actions
 export interface BlockActions {
-  addBlock: (block: Omit<BlockType, "id">, dropAreaId: string) => void;
+  addBlock: (
+    block: Omit<BlockType, "id">,
+    layoutId: string,
+    zoneId: string,
+    index: number
+  ) => void;
   moveBlock: (
     blockId: string,
-    sourceAreaId: string,
-    targetAreaId: string
+    source: { layoutId: string; zoneId: string },
+    target: { layoutId: string; zoneId: string; index: number }
   ) => void;
-  deleteBlock: (blockId: string, dropAreaId: string) => void;
+  deleteBlock: (blockId: string, layoutId: string, zoneId: string) => void;
   updateBlockContent: (
     blockId: string,
-    dropAreaId: string,
-    content: string,
+    layoutId: string,
+    zoneId: string,
+    content: BlockType["content"],
     additionalProps?: Partial<BlockType>
   ) => void;
+  reorderBlocks: (
+    layoutId: string,
+    zoneId: string,
+    orderedBlockIds: string[]
+  ) => void;
+  selectBlock: (id: string | null) => void;
+  // Layout actions
+  addLayoutBlock: (layoutType: LayoutType, index: number) => void;
+  deleteLayoutBlock: (layoutId: string) => void;
+  moveLayoutBlock: (dragIndex: number, hoverIndex: number) => void;
 }
 
-export interface DropAreaActions {
-  splitDropArea: (dropAreaId: string) => void;
-  mergeDropAreas: (dropAreaId: string) => void;
-  canSplit: (dropAreaId: string, viewport: ViewportType) => boolean; // Updated signature
-  canMerge: (dropAreaId: string) => boolean;
-  cleanupEmptyDropAreas: () => void;
+// Define LayoutActions if needed (addLayoutBlock, deleteLayoutBlock, etc.)
+export interface LayoutActions {
+  addLayoutBlock: (layoutType: LayoutType, index: number) => void;
+  deleteLayoutBlock: (layoutId: string) => void;
+  moveLayoutBlock: (dragIndex: number, hoverIndex: number) => void;
+  // Potentially updateLayoutBlock if needed for resizing/custom classes etc.
 }
 
 export interface ProjectActions {
@@ -71,6 +87,6 @@ export interface UIStateActions {
 // Combined state type
 export type BlocksState = BlocksBaseState &
   BlockActions &
-  DropAreaActions &
+  LayoutActions &
   ProjectActions &
   UIStateActions;

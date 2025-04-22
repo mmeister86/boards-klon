@@ -19,6 +19,7 @@ import {
   SquareStack as LayoutIcon,
   type LucideIcon,
   GiftIcon,
+  Image as FreepikIcon,
 } from "lucide-react";
 import type { LayoutType } from "@/lib/types"; // Stelle sicher, dass LayoutType importiert ist
 
@@ -46,11 +47,11 @@ const blockTypes = [
     description: "Füge ein Bild ein",
   },
   {
-    type: "gif",
+    type: "freepik",
     content: null,
-    label: "GIF",
-    icon: GiftIcon,
-    description: "Füge ein animiertes GIF ein",
+    label: "Freepik",
+    icon: FreepikIcon,
+    description: "Füge Bilder oder Videos von Freepik ein",
   },
   {
     type: "video",
@@ -58,6 +59,13 @@ const blockTypes = [
     label: "Video",
     icon: VideoIcon,
     description: "Füge ein Video hinzu (Upload oder URL)",
+  },
+  {
+    type: "gif",
+    content: null,
+    label: "GIF",
+    icon: GiftIcon,
+    description: "Füge ein animiertes GIF ein",
   },
   {
     type: "audio",
