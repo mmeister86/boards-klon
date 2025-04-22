@@ -44,13 +44,13 @@ export function DraggableLayoutItem({
     <div
       ref={ref}
       className={cn(
-        "flex flex-col items-center justify-center p-3 border rounded-lg cursor-grab bg-background hover:bg-muted transition-colors",
+        "group flex flex-col items-center justify-center p-3 border rounded-lg cursor-grab bg-background hover:!bg-slate-500/80  transition-all ease-in-out duration-300",
         isDragging ? "opacity-50 ring-2 ring-primary" : ""
       )}
       title={description}
     >
-      <Icon className="w-6 h-6 mb-1.5 text-muted-foreground" />
-      <span className="text-xs font-medium text-center text-foreground">
+      <Icon className="w-6 h-6 mb-1.5 text-slate-500 group-hover:!text-[#fef9ef]/80" />
+      <span className="text-xs font-medium text-center text-slate-500 group-hover:!text-[#fef9ef]/80">
         {label}
       </span>
     </div>

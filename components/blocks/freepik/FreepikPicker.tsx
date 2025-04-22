@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -27,7 +26,7 @@ export function FreepikPicker({ onSelect, onClose }: FreepikPickerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<FreepikMedia[]>([]);
   const [isDownloading, setIsDownloading] = useState<string | null>(null); // ID des Bildes, das gerade heruntergeladen wird
-  
+
   // Debug-Effekt, der den Download-Status überwacht
   useEffect(() => {
     console.log("Download status changed:", isDownloading);
@@ -71,7 +70,7 @@ export function FreepikPicker({ onSelect, onClose }: FreepikPickerProps) {
       title: "Herunterladen...",
       description: "Das Bild wird heruntergeladen und optimiert",
     });
-    
+
     try {
       const response = await fetch("/api/freepik/download", {
         method: "POST",
@@ -99,8 +98,8 @@ export function FreepikPicker({ onSelect, onClose }: FreepikPickerProps) {
       if (data.downloadUrl) {
         // Wenn ein mediaItem in der Antwort enthalten ist, nutze dieses
         if (data.mediaItem) {
-          onSelect({ 
-            ...media, 
+          onSelect({
+            ...media,
             url: data.downloadUrl,
             mediaItemId: data.mediaItem.id // Speichere die ID des Medienelements
           });
@@ -118,7 +117,7 @@ export function FreepikPicker({ onSelect, onClose }: FreepikPickerProps) {
         description: "Das Bild wurde in Ihrer Mediathek gespeichert",
         variant: "default",
       });
-      
+
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
@@ -135,8 +134,8 @@ export function FreepikPicker({ onSelect, onClose }: FreepikPickerProps) {
   };
 
   // Debug Ausgabe des aktuellen Status
-  console.log("Current download state:", { 
-    isDownloading, 
+  console.log("Current download state:", {
+    isDownloading,
     itemsCount: results.length,
     itemsWithDownloadingState: results.filter(m => m.id === isDownloading).length
   });
@@ -171,11 +170,12 @@ export function FreepikPicker({ onSelect, onClose }: FreepikPickerProps) {
               className="object-cover rounded-md"
               sizes="(max-width: 768px) 33vw, 20vw"
             />
-            {media.type === "video" && (
+            {/* Das folgende Video-Overlay wird entfernt, da nur noch Fotos unterstützt werden */}
+            {/* {media.type === "video" && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                 <span className="text-white">▶</span>
               </div>
-            )}
+            )} */}
             {/* Hier ist ein bedingtes Rendering für den Ladezustand */}
             {isDownloading === media.id ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">

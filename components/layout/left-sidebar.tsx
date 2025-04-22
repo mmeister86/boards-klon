@@ -44,35 +44,35 @@ const blockTypes = [
     content: null,
     label: "Bild",
     icon: ImageIcon,
-    description: "Füge ein Bild ein",
+    description: "Füge ein Platzhalterbild hinzu",
   },
   {
     type: "freepik",
     content: null,
     label: "Freepik",
     icon: FreepikIcon,
-    description: "Füge Bilder oder Videos von Freepik ein",
+    description: "Füge Stockfotos oder Vektorgrafiken von Freepik ein",
   },
   {
     type: "video",
     content: null,
     label: "Video",
     icon: VideoIcon,
-    description: "Füge ein Video hinzu (Upload oder URL)",
+    description: "Füge ein Video hinzu",
   },
   {
     type: "gif",
     content: null,
     label: "GIF",
     icon: GiftIcon,
-    description: "Füge ein animiertes GIF ein",
+    description: "Füge ein animiertes GIF hinzu",
   },
   {
     type: "audio",
     content: null,
     label: "Audio",
     icon: AudioIcon,
-    description: "Füge eine Audiodatei hinzu (Upload oder URL)",
+    description: "Füge eine Audiodatei hinzu",
   },
   {
     type: "document",
@@ -86,7 +86,7 @@ const blockTypes = [
     content: "Schaltfläche",
     label: "Button",
     icon: ButtonIcon,
-    description: "Füge eine klickbare Schaltfläche hinzu",
+    description: "Füge einen klickbaren Button hinzu",
   },
   {
     type: "divider",
@@ -100,7 +100,7 @@ const blockTypes = [
     content: "Formular",
     label: "Formular",
     icon: FormInput,
-    description: "Erstelle ein Formularelement",
+    description: "Füge ein Formularelement hinzu",
   },
 ];
 

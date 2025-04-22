@@ -34,7 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-.npmrc
 
 # Added by Claude Task Master
 # Logs
@@ -56,4 +55,4 @@ node_modules/
 # OS specific
 # Task files
 tasks.json
-tasks/ 
+tasks/

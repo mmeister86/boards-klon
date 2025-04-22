@@ -54,6 +54,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.auth.getSession();
         setSession(data.session);
         setUser(data.session?.user ?? null);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         setError(error.message || "Error getting initial session");
       } finally {
