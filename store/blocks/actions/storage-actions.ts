@@ -10,7 +10,7 @@ import {
   saveProjectToStorage,
   loadProjectFromStorage,
 } from '@/lib/supabase/storage';
-import { debounce, createEmptyLayoutBlock } from '../utils';
+import { debounce } from '../utils';
 
 // Singleton-Instanz des Supabase-Clients
 const getSupabase = () => {
@@ -303,7 +303,7 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
       let finalDbId: string | null = null;
       let success = false;
 
-      const initialLayout: LayoutBlockType[] = [createEmptyLayoutBlock(`layout-${Date.now()}`, "single-column")] as LayoutBlockType[];
+      const initialLayout: LayoutBlockType[] = []; // Keine LayoutBlocks beim Start
 
       const projectData: ProjectData = {
         id: newProjectId,

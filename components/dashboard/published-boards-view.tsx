@@ -10,9 +10,10 @@ import {
   Loader2,
   Globe2,
   Copy,
-  ExternalLink,
   MoreVertical,
   Calendar,
+  Pencil,
+  TrashIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -142,79 +143,82 @@ export default function PublishedBoardsView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {boards.map((board) => (
-          <Card
+          <a
             key={board.id}
-            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+            href={`/boards/${board.project_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block group"
+            style={{ textDecoration: "none", color: "inherit" }}
           >
-            <div className="relative">
-              <div className="aspect-video bg-muted overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center bg-secondary/50">
-                  <span className="text-muted-foreground">
-                    Keine Vorschau verfügbar
-                  </span>
+            <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group">
+              <div className="relative">
+                <div className="aspect-video bg-muted overflow-hidden">
+                  <div className="w-full h-full flex items-center justify-center bg-secondary/50">
+                    <span className="text-muted-foreground">
+                      Keine Vorschau verfügbar
+                    </span>
+                  </div>
+                </div>
+                <div className="absolute top-2 right-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyUrl(board.project_id);
+                        }}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        URL kopieren
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a
+                          href={`/editor?projectId=${board.project_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Bearbeiten
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(board);
+                        }}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        {isDeleting && boardToDelete?.id === board.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Wird gelöscht...
+                          </>
+                        ) : (
+                          <>
+                            <TrashIcon className="h-4 w-4 mr-2 text-destructive" />
+                            Löschen
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-              <div className="absolute top-2 right-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    asChild
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 bg-background/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyUrl(board.project_id);
-                      }}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      URL kopieren
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a
-                        href={`/boards/${board.project_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Öffnen
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(board);
-                      }}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      {isDeleting && boardToDelete?.id === board.id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Wird gelöscht...
-                        </>
-                      ) : (
-                        "Löschen"
-                      )}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-            <CardContent className="p-4">
-              <a
-                href={`/boards/${board.project_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <CardContent className="p-4">
                 <h3 className="font-medium mb-2">{board.title}</h3>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4 mr-1" />
@@ -222,14 +226,14 @@ export default function PublishedBoardsView() {
                     Zuletzt aktualisiert: {formatDate(board.updated_at)}
                   </span>
                 </div>
-              </a>
-            </CardContent>
-            <CardFooter className="p-4 pt-0">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Veröffentlicht: {formatDate(board.published_at)}</span>
-              </div>
-            </CardFooter>
-          </Card>
+              </CardContent>
+              <CardFooter className="p-4 pt-0">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Veröffentlicht: {formatDate(board.published_at)}</span>
+                </div>
+              </CardFooter>
+            </Card>
+          </a>
         ))}
       </div>
 

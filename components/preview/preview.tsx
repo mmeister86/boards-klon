@@ -22,16 +22,13 @@ export default function Preview() {
       case "tablet":
         return {
           width: "min(95vw, 834px)",
-          height: "auto",
-          minHeight: "600px",
-          maxHeight: "85vh",
+          height: "85vh",
         };
       default:
         return {
           width: "1400px",
           maxWidth: "1400px",
-          height: "auto",
-          minHeight: "600px",
+          height: "85vH",
           marginTop: "20px",
         };
     }

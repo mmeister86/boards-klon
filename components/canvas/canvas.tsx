@@ -74,6 +74,15 @@ export default function Canvas() {
     };
   }, []);
 
+  // Das folgende useEffect wurde entfernt, damit beim Anlegen eines neuen Projekts
+  // die Canvas wirklich leer bleibt und nicht automatisch ein LayoutBlock erscheint.
+  //
+  // useEffect(() => {
+  //   if (layoutBlocks.length === 0) {
+  //     addLayoutBlock("single-column", 0);
+  //   }
+  // }, []);
+
   const [{ isOver }, drop] = useDrop<
     AcceptedCanvasDropItem,
     void,
