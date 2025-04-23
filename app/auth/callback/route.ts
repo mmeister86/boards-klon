@@ -29,7 +29,14 @@ export async function GET(request: NextRequest) {
     }
 
     // URL to redirect to after sign in process completes
-    return NextResponse.redirect(new URL(next, requestUrl.origin));
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!siteUrl) {
+      console.error("NEXT_PUBLIC_SITE_URL environment variable not set for redirect!");
+       return NextResponse.redirect(
+        new URL("/error?message=Konfigurationsfehler: Website-URL fehlt für Weiterleitung.", requestUrl.origin)
+      );
+    }
+    return NextResponse.redirect(new URL(next, siteUrl));
   } catch (error) {
     console.error("Callback error:", error);
     return NextResponse.redirect(
