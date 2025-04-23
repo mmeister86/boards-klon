@@ -4,6 +4,8 @@ import { type NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     const requestUrl = new URL(request.url);
+    console.log("Callback requestUrl.origin:", requestUrl.origin);
+    console.log("Callback process.env.NEXT_PUBLIC_SITE_URL:", process.env.NEXT_PUBLIC_SITE_URL);
     const code = requestUrl.searchParams.get("code");
     const next = requestUrl.searchParams.get("next") ?? "/dashboard";
 
