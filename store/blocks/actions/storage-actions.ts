@@ -111,14 +111,23 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
       // If DB save not successful OR no DB connection, try local storage
       if (!success) {
         console.log("Attempting to save to local storage with ID:", currentProjectId);
-        success = await saveProjectToStorage(projectData);
+        if (!supabaseUser || typeof supabaseUser.id !== 'string') {
+          console.error("No user for local storage save");
+          set({ isSaving: false });
+          return false;
+        }
+        success = await saveProjectToStorage(projectData, supabaseUser.id);
         console.log("Auto-save to storage:", success);
         if (finalDbId && !success) finalDbId = null;
       } else {
         // If DB successful, optionally sync storage
         if (finalDbId) {
-          await saveProjectToStorage({ ...projectData, id: finalDbId });
-          console.log("Synchronized local storage with DB ID:", finalDbId);
+          if (supabaseUser && typeof supabaseUser.id === 'string') {
+            await saveProjectToStorage({ ...projectData, id: finalDbId }, supabaseUser.id);
+            console.log("Synchronized local storage with DB ID:", finalDbId);
+          } else {
+            console.error("No user for local storage sync (DB ID)");
+          }
         }
       }
 
@@ -251,14 +260,23 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
       // If DB save not successful OR no DB connection, try local storage
       if (!success) {
         console.log("Attempting to save to local storage with ID:", currentProjectId);
-        success = await saveProjectToStorage(projectData);
+        if (!supabaseUser || typeof supabaseUser.id !== 'string') {
+          console.error("No user for local storage save");
+          set({ isSaving: false });
+          return false;
+        }
+        success = await saveProjectToStorage(projectData, supabaseUser.id);
         console.log("Save to storage:", success);
         if (finalDbId && !success) finalDbId = null;
       } else {
         // If DB successful, optionally sync storage
         if (finalDbId) {
-          await saveProjectToStorage({ ...projectData, id: finalDbId });
-          console.log("Synchronized local storage with DB ID:", finalDbId);
+          if (supabaseUser && typeof supabaseUser.id === 'string') {
+            await saveProjectToStorage({ ...projectData, id: finalDbId }, supabaseUser.id);
+            console.log("Synchronized local storage with DB ID:", finalDbId);
+          } else {
+            console.error("No user for local storage sync (DB ID)");
+          }
         }
       }
 
@@ -312,14 +330,23 @@ export const createStorageActions: StateCreator<BlocksState, [], [], StorageActi
       // If DB save not successful OR no DB connection, save to local storage
       if (!success) {
         console.log("Attempting to save new project to local storage with ID:", newProjectId);
-        success = await saveProjectToStorage(projectData);
+        if (!userId || typeof userId !== 'string') {
+          console.error("No user for local storage save");
+          set({ isLoading: false });
+          return null;
+        }
+        success = await saveProjectToStorage(projectData, userId);
         console.log("Create project in storage:", success);
         if (finalDbId && !success) finalDbId = null; // If DB save failed, clear DB ID
       } else {
         // If DB successful, optionally sync storage
          if (finalDbId) {
-          await saveProjectToStorage({ ...projectData, id: finalDbId });
-          console.log("Synchronized new project to local storage with DB ID:", finalDbId);
+          if (userId && typeof userId === 'string') {
+            await saveProjectToStorage({ ...projectData, id: finalDbId }, userId);
+            console.log("Synchronized new project to local storage with DB ID:", finalDbId);
+          } else {
+            console.error("No user for local storage sync (new project, DB ID)");
+          }
         }
       }
 

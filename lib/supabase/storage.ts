@@ -45,13 +45,17 @@ export async function initializeStorage(): Promise<boolean> {
 
 // Save project data to Supabase storage with improved error handling
 export async function saveProjectToStorage(
-  projectData: ProjectData
+  projectData: ProjectData,
+  userId: string
 ): Promise<boolean> {
   if (!projectData.id) {
      console.error("[Storage Save] Cannot save project without an ID.");
      return false;
   }
-
+  if (!userId) {
+    console.error("[Storage Save] userId is required to save project in user folder.");
+    return false;
+  }
   const supabase = getSupabase();
   if (!supabase) {
     console.error("[Storage Save] Supabase client not available");
@@ -59,27 +63,10 @@ export async function saveProjectToStorage(
   }
 
   try {
-    // Get user ID for path
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error("[Storage Save] User not authenticated, cannot determine path.");
-      return false;
-    }
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const isAuthenticated = !!sessionData.session;
-
-    if (!isAuthenticated) {
-      console.error("[Storage Save] Session check failed, user not authenticated.");
-      return false;
-    }
-
-    // Initialize storage and check bucket access
-    const initResult = await initializeStorage();
-    if (!initResult) {
-      console.error("[Storage Save] Storage initialization failed.");
-      return false;
-    }
+    // Immer userId für den Pfad verwenden, damit Projekte im Nutzer-Ordner landen
+    // Beispiel: userId/projectId.json
+    const filePath = `${userId}/${projectData.id}.json`;
+    console.log(`[Storage Save] Attempting to upload to path: ${filePath}`);
 
     // Always update the modified timestamp
     projectData.updatedAt = new Date().toISOString();
@@ -97,16 +84,12 @@ export async function saveProjectToStorage(
          return false;
     }
 
-    // Define the user-specific path (ohne 'projects/' Prefix)
-    const filePath = `${idForPath}.json`;
-    console.log(`[Storage Save] Attempting to upload to path: ${filePath}`);
-
-    // Attempt the upload with minimal options
+    // Upload mit dem bereits deklarierten filePath
     const { error } = await supabase.storage
-      .from(BUCKET_NAME) // Assuming BUCKET_NAME is defined elsewhere
+      .from(BUCKET_NAME)
       .upload(filePath, jsonBuffer, {
         contentType: "application/json",
-        upsert: true, // Overwrite if exists
+        upsert: true,
       });
 
     if (error) {
@@ -123,7 +106,7 @@ export async function saveProjectToStorage(
 }
 
 /**
- * Load a project from Supabase storage with improved error handling
+ * Load a project from Supabase storage from user-specific folder
  */
 export async function loadProjectFromStorage(
   projectId: string,
@@ -140,18 +123,8 @@ export async function loadProjectFromStorage(
   }
 
   try {
-    // Session holen ist gut für RLS, auch wenn wir hier nicht direkt darauf zugreifen
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session) {
-        console.error("[Storage Load] Failed to get session or user not authenticated.", sessionError);
-        // Nicht unbedingt abbrechen, RLS sollte greifen, aber loggen.
-    }
-
-    // Initialize storage and check access (kann ggf. entfernt werden, wenn nicht nötig)
-    // await initializeStorage();
-
-    // Konstruiere den Pfad
-    const filePath = `${projectId}.json`;
+    // Lade aus userId/projectId.json
+    const filePath = `${userId}/${projectId}.json`;
     console.log(`[Storage Load] Attempting to download from path: ${filePath}`);
 
     // Attempt to download the file directly
@@ -190,7 +163,7 @@ export async function loadProjectFromStorage(
 }
 
 /**
- * List all projects for a specific user from Supabase storage.
+ * List all projects for a specific user from Supabase storage (userId folder)
  */
 export async function listProjectsFromStorage(userId: string): Promise<Project[]> {
   const supabase = getSupabase();
@@ -204,16 +177,11 @@ export async function listProjectsFromStorage(userId: string): Promise<Project[]
   }
 
   try {
-    // Session holen kann helfen, ist aber nicht unbedingt nötig, wenn RLS greift
-    // await supabase.auth.getSession();
-    // await initializeStorage(); // Wahrscheinlich nicht mehr nötig, da wir gezielt listen
-
-    console.log(`[ListStorage] Listing projects for user: ${userId}`);
     // Liste nur den Ordner des Benutzers
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).list('', {
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(userId, {
       limit: 100,
       offset: 0,
-      sortBy: { column: "updated_at", order: "desc" }, // Sortierung funktioniert evtl. nicht auf Ordner
+      sortBy: { column: "updated_at", order: "desc" },
     });
 
     if (error) {
@@ -269,7 +237,7 @@ export async function listProjectsFromStorage(userId: string): Promise<Project[]
 }
 
 /**
- * Delete a project from Supabase storage
+ * Delete a project from Supabase storage (userId folder)
  */
 export async function deleteProjectFromStorage(
   projectId: string,
@@ -286,12 +254,8 @@ export async function deleteProjectFromStorage(
   }
 
   try {
-    // Session holen ist gut für RLS
-    // await supabase.auth.getSession();
-    // await initializeStorage();
-
-    // Konstruiere den Pfad
-    const filePath = `${projectId}.json`;
+    // Lösche userId/projectId.json
+    const filePath = `${userId}/${projectId}.json`;
     console.log(`[Storage Delete] Attempting to delete file at path: ${filePath}`);
 
     // Lösche die Datei
@@ -440,7 +404,7 @@ export async function migrateMockProjects(
       };
 
       // Save each mock project to storage
-      const success = await saveProjectToStorage(projectData);
+      const success = await saveProjectToStorage(projectData, project.id);
       if (!success) {
         console.warn(`[MigrateMock] Failed to save mock project ${project.id} to storage.`);
         allSuccess = false;
@@ -636,7 +600,7 @@ async function getImageDimensions(file: File): Promise<{ width: number; height: 
     console.log('Image dimensions calculation skipped on server side');
     return { width: 0, height: 0 }; // Standardwerte zurückgeben
   }
-  
+
   return new Promise((resolve) => {
     if (!file.type.startsWith('image/')) {
       resolve(undefined);

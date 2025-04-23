@@ -88,7 +88,7 @@ export const createProjectActions = (
         updatedAt: new Date().toISOString(),
       };
 
-      const success = await saveProjectToStorage(projectData);
+      const success = await saveProjectToStorage(projectData, user.id);
       set((state) => ({
         ...state,
         currentProjectTitle: projectTitle,
@@ -128,7 +128,21 @@ export const createProjectActions = (
         updatedAt: new Date().toISOString(),
       };
 
-      const success = await saveProjectToStorage(projectData);
+      const supabase = createClient();
+      if (!supabase) {
+        console.error("Supabase client not available");
+        set((state) => ({ ...state, isSaving: false }));
+        return null;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("User not authenticated");
+        set((state) => ({ ...state, isSaving: false }));
+        return null;
+      }
+
+      const success = await saveProjectToStorage(projectData, user.id);
       if (!success) {
         set((state) => ({ ...state, isSaving: false }));
         return null;
