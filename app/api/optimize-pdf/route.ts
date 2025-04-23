@@ -61,6 +61,26 @@ const sanitizeFilename = (filename: string): string => {
     .replace(/[^a-zA-Z0-9._-]/g, ""); // Entfernt alle Zeichen außer Buchstaben, Zahlen, Punkt, Unterstrich, Bindestrich
 };
 
+// --- Hilfsfunktion: Ghostscript-Pfad dynamisch bestimmen ---
+/**
+ * Liefert den Pfad zum Ghostscript-Binary.
+ * - Nutzt zuerst die Umgebungsvariable GHOSTSCRIPT_PATH, falls gesetzt.
+ * - Sonst versucht es 'gs' (muss im PATH liegen, Standard auf Servern).
+ * - Optional: Fallback auf bekannte Pfade (z.B. Mac Homebrew, Linux).
+ *
+ * So bleibt der Code portabel und funktioniert in verschiedenen Umgebungen.
+ */
+function getGhostscriptPath(): string {
+  // 1. Umgebungsvariable (z.B. für Produktion konfigurierbar)
+  if (process.env.GHOSTSCRIPT_PATH) {
+    return process.env.GHOSTSCRIPT_PATH;
+  }
+  // 2. Standard: Nur 'gs' (funktioniert, wenn im PATH)
+  return 'gs';
+  // 3. (Optional) Weitere Fallbacks könnten ergänzt werden:
+  // return fs.existsSync('/usr/bin/gs') ? '/usr/bin/gs' : 'gs';
+}
+
 // Definiert den POST-Handler für den App Router
 export async function POST(request: Request) {
   let tempInputPath: string | null = null;
@@ -184,7 +204,8 @@ export async function POST(request: Request) {
 
     // Führe Ghostscript aus und warte auf das Ergebnis
     await new Promise<void>((resolve, reject) => {
-      const gsProcess = spawn('/opt/homebrew/bin/gs', gsArgs); // Verwende den bekannten korrekten Pfad
+      // Nutze dynamisch ermittelten Ghostscript-Pfad
+      const gsProcess = spawn(getGhostscriptPath(), gsArgs); // <-- Dynamisch statt hartkodiert
 
       let stdErrOutput = '';
       gsProcess.stderr.on('data', (data) => {
@@ -231,7 +252,8 @@ export async function POST(request: Request) {
     ];
 
     await new Promise<void>((resolve, reject) => {
-        const gsPreviewProcess = spawn('/opt/homebrew/bin/gs', gsPreviewArgs);
+        // Nutze auch hier dynamisch ermittelten Ghostscript-Pfad
+        const gsPreviewProcess = spawn(getGhostscriptPath(), gsPreviewArgs); // <-- Dynamisch statt hartkodiert
         let previewStdErr = '';
         gsPreviewProcess.stderr.on('data', (data) => { previewStdErr += data.toString(); });
         gsPreviewProcess.on('error', (error) => {
