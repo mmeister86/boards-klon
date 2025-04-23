@@ -24,6 +24,7 @@ interface PublishedBoard {
   updated_at: string;
   is_published: boolean;
   project_id: string;
+  user_id: string;
 }
 
 export function ClientPage({ params }: PageProps) {
@@ -74,23 +75,33 @@ export function ClientPage({ params }: PageProps) {
         setPublishedBoard(publishedBoardData);
         console.log("[PublicBoard] Found published board", publishedBoardData);
 
-        // Load project data
+        // Load project data - extract userId from published board data
+        if (!publishedBoardData.user_id) {
+          console.error("[PublicBoard] Published board is missing user_id:", publishedBoardData);
+          setError("Die Board-Daten sind unvollständig. Bitte kontaktieren Sie den Administrator.");
+          return;
+        }
+        
+        const userId = publishedBoardData.user_id;
+        
         console.log("[PublicBoard] Loading project data from storage", {
           bucket: "projects",
-          path: `${projectId}.json`,
+          path: `${userId}/${projectId}.json`,
+          userId: userId
         });
 
         const timestamp = new Date().getTime();
         const { data: projectData, error: storageError } =
           await supabase.storage
             .from("projects")
-            .download(`${projectId}.json?t=${timestamp}`);
+            .download(`${userId}/${projectId}.json?t=${timestamp}`);
 
         if (storageError) {
           console.error("[PublicBoard] Error loading project data:", {
             error: storageError,
             projectId,
-            path: `${projectId}.json`,
+            userId,
+            path: `${userId}/${projectId}.json`,
             message: storageError.message,
             name: storageError.name,
           });
