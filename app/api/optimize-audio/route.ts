@@ -93,7 +93,7 @@ export async function POST(request: Request) {
 
     // Validate the file
     // Überprüft, ob eine gültige Audiodatei hochgeladen wurde.
-    if (!file || typeof file === 'string' || !(file instanceof File) || file.size === 0) {
+    if (!file || typeof file === 'string' || !('name' in file) || !('size' in file) || !('type' in file) || file.size === 0) {
       return NextResponse.json(
         { error: 'Invalid or missing audio file.' }, // Updated error message
         { status: 400 }

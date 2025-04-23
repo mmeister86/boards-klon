@@ -188,7 +188,7 @@ export async function POST(request: Request) {
     // const userId = formData.get('userId'); // Entfernt
 
     // Validate the file
-    if (!file || typeof file === 'string' || !(file instanceof File) || file.size === 0) {
+    if (!file || typeof file === 'string' || !('name' in file) || !('size' in file) || !('type' in file) || file.size === 0) {
       return NextResponse.json(
         { error: 'Invalid or missing video file.' },
         { status: 400 }
