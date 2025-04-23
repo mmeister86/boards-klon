@@ -7,13 +7,19 @@ import { redirect } from "next/navigation"
 export async function signIn(formData: FormData) {
   const supabase = await createServerClient()
   const email = formData.get("email") as string
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (!siteUrl) {
+    console.error("NEXT_PUBLIC_SITE_URL environment variable not set on the server!");
+    return { error: "Konfigurationsfehler: Website-URL fehlt auf dem Server." };
+  }
 
   // Request magic link via email
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       shouldCreateUser: false, // Don't create a user if they don't exist
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+      emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   })
 
@@ -28,13 +34,19 @@ export async function signIn(formData: FormData) {
 export async function signUp(formData: FormData) {
   const supabase = await createServerClient()
   const email = formData.get("email") as string
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (!siteUrl) {
+    console.error("NEXT_PUBLIC_SITE_URL environment variable not set on the server!");
+    return { error: "Konfigurationsfehler: Website-URL fehlt auf dem Server." };
+  }
 
   // Send magic link for sign up
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       shouldCreateUser: true, // Create a user if they don't exist
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+      emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   })
 
@@ -53,7 +65,14 @@ export async function signOut() {
 // Sign in/up with OAuth provider
 export async function signInWithProvider(provider: "google" | "apple") {
   const supabase = await createServerClient()
-  const redirectURL = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (!siteUrl) {
+    console.error("NEXT_PUBLIC_SITE_URL environment variable not set on the server!");
+    return redirect("/sign-in?error=Konfigurationsfehler: Website-URL fehlt auf dem Server.");
+  }
+
+  const redirectURL = `${siteUrl}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -64,11 +83,7 @@ export async function signInWithProvider(provider: "google" | "apple") {
 
   if (error) {
     console.error("OAuth sign-in error:", error)
-    // Redirecting to sign-in page with error is tricky in server actions
-    // Best handled client-side or by redirecting with a query param
-    // For now, just redirecting back to sign-in might be okay,
-    // but ideally, we'd show an error message.
-    return redirect("/sign-in?error=OAuth sign-in failed")
+    return redirect(`/sign-in?error=OAuth sign-in fehlgeschlagen: ${encodeURIComponent(error.message)}`);
   }
 
   if (data.url) {
@@ -76,5 +91,5 @@ export async function signInWithProvider(provider: "google" | "apple") {
   }
 
   // Fallback redirect if no URL is returned (should not happen in normal flow)
-  return redirect("/sign-in?error=Could not initiate OAuth sign-in")
+  return redirect("/sign-in?error=Konnte OAuth-Anmeldung nicht initiieren")
 }
