@@ -1,5 +1,2 @@
-[packages]
-system = ["ffmpeg", "ghostscript"]
-
 [phases.setup]
-nixPkgs = ["ffmpeg", "ghostscript"]
+nixPkgs = ["...", "ffmpeg", "ghostscript"]
