@@ -7,7 +7,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import ReactPlayer from "react-player/lazy";
 import { ModernAudioPlayer } from "@/components/ui/modern-audio-player";
 import { GifPlayer } from "@/components/gif/gif-player";
-import { FreepikPlayer } from "@/components/freepik/FreepikPlayer";
+import { FreepikPlayer } from "@/components/blocks/freepik/FreepikPlayer";
 
 // Import types directly if needed, but avoid importing the main library statically
 import type {

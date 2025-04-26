@@ -6,81 +6,31 @@ import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import Apple from "@/components/icons/Apple";
 import Google from "@/components/icons/Google";
-import { useState, useEffect } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
+import { signIn, signInWithProvider } from "@/app/auth/actions";
 
 export default function SignInPage() {
-  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const supabase = createClientComponentClient();
-  const router = useRouter();
 
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.user) {
-          router.replace("/dashboard");
-          return;
-        }
-      } catch (error) {
-        console.error("Error checking auth status:", error);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    };
-
-    checkUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        router.replace("/dashboard");
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [router, supabase.auth]);
-
-  if (isCheckingAuth) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEmailLogin = async (formData: FormData) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { error: loginError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-        },
-      });
+      const result = await signIn(formData);
 
-      if (loginError) {
-        setError(loginError.message);
-      } else {
-        setSuccess(
-          "Magic Link wurde gesendet! Bitte überprüfen Sie Ihre E-Mails."
-        );
-        setEmail("");
+      if (result.error) {
+        setError(result.error);
+      } else if (result.success) {
+        setSuccess(result.success);
+        // Clear the form
+        const emailInput = document.querySelector(
+          'input[type="email"]'
+        ) as HTMLInputElement;
+        if (emailInput) emailInput.value = "";
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -92,13 +42,7 @@ export default function SignInPage() {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error: googleError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-        },
-      });
-      if (googleError) setError(googleError.message);
+      await signInWithProvider("google");
     } catch (error) {
       console.error("Google login error:", error);
       setError("Ein Fehler ist beim Login mit Google aufgetreten");
@@ -107,13 +51,7 @@ export default function SignInPage() {
 
   const handleAppleLogin = async () => {
     try {
-      const { error: appleError } = await supabase.auth.signInWithOAuth({
-        provider: "apple",
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-        },
-      });
-      if (appleError) setError(appleError.message);
+      await signInWithProvider("apple");
     } catch (error) {
       console.error("Apple login error:", error);
       setError("Ein Fehler ist beim Login mit Apple aufgetreten");
@@ -129,11 +67,11 @@ export default function SignInPage() {
       >
         <div className="text-center pb-40">
           <Link href="/">
-            <h1 className=" text-white text-7xl font-bold mb-2">
+            <h1 className="text-white text-7xl font-bold mb-2">
               Platzhalter Logo
             </h1>
           </Link>
-          <p className=" text-white text-xl font-bold text-center">
+          <p className="text-white text-xl font-bold text-center">
             Boards Klon hilft dir, deinen Marketing Content themenbezogen in
             Boards zu organisieren.
           </p>
@@ -180,17 +118,16 @@ export default function SignInPage() {
             </div>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form action={handleEmailLogin} className="space-y-4">
             <div>
               <label htmlFor="email" className="sr-only">
                 Email
               </label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="E-Mail"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
               />

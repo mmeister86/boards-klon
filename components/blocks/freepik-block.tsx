@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { FreepikPicker } from "./freepik/FreepikPicker";
 import { FreepikPlayer } from "./freepik/FreepikPlayer";
-import { ImageIcon, VideoIcon } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import type { FreepikBlock } from "@/lib/types";
 import { useBlocksStore } from "@/store/blocks-store";
 
@@ -58,9 +58,8 @@ export function FreepikBlock({
         >
           <div className="flex gap-2">
             <ImageIcon className="w-6 h-6" />
-            <VideoIcon className="w-6 h-6" />
           </div>
-          <span>Freepik-Medium auswählen</span>
+          <span>Wähle ein Stockfoto von Freepik aus</span>
         </Button>
       ) : (
         // Wenn Inhalt da ist, zeige den Player
@@ -70,7 +69,7 @@ export function FreepikBlock({
         >
           <FreepikPlayer media={content} isPreview={!isSelected} />
           {!isSelected && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
               <span className="text-white">Medium ändern</span>
             </div>
           )}

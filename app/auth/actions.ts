@@ -18,8 +18,11 @@ export async function signIn(formData: FormData) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      shouldCreateUser: false, // Don't create a user if they don't exist
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      shouldCreateUser: false,
+      emailRedirectTo: siteUrl,
+      data: {
+        redirect_to: siteUrl // Ensure Supabase uses this as the final redirect
+      }
     },
   })
 
@@ -45,8 +48,11 @@ export async function signUp(formData: FormData) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      shouldCreateUser: true, // Create a user if they don't exist
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      shouldCreateUser: true,
+      emailRedirectTo: siteUrl,
+      data: {
+        redirect_to: siteUrl // Ensure Supabase uses this as the final redirect
+      }
     },
   })
 
@@ -62,6 +68,7 @@ export async function signOut() {
   await supabase.auth.signOut()
   return redirect("/")
 }
+
 // Sign in/up with OAuth provider
 export async function signInWithProvider(provider: "google" | "apple") {
   const supabase = await createServerClient()
@@ -72,12 +79,13 @@ export async function signInWithProvider(provider: "google" | "apple") {
     return redirect("/sign-in?error=Konfigurationsfehler: Website-URL fehlt auf dem Server.");
   }
 
-  const redirectURL = `${siteUrl}/auth/callback`
-
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: redirectURL,
+      redirectTo: siteUrl,
+      queryParams: {
+        redirect_to: siteUrl // Ensure OAuth provider redirects back to our site
+      }
     },
   })
 
