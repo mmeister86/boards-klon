@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/utils";
+import { FeatureErrorBoundary } from "@/lib/errors/boundaries/FeatureErrorBoundary";
 
 interface PublishedBoard {
   id: string;
@@ -46,7 +47,7 @@ interface PublishedBoard {
   is_published: boolean;
 }
 
-export default function PublishedBoardsView() {
+function PublishedBoardsContent() {
   const { user } = useSupabase();
   const [boards, setBoards] = useState<PublishedBoard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -200,37 +201,24 @@ export default function PublishedBoardsView() {
                           e.stopPropagation();
                           handleDelete(board);
                         }}
-                        className="text-destructive focus:text-destructive"
+                        className="text-destructive"
                       >
-                        {isDeleting && boardToDelete?.id === board.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Wird gelöscht...
-                          </>
-                        ) : (
-                          <>
-                            <TrashIcon className="h-4 w-4 mr-2 text-destructive" />
-                            Löschen
-                          </>
-                        )}
+                        <TrashIcon className="h-4 w-4 mr-2" />
+                        Löschen
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </div>
               <CardContent className="p-4">
-                <h3 className="font-medium mb-2">{board.title}</h3>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  <span>
-                    Zuletzt aktualisiert: {formatDate(board.updated_at)}
-                  </span>
-                </div>
+                <h3 className="font-semibold mb-1 truncate">{board.title}</h3>
+                <p className="text-sm text-muted-foreground truncate">
+                  {board.author_name}
+                </p>
               </CardContent>
-              <CardFooter className="p-4 pt-0">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Veröffentlicht: {formatDate(board.published_at)}</span>
-                </div>
+              <CardFooter className="p-4 pt-0 flex items-center text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4 mr-2" />
+                {formatDate(board.published_at)}
               </CardFooter>
             </Card>
           </a>
@@ -242,21 +230,36 @@ export default function PublishedBoardsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Board löschen</AlertDialogTitle>
             <AlertDialogDescription>
-              Sind Sie sicher, dass Sie dieses Board löschen möchten? Diese
-              Aktion kann nicht rückgängig gemacht werden.
+              Möchtest du dieses Board wirklich löschen? Diese Aktion kann nicht
+              rückgängig gemacht werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>
+              Abbrechen
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
             >
-              Löschen
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Löschen"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function PublishedBoardsView() {
+  return (
+    <FeatureErrorBoundary feature="Veröffentlichte Boards">
+      <PublishedBoardsContent />
+    </FeatureErrorBoundary>
   );
 }

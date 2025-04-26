@@ -13,6 +13,7 @@ import Preview from "@/components/preview/preview";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LayoutType, BlockType } from "@/lib/types";
+import { FeatureErrorBoundary } from "@/lib/errors/boundaries/FeatureErrorBoundary";
 
 interface NewLayoutDragItem {
   layoutType: LayoutType;
@@ -43,7 +44,7 @@ type AcceptedCanvasDropItem =
   | ExistingBlockDragItem
   | ExistingLayoutDragItem;
 
-export default function Canvas() {
+function CanvasContent() {
   const {
     layoutBlocks,
     addLayoutBlock,
@@ -397,5 +398,13 @@ export default function Canvas() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Canvas() {
+  return (
+    <FeatureErrorBoundary feature="Canvas-Editor">
+      <CanvasContent />
+    </FeatureErrorBoundary>
   );
 }

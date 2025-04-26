@@ -1,0 +1,147 @@
+/* Gemeinsame Basis-Styles für Error Boundaries */
+.error-container,
+.feature-error-container,
+.query-error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Feature Error spezifische Styles */
+.feature-error-container {
+  min-height: 150px;
+  border: 1px solid #e0e0e0;
+}
+
+.error-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.error-title,
+.query-error-title {
+  margin: 0 0 1rem;
+  color: #d32f2f;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.error-message {
+  margin: 0 0 1.5rem;
+  color: #666;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.error-button,
+.query-error-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.error-button:hover,
+.query-error-button:hover {
+  background-color: #1976d2;
+}
+
+.error-button:focus,
+.query-error-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
+}
+
+/* Query Error Boundary spezifische Styles */
+.query-error-container {
+  background-color: var(--query-error-bg, #fdf4ff);
+  border-color: var(--query-error-border, #f5d0fe);
+}
+
+.query-error-title {
+  color: var(--query-error-title, #86198f);
+}
+
+.query-error-button {
+  background-color: var(--query-error-button-bg, #d946ef);
+}
+
+.query-error-button:hover {
+  background-color: var(--query-error-button-hover, #c026d3);
+}
+
+.query-error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.query-error-details {
+  width: 100%;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.query-error-details summary {
+  cursor: pointer;
+  color: var(--query-error-details, #86198f);
+  font-weight: 500;
+}
+
+.query-error-details pre {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  background-color: var(--query-error-details-bg, #faf5ff);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Dark Mode Styles */
+@media (prefers-color-scheme: dark) {
+  .error-container {
+    background-color: var(--error-bg-dark, #7f1d1d);
+    border-color: var(--error-border-dark, #991b1b);
+    color: var(--error-text-dark, #fca5a5);
+  }
+
+  .error-title {
+    color: var(--error-title-dark, #fee2e2);
+  }
+
+  .error-button {
+    background-color: var(--error-button-bg-dark, #b91c1c);
+  }
+
+  .error-button:hover {
+    background-color: var(--error-button-hover-dark, #991b1b);
+  }
+
+  .feature-error-container {
+    background-color: var(--feature-error-bg-dark, #7a271a);
+    border-color: var(--feature-error-border-dark, #912018);
+  }
+
+  .query-error-container {
+    background-color: var(--query-error-bg-dark, #701a75);
+    border-color: var(--query-error-border-dark, #86198f);
+  }
+
+  .query-error-details pre {
+    background-color: var(--query-error-details-bg-dark, #581c87);
+    color: var(--query-error-details-text-dark, #e9d5ff);
+  }
+}

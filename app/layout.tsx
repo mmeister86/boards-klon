@@ -5,6 +5,7 @@ import "./globals.css";
 import { SupabaseProvider } from "@/components/providers/supabase-provider";
 import { ViewportProvider } from "@/lib/hooks/use-viewport";
 import { Toaster } from "@/components/ui/sonner";
+import { ErrorBoundary } from "@/lib/errors/boundaries/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jakarta = Plus_Jakarta_Sans({
@@ -35,9 +36,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} ${jakarta.variable} font-sans`}>
-        <SupabaseProvider>
-          <ViewportProvider>{children}</ViewportProvider>
-        </SupabaseProvider>
+        <ErrorBoundary>
+          <SupabaseProvider>
+            <ViewportProvider>{children}</ViewportProvider>
+          </SupabaseProvider>
+        </ErrorBoundary>
         <Toaster />
       </body>
     </html>
