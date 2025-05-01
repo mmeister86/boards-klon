@@ -51,7 +51,7 @@ export const useMediaUpload = (onUploadComplete?: () => void) => {
         try {
           // Größenprüfung
           if (!isFileSizeValid(file)) {
-            toast.error(`${file.name} ist zu groß (Max: 100MB)`);
+            toast.error(`${file.name} ist zu groß (Max: 50MB)`);
             continue;
           }
 

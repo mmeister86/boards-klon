@@ -122,9 +122,9 @@ export function ImageBlock({
       toast.error("Nur Bilddateien werden unterstützt.");
       return;
     }
-    if (file.size > 100 * 1024 * 1024) {
-      setPlaceholderError("Bild zu groß (max. 100MB).");
-      toast.error("Das Bild überschreitet das Limit von 100MB.");
+    if (file.size > 50 * 1024 * 1024) {
+      setPlaceholderError("Bild zu groß (max. 50MB).");
+      toast.error("Das Bild überschreitet das Limit von 50MB.");
       return;
     }
     setIsUploading(true);
@@ -247,7 +247,7 @@ export function ImageBlock({
             onChange={(e) => handleFileUpload(e.target.files)}
             disabled={isUploading}
           />
-          <p className="text-xs text-muted-foreground mt-1">Max. 100MB</p>
+          <p className="text-xs text-muted-foreground mt-1">Max. 50MB</p>
         </div>
         {/* OR Separator */}
         <div className="my-4 flex items-center justify-center">

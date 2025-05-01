@@ -54,7 +54,8 @@ export const getFilePathFromUrl = (url: string): string => {
 /**
  * Prüft, ob eine Datei die maximale Größe überschreitet
  */
-export const isFileSizeValid = (file: File, maxSizeMB: number = 100): boolean => {
+export const isFileSizeValid = (file: File, maxSizeMB: number = 50): boolean => {
+  // Prüft, ob die Datei kleiner oder gleich 50MB ist (Standardwert angepasst)
   return file.size <= maxSizeMB * 1024 * 1024;
 };
 

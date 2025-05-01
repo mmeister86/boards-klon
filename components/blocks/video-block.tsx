@@ -396,7 +396,7 @@ export function VideoBlock({
             onChange={(e) => handleFileUpload(e.target.files)}
             disabled={isUploading}
           />
-          <p className="text-xs text-muted-foreground mt-1">Max. 100MB</p>
+          <p className="text-xs text-muted-foreground mt-1">Max. 50MB</p>
         </div>
 
         {/* OR Separator */}
