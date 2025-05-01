@@ -154,7 +154,7 @@ export default function UploadZone({
             </label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Maximale Dateigröße: 50MB
+            Maximale Dateigröße: 50MB {/* Hinweistext angepasst */}
           </p>
           <UploadingIndicator />
           <HiddenFileInput />

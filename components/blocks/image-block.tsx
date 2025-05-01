@@ -123,6 +123,7 @@ export function ImageBlock({
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
+      // Prüft, ob das Bild größer als 50MB ist
       setPlaceholderError("Bild zu groß (max. 50MB).");
       toast.error("Das Bild überschreitet das Limit von 50MB.");
       return;
