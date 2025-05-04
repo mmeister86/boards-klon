@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { BlocksState } from '../types';
-import { createClient } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   publishBoard as publishBoardDb,
   unpublishBoard as unpublishBoardDb,
@@ -13,7 +13,7 @@ const getSupabase = () => {
     console.warn("getSupabase should only be called in browser environment");
     return null;
   }
-  return createClient();
+  return getSupabaseBrowserClient();
 };
 
 type PublishActions = Pick<BlocksState, 'publishBoard' | 'unpublishBoard' | 'checkPublishStatus'>;

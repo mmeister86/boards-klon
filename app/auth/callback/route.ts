@@ -1,7 +1,7 @@
 import { createServerClient } from "@/lib/supabase/server";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const requestUrl = new URL(request.url);
     console.log("Callback requestUrl.origin:", requestUrl.origin);
@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(next, siteUrl));
   } catch (error) {
     console.error("Callback error:", error);
+    const errorUrl = new URL(request.url);
     return NextResponse.redirect(
-      new URL("/error?message=Internal server error", request.url)
+      new URL("/error?message=Internal server error", errorUrl.origin)
     );
   }
 }

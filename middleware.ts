@@ -14,9 +14,9 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/editor')
 
-  // If no session and trying to access protected route, redirect to auth page
+  // If no session and trying to access protected route, redirect to sign-in
   if (!session && isProtectedRoute) {
-    const redirectUrl = new URL('/auth', request.url)
+    const redirectUrl = new URL('/sign-in', request.url)
     return NextResponse.redirect(redirectUrl)
   }
 

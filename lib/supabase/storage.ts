@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 // import type { DropAreaType } from "@/lib/types"; // Veraltet
 // Importiere die neuen Typen
 import type { ProjectData, Project, LayoutBlockType } from "@/lib/types";
@@ -14,7 +14,7 @@ const getSupabase = () => {
     return null;
   }
 
-  const client = createClient();
+  const client = getSupabaseBrowserClient();
   if (!client) {
     return null;
   }

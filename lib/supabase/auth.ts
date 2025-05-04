@@ -1,5 +1,5 @@
 import { createServerClient } from './server'
-import { createClient } from './client'
+import { getSupabaseBrowserClient } from './client'
 import { cookies } from 'next/headers'
 import { Session, User, AuthError } from '@supabase/supabase-js'
 
@@ -83,7 +83,7 @@ export const clientAuth = {
    */
   async signInWithEmail(email: string, password: string): Promise<AuthResponse<{ user: User | null; session: Session | null }>> {
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -109,7 +109,7 @@ export const clientAuth = {
    */
   async signUp(email: string, password: string): Promise<AuthResponse<{ user: User | null; session: Session | null }>> {
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -138,7 +138,7 @@ export const clientAuth = {
    */
   async signOut(): Promise<AuthResponse> {
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { error } = await supabase.auth.signOut()
 
       if (error) throw error
@@ -160,7 +160,7 @@ export const clientAuth = {
    */
   async sendMagicLink(email: string): Promise<AuthResponse> {
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -187,7 +187,7 @@ export const clientAuth = {
    */
   async updateUser(userUpdate: UserUpdateData): Promise<AuthResponse<{ user: User | null }>> {
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { data, error } = await supabase.auth.updateUser(userUpdate)
 
       if (error) throw error

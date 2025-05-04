@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { BlocksState, LayoutBlockType } from '../types';
 import type { ProjectData } from '@/lib/types';
-import { createClient } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   loadProjectFromDatabase,
   saveProjectToDatabase,
@@ -15,7 +15,7 @@ import { debounce } from '../utils';
 // Singleton-Instanz des Supabase-Clients
 const getSupabase = () => {
   if (typeof window === "undefined") return null;
-  return createClient();
+  return getSupabaseBrowserClient();
 };
 
 export type StorageActions = Pick<BlocksState,

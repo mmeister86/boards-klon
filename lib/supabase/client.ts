@@ -12,7 +12,7 @@ export function createClient() {
 
   // Ensure we're only calling this on the client side
   if (typeof window === "undefined") {
-    throw new Error("createClient should only be called in the browser. For server-side code, use getSupabaseServerClient.")
+    throw new Error("createClient should only be called in the browser. Für serverseitigen Code nutze createServerClient aus lib/supabase/server.")
   }
 
   // Browser-side: Use browser client
@@ -23,3 +23,6 @@ export function createClient() {
 }
 
 // Note: We're removing the singleton pattern to avoid stale auth state
+
+// Exportiere die zentrale Browser-Client-Initialisierung
+export { getSupabaseBrowserClient, supabaseBrowser } from './supabase-browser'

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, UseMutationOptions, UseQueryOptions } from '@tanstack/react-query'
 import { PostgrestError, RealtimeChannel } from '@supabase/supabase-js'
-import { createClient } from './client'
+import { getSupabaseBrowserClient } from './client'
 import type { Database } from './database.types'
 import { useEffect } from 'react'
 
@@ -31,7 +31,7 @@ export function useSupabaseQuery<T extends TableName>(
   return useQuery({
     queryKey: [tableName, options?.filter],
     queryFn: async () => {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       let query = supabase.from(tableName).select(options?.select || '*')
 
       // Füge Filter hinzu, falls vorhanden
@@ -65,7 +65,7 @@ export function useSupabaseInsert<T extends TableName>(
 
   return useMutation({
     mutationFn: async (newData: TableInsert<T>) => {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { data, error } = await supabase
         .from(tableName)
         .insert(newData)
@@ -98,7 +98,7 @@ export function useSupabaseUpdate<T extends TableName>(
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: TableUpdate<T> }) => {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { data: updatedData, error } = await supabase
         .from(tableName)
         .update(data)
@@ -128,7 +128,7 @@ export function useSupabaseDelete<T extends TableName>(
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const supabase = createClient()
+      const supabase = getSupabaseBrowserClient()
       const { error } = await supabase
         .from(tableName)
         .delete()
@@ -155,7 +155,7 @@ export function useSupabaseSubscription<T extends TableName>(
   }
 ) {
   const queryClient = useQueryClient()
-  const supabase = createClient()
+  const supabase = getSupabaseBrowserClient()
 
   useEffect(() => {
     let channel: RealtimeChannel | null = null

@@ -1,9 +1,10 @@
-import { createClient } from "@/lib/supabase/client"
+// import { createClient } from "@/lib/supabase/client" // Entfernt, da nicht mehr benötigt
 // import type { DropAreaType } from "@/lib/types" // Veraltet
 import type { Project } from "@/lib/types"
 import type { ProjectData } from "@/lib/types"
 // Importiere den neuen Typ direkt oder über den Store (hier direkt, falls verschoben wird)
 import type { LayoutBlockType } from "@/lib/types"; // Nur LayoutBlockType importieren
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 // Get a fresh Supabase client instance each time to avoid stale auth state
 const getSupabase = () => {
@@ -13,7 +14,8 @@ const getSupabase = () => {
   }
 
   try {
-    return createClient();
+    // Verwende die zentrale Singleton-Initialisierung
+    return getSupabaseBrowserClient();
   } catch (error) {
     console.error("Error creating Supabase client:", error);
     return null;

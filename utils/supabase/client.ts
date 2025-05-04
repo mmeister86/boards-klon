@@ -23,3 +23,5 @@ export const createClient = () => {
   return supabaseInstance
 }
 
+// Exportiere die zentrale Browser-Client-Initialisierung aus lib/supabase/supabase-browser.ts
+export { getSupabaseBrowserClient, supabaseBrowser } from '../../lib/supabase/supabase-browser'

@@ -7,12 +7,12 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
 // Define the context type
 type SupabaseContextType = {
-  supabase: ReturnType<typeof createClient> | undefined;
+  supabase: ReturnType<typeof getSupabaseBrowserClient> | undefined;
   session: Session | null;
   user: User | null;
   isLoading: boolean;
@@ -34,7 +34,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => {
     // Only create the client once on component mount
     if (typeof window !== "undefined") {
-      return createClient();
+      return getSupabaseBrowserClient();
     }
     return undefined;
   });
@@ -54,7 +54,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.auth.getSession();
         setSession(data.session);
         setUser(data.session?.user ?? null);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         setError(error.message || "Error getting initial session");
       } finally {

@@ -5,7 +5,7 @@ import {
   loadProjectFromStorage,
 } from "@/lib/supabase/storage";
 import { isEmptyProject, createEmptyLayoutBlock } from "./utils";
-import { createClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export const createProjectActions = (
   set: (fn: (state: BlocksState) => Partial<BlocksState>) => void,
@@ -16,7 +16,7 @@ export const createProjectActions = (
     console.log(`Loading project: ${projectId}`);
 
     try {
-      const supabase = createClient();
+      const supabase = getSupabaseBrowserClient();
       if (!supabase) {
         console.error("Supabase client not available");
         set((state) => ({ ...state, isLoading: false }));
@@ -64,7 +64,7 @@ export const createProjectActions = (
 
     set((state) => ({ ...state, isSaving: true }));
     try {
-      const supabase = createClient();
+      const supabase = getSupabaseBrowserClient();
       if (!supabase) {
         console.error("Supabase client not available");
         set((state) => ({ ...state, isSaving: false }));
@@ -128,7 +128,7 @@ export const createProjectActions = (
         updatedAt: new Date().toISOString(),
       };
 
-      const supabase = createClient();
+      const supabase = getSupabaseBrowserClient();
       if (!supabase) {
         console.error("Supabase client not available");
         set((state) => ({ ...state, isSaving: false }));

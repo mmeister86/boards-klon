@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
-import { createClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export type Item = {
   id: string;
@@ -34,7 +34,7 @@ export const useBoardStore = create<BoardState>((set, get) => {
   // Get the Supabase client - only in browser
   const getSupabase = () => {
     if (typeof window === "undefined") return null;
-    return createClient();
+    return getSupabaseBrowserClient();
   };
 
   return {
