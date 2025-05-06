@@ -242,8 +242,10 @@ export function ContentDropZone({
                   // Struktur für Bildinhalte annehmen
                   src: mediaItem.url,
                   alt: mediaItem.file_name || "Uploaded image", // Fallback für Alt-Text
-                  width: mediaItem.width,
-                  height: mediaItem.height,
+                  // Wenn mediaItem.width null oder undefined ist, verwende undefined per Null-Koaleszenz, um dem Typ number | undefined zu entsprechen
+                  width: mediaItem.width ?? undefined,
+                  // Wenn mediaItem.height null oder undefined ist, verwende undefined per Null-Koaleszenz, um dem Typ number | undefined zu entsprechen
+                  height: mediaItem.height ?? undefined,
                   // Ggf. Referenz zur mediaItemId speichern? z.B. mediaItemId: mediaItem.id
                 },
                 // Hier könnten weitere Standardwerte für Image-Blöcke gesetzt werden

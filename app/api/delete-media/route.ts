@@ -4,21 +4,19 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase/server'; // Use server client for user auth check
 
 // --- Supabase Admin Client Setup ---
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables for admin client');
-  // Avoid running without config
-  throw new Error('Supabase admin configuration missing');
-}
-
-const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
+// Removed top-level Supabase admin client creation to prevent errors at import time
+// I define a helper to create the Supabase admin client at runtime
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('Missing Supabase environment variables for admin client');
+    throw new Error('Supabase admin configuration missing');
   }
-});
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 // --- End Supabase Admin Setup ---
 
 // Helper to extract storage path from URL
@@ -42,6 +40,8 @@ function getStoragePathFromUrl(url: string | null | undefined, bucketName: strin
 
 export async function POST(request: Request) {
   const supabaseUserClient = createServerClient(); // For getting authenticated user
+  // Lazily instantiate the Supabase admin client when the handler runs
+  const supabaseAdmin = getSupabaseAdmin();
 
   try {
     // 1. Get Authenticated User

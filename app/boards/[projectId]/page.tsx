@@ -74,7 +74,8 @@ export default async function PublicBoardPage({ params }: PageProps) {
   let content;
   try {
     content = JSON.parse(await projectData.text());
-  } catch (e) {
+  } catch {
+    // Fehlerbehandlung: JSON-Parsing fehlgeschlagen
     return <div>Board-Daten sind ungültig.</div>;
   }
 
