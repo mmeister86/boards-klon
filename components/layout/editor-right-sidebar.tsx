@@ -25,8 +25,10 @@ interface MediaItem {
   url: string;
   uploaded_at: string;
   size: number;
-  width?: number;
-  height?: number;
+  // Erlaube 'null' für die Breite, um mit dem Hook-Typ übereinzustimmen
+  width?: number | null;
+  // Erlaube 'null' für die Höhe, um mit dem Hook-Typ übereinzustimmen
+  height?: number | null;
   preview_url_512?: string | null;
   preview_url_128?: string | null;
 }
@@ -127,9 +129,14 @@ const renderMediaCategorySection = (
 };
 
 // EditorRightSidebar component now contains the Media Library
-export function EditorRightSidebar() {
+export function EditorRightSidebar({
+  initialMediaItems,
+}: { initialMediaItems?: MediaItem[] } = {}) {
   const { user, supabase } = useSupabase();
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  // Nutze initialMediaItems als Initialwert für den State (SSR-Support)
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>(
+    initialMediaItems ?? []
+  );
   const [isLoadingMedia, setIsLoadingMedia] = useState(true);
 
   // Separate state for expanding each media category

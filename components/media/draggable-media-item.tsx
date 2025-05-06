@@ -13,8 +13,10 @@ export interface MediaItemInput {
   url: string;
   uploaded_at: string;
   size: number;
-  width?: number;
-  height?: number;
+  // Erlaube 'null' für die Breite, um mit dem Hook-MediumItem-Typ übereinzustimmen
+  width?: number | null;
+  // Erlaube 'null' für die Höhe, um mit dem Hook-MediumItem-Typ übereinzustimmen
+  height?: number | null;
   preview_url_512?: string | null;
   preview_url_128?: string | null;
 }

@@ -18,9 +18,9 @@ export interface MediaItem {
   height?: number | null; // Höhe (optional)
 }
 
-export const useMediaLibrary = () => {
+export const useMediaLibrary = (initialMediaItems?: MediaItem[]) => {
   const { user, supabase } = useSupabase();
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>(initialMediaItems ?? []);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
@@ -82,11 +82,6 @@ export const useMediaLibrary = () => {
     };
   }, [supabase, user, fetchMediaItems]);
 
-  // Filter media based on search query
-  const filteredMedia = mediaItems.filter((item) =>
-    item.file_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   // Gruppiere Medien nach Typ
   const groupedMedia = mediaItems.reduce((acc, item) => {
     const type = item.file_type.startsWith("image/")
@@ -136,46 +131,36 @@ export const useMediaLibrary = () => {
 
       // Handle partial success (status 207) where DB record might be deleted but storage failed
       if (response.status === 207) {
-         console.warn(`[Frontend] Partial success deleting ${item.file_name}:`, result.errors);
-         toast.warning(`"${item.file_name}" gelöscht, aber Speicherbereinigung fehlgeschlagen.`, {
-            description: result.errors?.join('; ') || 'Details siehe Konsole.',
-            duration: 8000,
-         });
-         // Update local state as the DB record should be gone
-         setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
+        console.warn(`[Frontend] Partial success deleting ${item.file_name}:`, result.errors);
+        toast.warning(`"${item.file_name}" gelöscht, aber Speicherbereinigung fehlgeschlagen.`, {
+          description: result.errors?.join('; ') || 'Details siehe Konsole.',
+          duration: 8000,
+        });
+        // Update local state as the DB record should be gone
+        setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
       } else {
-         // Handle full success (status 200)
-         console.log(`[Frontend] Successfully deleted ${item.file_name} via API.`);
-         toast.success(`"${item.file_name}" wurde erfolgreich gelöscht`);
-         // Update local state
-         setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
+        // Handle full success (status 200)
+        console.log(`[Frontend] Successfully deleted ${item.file_name} via API.`);
+        toast.success(`"${item.file_name}" wurde erfolgreich gelöscht`);
+        // Update local state
+        setMediaItems((prev) => prev.filter((i) => i.id !== item.id));
       }
-
     } catch (error) {
-      // Handle network errors or unexpected issues calling the API
-      console.error("[Frontend] Network or unexpected error calling delete API:", error);
-      toast.error(`Netzwerkfehler beim Löschen von ${item.file_name}`);
+      console.error("Error deleting media item:", error);
+      toast.error("Fehler beim Löschen des Medienelements");
     } finally {
-      // Always reset loading state
       setDeletingItemId(null);
     }
-  }, [user]); // Dependency is only user now
-
-  // Füge ein neues Medienelement hinzu
-  const addMediaItem = useCallback((newItem: MediaItem) => {
-    setMediaItems((prev) => [newItem, ...prev]);
-  }, []);
+  }, [user]);
 
   return {
     mediaItems,
-    filteredMedia,
     groupedMedia,
     isLoading,
     searchQuery,
     setSearchQuery,
     deletingItemId,
     handleDelete,
-    addMediaItem,
     fetchMediaItems,
   };
 };

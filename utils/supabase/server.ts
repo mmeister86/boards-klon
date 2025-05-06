@@ -1,31 +1,50 @@
-import { createServerClient } from "@supabase/ssr"
-import type { cookies } from "next/headers"
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 // Provide fallback values for development in v0
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://your-project.supabase.co"
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "your-anon-key"
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const createClient = (cookieStore: ReturnType<typeof cookies>) => {
-  // Check if environment variables are available
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.warn("Supabase URL or Anon Key not found. Using development mode with limited functionality.")
-  }
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
-      },
-    },
-  })
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Supabase URL or Anon Key not found. Using development mode with limited functionality. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
+  )
+  // Optional: Hier könntest du Standardwerte setzen oder einen Fehler werfen,
+  // anstatt mit potenziell nicht funktionierenden Clients weiterzumachen.
+  // Für dieses Beispiel verwenden wir die Ausrufezeichen oben, was impliziert,
+  // dass die Werte zur Laufzeit vorhanden sein MÜSSEN.
 }
 
+export function createClient() {
+  const cookieStore = cookies()
+
+  return createServerClient(
+    supabaseUrl, // Verwende die oben definierten Variablen
+    supabaseAnonKey, // Verwende die oben definierten Variablen
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // The `delete` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  )
+}

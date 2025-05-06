@@ -1,28 +1,80 @@
-import type { NextRequest } from "next/server"
-import { NextResponse } from "next/server"
-import { createMiddlewareClient } from "@/lib/supabase/middleware"
+import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+
+const PROTECTED_ROUTES = ['/dashboard', '/editor'];
+const UNAUTHENTICATED_REDIRECT_TARGET = '/sign-in';
+const AUTH_PAGES_FOR_LOGGED_IN_USERS = ['/auth']; // Pfade wie /login, /signup, die für eingeloggte User nicht zugänglich sein sollen
+const DEFAULT_REDIRECT_FOR_LOGGED_IN_USERS = '/dashboard';
 
 export async function middleware(request: NextRequest) {
-  // Create a Supabase client configured to use cookies
-  const { supabase, response } = createMiddlewareClient(request)
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  // Refresh session if expired
-  const { data: { session } } = await supabase.auth.getSession()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+        },
+      },
+    }
+  )
 
-  // Check if the request is for a protected route
-  const isProtectedRoute =
-    request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/editor')
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // If no session and trying to access protected route, redirect to sign-in
-  if (!session && isProtectedRoute) {
-    const redirectUrl = new URL('/sign-in', request.url)
+  const path = request.nextUrl.pathname;
+
+  const isProtectedRoute = PROTECTED_ROUTES.some(route => path.startsWith(route));
+  const isOnAuthPageForLoggedInUser = AUTH_PAGES_FOR_LOGGED_IN_USERS.some(route => path.startsWith(route));
+
+  if (!user && isProtectedRoute) {
+    const redirectUrl = new URL(UNAUTHENTICATED_REDIRECT_TARGET, request.url)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If we have a session and trying to access auth page, redirect to dashboard
-  if (session && request.nextUrl.pathname === '/auth') {
-    const redirectUrl = new URL('/dashboard', request.url)
+  if (user && isOnAuthPageForLoggedInUser) {
+    const redirectUrl = new URL(DEFAULT_REDIRECT_FOR_LOGGED_IN_USERS, request.url)
     return NextResponse.redirect(redirectUrl)
   }
 
@@ -31,24 +83,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     *
-     * Also match specific protected routes:
-     * - /dashboard routes
-     * - /editor routes
-     * - /auth route (for redirecting logged-in users)
-     */
-    // Re-enable the general matcher
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
-
-    // Behalte die spezifischen Matcher für Auth-Logik bei:
-    "/dashboard/:path*",
-    "/editor/:path*",
-    "/auth",
+    '/((?!_next/static|_next/image|favicon.ico|public|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/auth/:path*', // Behalte diesen Matcher bei, um /auth und seine Unterpfade abzudecken
   ],
 }

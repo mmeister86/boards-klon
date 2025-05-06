@@ -10,7 +10,11 @@ import MediaSearch from "./MediaSearch";
 import MediaCategory from "./categories/MediaCategory";
 import UploadZone from "./upload/UploadZone";
 
-export default function MediathekView() {
+export default function MediathekView({
+  initialMediaItems,
+}: {
+  initialMediaItems?: MediaItem[];
+}) {
   const { session } = useSupabase();
   const router = useRouter();
 
@@ -23,7 +27,7 @@ export default function MediathekView() {
     handleDelete,
     fetchMediaItems,
     deletingItemId,
-  } = useMediaLibrary();
+  } = useMediaLibrary(initialMediaItems);
 
   const {
     handleUpload,
