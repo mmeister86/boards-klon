@@ -10,10 +10,12 @@ export default async function EditorRightSidebarSSR() {
   const supabase = createClient();
 
   // Session auslesen (enthält User-UUID)
+  // ALT: const { data: { session }, } = await supabase.auth.getSession();
+  // NEU: Sicherer Abruf des Users über getUser (authentifiziert gegen Supabase-Server)
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const userId = session?.user?.id;
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userId = user?.id;
 
   // Definiere den Typ für initialMediaItems basierend darauf, was EditorRightSidebar erwartet.
   let initialMediaItems: MediaItem[] = [];

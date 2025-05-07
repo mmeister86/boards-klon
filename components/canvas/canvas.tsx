@@ -315,7 +315,7 @@ function CanvasContent() {
 
   return (
     <div
-      className="flex-1 bg-muted h-full pt-24 overflow-y-auto"
+      className="flex-1 bg-white h-full pt-24 overflow-y-auto"
       data-drop-container="true"
       ref={dropRefCallback}
     >
@@ -336,7 +336,7 @@ function CanvasContent() {
       </div>
 
       <div
-        className="mx-auto transition-all duration-300 ease-in-out relative pb-20 bg-white rounded-xl shadow-lg p-4 py-10"
+        className="mx-auto transition-all duration-300 ease-in-out relative pb-20 bg-white rounded-xl p-4 py-10"
         style={viewportStyles}
       >
         {layoutBlocks.map((block, index) => (

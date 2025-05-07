@@ -61,18 +61,23 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { user },
+    error: userError
   } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname;
-
   const isProtectedRoute = PROTECTED_ROUTES.some(route => path.startsWith(route));
   const isOnAuthPageForLoggedInUser = AUTH_PAGES_FOR_LOGGED_IN_USERS.some(route => path.startsWith(route));
 
-  if (!user && isProtectedRoute) {
+  // Wenn es einen Auth-Fehler gibt oder der User nicht authentifiziert ist und eine geschützte Route aufruft
+  if ((userError || !user) && isProtectedRoute) {
+    if (userError) {
+      console.error('Auth error in middleware:', userError)
+    }
     const redirectUrl = new URL(UNAUTHENTICATED_REDIRECT_TARGET, request.url)
     return NextResponse.redirect(redirectUrl)
   }
 
+  // Wenn der User eingeloggt ist und versucht, eine Auth-Seite aufzurufen
   if (user && isOnAuthPageForLoggedInUser) {
     const redirectUrl = new URL(DEFAULT_REDIRECT_FOR_LOGGED_IN_USERS, request.url)
     return NextResponse.redirect(redirectUrl)

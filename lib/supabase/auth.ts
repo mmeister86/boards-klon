@@ -31,25 +31,26 @@ export interface UserUpdateData {
  */
 export const serverAuth = {
   /**
-   * Überprüft die aktuelle Session auf dem Server
+   * Überprüft den authentifizierten Benutzer auf dem Server
    */
-  async getSession(): Promise<AuthResponse<Session | null>> {
+  async getUser(): Promise<AuthResponse<User | null>> {
     try {
-      const supabase = await createServerClient()
-      const { data: { session }, error } = await supabase.auth.getSession()
+      const supabase = await createServerClient();
 
-      if (error) throw error
+      // Authentifizierten Benutzer abrufen
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
 
       return {
         success: true,
-        data: session
-      }
+        data: user
+      };
     } catch (error) {
-      console.error('Error getting session:', error)
+      console.error('Error getting user:', error);
       return {
         success: false,
-        error: error instanceof AuthError ? error.message : 'Failed to get session'
-      }
+        error: error instanceof AuthError ? error.message : 'Failed to get user'
+      };
     }
   },
 
@@ -57,8 +58,13 @@ export const serverAuth = {
    * Überprüft, ob ein Benutzer authentifiziert ist
    */
   async isAuthenticated(): Promise<boolean> {
-    const { success, data: session } = await serverAuth.getSession()
-    return success && !!session
+    try {
+      const { success, data: user } = await serverAuth.getUser();
+      return success && !!user;
+    } catch (error) {
+      console.error('Auth check error:', error);
+      return false;
+    }
   },
 
   /**

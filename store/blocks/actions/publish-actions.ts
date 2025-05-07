@@ -54,13 +54,14 @@ export const createPublishActions: StateCreator<BlocksState, [], [], PublishActi
         return false;
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (!sessionData.session || sessionError) {
+      // ALT: const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      // NEU: Sicherer Abruf des Users über getUser (authentifiziert gegen Supabase-Server)
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (!userData.user || userError) {
         console.error("[publishBoard] User not authenticated");
         throw new Error("User not authenticated");
       }
-
-      const user = sessionData.session.user;
+      const user = userData.user;
 
       const dbIdToPublish = get().currentProjectDatabaseId;
       if (!dbIdToPublish) {

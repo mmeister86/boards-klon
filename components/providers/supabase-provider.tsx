@@ -48,28 +48,45 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) return;
 
-    // Get initial session
-    const getInitialSession = async () => {
+    // Get initial user data securely
+    const getInitialUser = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
-        setError(error.message || "Error getting initial session");
+        // Get authenticated user data
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
+        setUser(user);
+        // If we have a user, we can assume we have a valid session
+        setSession(user ? ({ user } as Session) : null);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Error getting initial user data";
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
 
-    getInitialSession();
+    getInitialUser();
 
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // When auth state changes, get fresh user data
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (!error) {
+        setUser(user);
+        setSession(session); // session from onAuthStateChange is already validated
+      }
       setIsLoading(false);
     });
 
