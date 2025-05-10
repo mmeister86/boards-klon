@@ -82,7 +82,7 @@ export const GifPlayer: React.FC<GifPlayerProps> = ({
         width={0}
         height={0}
         sizes="100vw"
-        className="w-full h-auto rounded shadow"
+        className="w-full h-auto rounded-lg shadow"
         style={{ background: "#eee" }}
       />
       {showFavoriteButton && (
