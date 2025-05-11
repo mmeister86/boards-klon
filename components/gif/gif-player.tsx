@@ -75,7 +75,7 @@ export const GifPlayer: React.FC<GifPlayerProps> = ({
   }
 
   return (
-    <div className="w-full flex flex-col items-center justify-center p-4">
+    <div className="w-full flex flex-col items-center justify-center">
       <Image
         src={gif.url}
         alt={gif.title || "GIF"}

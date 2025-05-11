@@ -176,9 +176,12 @@ export function VideoBlock({
         );
       }
 
-      // --- Update block in Zustand store ---
-      // No thumbnailUrl for locally uploaded videos by default
-      const additionalProps = thumbnailUrlFromStore
+      // --- MCP Context7: Speichere das generierte 512px Preview als Thumbnail ---
+      // Wenn die API ein previewUrl512-Feld zurückgibt, nutze dieses als Thumbnail für den Block.
+      // Dadurch wird das generierte Preview-Bild im Editor als Vorschau angezeigt, wenn kein externes Thumbnail existiert.
+      const additionalProps = result.previewUrl512
+        ? { thumbnailUrl: result.previewUrl512 }
+        : thumbnailUrlFromStore
         ? { thumbnailUrl: thumbnailUrlFromStore }
         : undefined;
       updateBlockContent(blockId, layoutId, zoneId, videoUrl, additionalProps);
@@ -323,6 +326,18 @@ export function VideoBlock({
     setError(errorMessage);
   };
 
+  // --- MCP: Thumbnail- und Lade-Logik anpassen ---
+  // Wenn ein Thumbnail existiert und das Video nicht läuft, ist kein echtes Laden nötig.
+  useEffect(() => {
+    if (thumbnailUrlFromStore && !isPlaying) {
+      setIsLoading(false); // Thumbnail kann sofort angezeigt werden
+    } else if (content && isPlaying) {
+      setIsLoading(true); // Video wird geladen
+    } else if (!content) {
+      setIsLoading(false); // Kein Video, kein Laden
+    }
+  }, [thumbnailUrlFromStore, isPlaying, content]);
+
   // --- Render Logic ---
 
   // Extract filename from URL if content exists
@@ -447,6 +462,7 @@ export function VideoBlock({
   );
   // --- END DEBUGGING ---
 
+  // --- MCP: Rückgabe der Player-Ansicht mit korrekter Einrückung und return-Statement ---
   return (
     <div
       ref={dragRef}
@@ -457,31 +473,29 @@ export function VideoBlock({
       )}
       onClick={onSelect}
     >
-      {/* Loading Indicator for Player */}
-      {isLoading && !error && (
+      {/* MCP: Ladeanimation nur zeigen, wenn KEIN Thumbnail existiert und geladen werden muss */}
+      {isLoading && !error && !thumbnailUrlFromStore && (
         <div className="flex h-48 items-center justify-center bg-gray-100 rounded-md">
           <Film className="h-8 w-8 animate-pulse text-gray-400" />
         </div>
       )}
-
-      {/* Error Indicator for Player */}
+      {/* MCP: Fehleranzeige */}
       {error && (
         <div className="flex h-48 items-center justify-center bg-red-50 text-red-500 rounded-md p-4">
           <Film className="mr-2 h-6 w-6 flex-shrink-0" />
           <span className="text-sm">{error}</span>
         </div>
       )}
-
-      {/* ReactPlayer */}
+      {/* MCP: Player-Wrapper: Nur verstecken, wenn wirklich geladen werden muss und kein Thumbnail existiert */}
       <div
         className={cn(
           "player-wrapper relative pt-[56.25%]", // 16:9 Aspect Ratio
-          (isLoading || error) && "hidden" // Hide wrapper when loading/error shown above
+          (isLoading && !thumbnailUrlFromStore) || error ? "hidden" : ""
         )}
       >
         <ReactPlayer
-          className="absolute top-0 left-0 rounded-md overflow-hidden" // Added rounded style
-          url={content} // content is guaranteed to be string here
+          className="absolute top-0 left-0 rounded-md overflow-hidden"
+          url={content}
           width="100%"
           height="100%"
           playing={isPlaying}
@@ -502,8 +516,7 @@ export function VideoBlock({
           onEnded={() => setIsPlaying(false)}
         />
       </div>
-
-      {/* Display the sanitized filename (only if player loaded successfully) */}
+      {/* MCP: Dateiname anzeigen, wenn Player geladen und kein Fehler */}
       {!isLoading && !error && (
         <p
           className="mt-2 text-center text-sm text-gray-600 truncate"
@@ -512,8 +525,7 @@ export function VideoBlock({
           {displayFileName}
         </p>
       )}
-
-      {/* Conditional Hover Controls: Show only if using stored thumbnail */}
+      {/* MCP: Hover Controls nur anzeigen, wenn Thumbnail existiert */}
       {!isLoading && !error && thumbnailUrlFromStore && (
         <div
           className={cn(
