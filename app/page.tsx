@@ -3,6 +3,7 @@ import Hero from "@/components/hero";
 import Features from "@/components/features";
 import Footer from "@/components/footer";
 import Pricing from "@/components/pricing";
+import VideoOptimizerTest from "@/components/test/video-optimizer-test";
 
 export default function Home() {
   return (
@@ -10,6 +11,7 @@ export default function Home() {
       <Navbar />
       <main>
         <div className="min-h-screen">
+          <VideoOptimizerTest />
           <Hero />
         </div>
         <Features />

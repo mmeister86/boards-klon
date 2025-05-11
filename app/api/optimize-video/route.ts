@@ -172,6 +172,9 @@ export async function POST(request: Request) {
       error: authError,
     } = await (await supabase).auth.getUser();
 
+    // Log the auth response
+    console.log("auth.getUser() response:", { user, authError });
+
     if (authError || !user) {
       console.error("API Route (Video): Authentication failed.", authError);
       return NextResponse.json(
@@ -189,6 +192,7 @@ export async function POST(request: Request) {
 
     // Validate the file
     if (!file || typeof file === 'string' || !('name' in file) || !('size' in file) || !('type' in file) || file.size === 0) {
+      console.error("API Route (Video): Invalid or missing video file.", file);
       return NextResponse.json(
         { error: 'Invalid or missing video file.' },
         { status: 400 }
@@ -310,21 +314,32 @@ export async function POST(request: Request) {
       throw new Error(`Failed to upload optimized video to storage: ${uploadError.message}`);
     }
 
+    // Log the upload data
+    console.log("uploadData:", JSON.stringify(uploadData, null, 2));
+
     console.log('Successfully uploaded to Supabase Storage:', uploadData);
 
     // --- Get Public URL from Supabase ---
     console.log(`Attempting to get public URL for path: ${storagePath}`);
     // Verwende den Server Client
-    const { data: urlData } = (await supabase).storage
-      .from('videos')
-      .getPublicUrl(storagePath);
-    console.log("getPublicUrl data:", JSON.stringify(urlData, null, 2));
+    let urlData;
+    try {
+      urlData = (await supabase).storage
+        .from('videos')
+        .getPublicUrl(storagePath).data;
+
+      // Log the successful response
+      console.log("getPublicUrl data:", JSON.stringify(urlData, null, 2));
+    } catch (urlError) {
+      console.error('Failed to get public URL from Supabase Storage:', urlError);
+      throw new Error(`Could not get public URL. Path: ${storagePath}. Error: ${(urlError as Error).message}`);
+    }
 
     // Stricter check - check if data exists and publicUrl is non-empty
     if (!urlData || !urlData.publicUrl) {
-       console.error('Failed to get public URL from Supabase Storage. Data:', urlData);
-       // Throw specific error to be caught below
-       throw new Error(`Could not get public URL. Path: ${storagePath}. Check bucket permissions/path validity.`);
+      console.error('Failed to get public URL from Supabase Storage. Data:', urlData);
+      // Throw specific error to be caught below
+      throw new Error(`Could not get public URL. Path: ${storagePath}. Check bucket permissions/path validity.`);
     }
 
     const supabasePublicUrl = urlData.publicUrl;

@@ -208,21 +208,22 @@ export function VideoBlock({
   };
 
   // --- URL Submit Handling ---
-  const handleUrlSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+  const handleUrlSubmit = (
+    e?: React.FormEvent<HTMLFormElement>,
+    overrideUrl?: string
+  ) => {
     e?.preventDefault();
     setPlaceholderError(null);
-    const url = videoUrlInput.trim();
+    // Nutze entweder die übergebene URL (z.B. aus Drop), sonst den State
+    const url = (overrideUrl ?? videoUrlInput).trim();
     if (!url) {
       setPlaceholderError("Bitte gib eine gültige Video-URL ein.");
       return;
     }
-
     let thumbnailUrl: string | undefined = undefined;
     let videoId: string | null = null;
-
     try {
       const parsedUrl = new URL(url);
-
       // Extract YouTube ID
       if (
         parsedUrl.hostname.includes("youtube.com") ||
@@ -244,17 +245,13 @@ export function VideoBlock({
           videoId = match[1];
           // Vimeo thumbnail requires an API call or more complex parsing,
           // for simplicity, we'll stick to YouTube for now or let ReactPlayer handle it.
-          // thumbnailUrl = await getVimeoThumbnail(videoId); // Placeholder for potential future enhancement
         }
       }
-
       // Update block content with video URL and potentially the thumbnail URL
-      // Das thumbnailUrl-Feld wird jetzt ein direktes Feld auf dem Block-Objekt
       const additionalProps = thumbnailUrl
         ? { thumbnailUrl: thumbnailUrl }
         : undefined;
       updateBlockContent(blockId, layoutId, zoneId, url, additionalProps);
-
       setVideoUrlInput("");
       setIsLoading(true);
     } catch (error) {
@@ -265,6 +262,48 @@ export function VideoBlock({
     }
   };
 
+  // --- File & Link Drop Handling ---
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    // 1. Datei-Upload wie bisher
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files);
+      return;
+    }
+    // 2. Link/Text-Drop (z.B. YouTube-Link)
+    const url = e.dataTransfer.getData("text/plain");
+    if (url && isSupportedVideoUrl(url)) {
+      setPlaceholderError(null);
+      // Übergib die URL direkt an handleUrlSubmit
+      handleUrlSubmit(undefined, url);
+      return;
+    }
+    // 3. Fehler, falls kein unterstützter Link
+    setPlaceholderError(
+      "Nur Videodateien oder unterstützte Video-Links (YouTube, Vimeo) werden akzeptiert."
+    );
+  };
+
+  // --- Hilfsfunktion: Prüft, ob eine URL eine unterstützte Video-URL ist ---
+  function isSupportedVideoUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      // YouTube
+      if (
+        parsed.hostname.includes("youtube.com") ||
+        parsed.hostname.includes("youtu.be")
+      )
+        return true;
+      // Vimeo
+      if (parsed.hostname.includes("vimeo.com")) return true;
+      // Weitere Video-Plattformen ggf. ergänzen
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   // --- Drag and Drop Handlers for Placeholder ---
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -274,12 +313,6 @@ export function VideoBlock({
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDraggingOver(false);
-    handleFileUpload(e.dataTransfer.files);
   };
 
   // --- Effect to reset loading state when content changes ---
@@ -424,7 +457,10 @@ export function VideoBlock({
         </div>
 
         {/* URL Input */}
-        <form onSubmit={handleUrlSubmit} className="flex gap-2 items-center">
+        <form
+          onSubmit={(e) => handleUrlSubmit(e)}
+          className="flex gap-2 items-center"
+        >
           <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           <Input
             type="url"

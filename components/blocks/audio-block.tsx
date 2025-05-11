@@ -10,6 +10,12 @@ import { useBlocksStore } from "@/store/blocks-store";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { toast } from "sonner";
 import { ModernAudioPlayer } from "@/components/ui/modern-audio-player";
+import UpLoader from "@/components/uploading";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Link as LinkIcon } from "lucide-react";
+import WaveSurfer from "wavesurfer.js";
+import Image from "next/image";
 
 // --- Hilfsfunktion zum Bereinigen von Dateinamen ---
 const sanitizeFilename = (filename: string): string => {
@@ -81,6 +87,26 @@ export function AudioBlock({
   const { updateBlockContent } = useBlocksStore();
   const { supabase } = useSupabase();
 
+  // --- NEU: State für Upload-Fortschritt und Timeout ---
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // Prozentwert 0-100
+  const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- NEU: State für URL-Eingabe und Fehler ---
+  const [audioUrlInput, setAudioUrlInput] = useState("");
+  const [placeholderError, setPlaceholderError] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // --- NEU: Ref für Waveform-Container ---
+  const waveformRef = useRef<HTMLDivElement | null>(null);
+  // --- NEU: State für WaveSurfer-Instanz ---
+  const [waveSurfer, setWaveSurfer] = useState<WaveSurfer | null>(null);
+
+  // --- NEU: State für Cover-URL (MVP: aus Audio-URL ableiten, z.B. für MP3 mit ?cover=...) ---
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+
   // --- Zustand bei Inhaltsänderung aktualisieren ---
   useEffect(() => {
     setState((prev) => ({
@@ -97,6 +123,56 @@ export function AudioBlock({
       setState({ status: "idle", error: null, audioUrl: null });
     };
   }, []);
+
+  // --- NEU: Waveform-Initialisierung, wenn Audio-URL vorhanden ---
+  useEffect(() => {
+    if (state.audioUrl && waveformRef.current) {
+      // Nur initialisieren, wenn keine Instanz existiert
+      if (!waveSurfer) {
+        const ws = WaveSurfer.create({
+          container: waveformRef.current,
+          waveColor: "#4F4A85",
+          progressColor: "#383351",
+          url: state.audioUrl,
+          height: 48,
+          barWidth: 2,
+          barGap: 2,
+          // Remove responsive property as it's not a valid WaveSurferOptions property
+        });
+        setWaveSurfer(ws);
+      } else {
+        // Wenn Instanz existiert, lade ggf. neue URL
+        waveSurfer.load(state.audioUrl);
+      }
+    }
+    // Cleanup: Instanz zerstören bei Unmount oder URL-Wechsel
+    return () => {
+      if (waveSurfer) {
+        waveSurfer.destroy();
+        setWaveSurfer(null);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.audioUrl]);
+
+  // --- NEU: Cover-Logik (MVP: prüfe auf ?cover=... in der URL) ---
+  useEffect(() => {
+    if (state.audioUrl) {
+      try {
+        const urlObj = new URL(state.audioUrl);
+        const coverParam = urlObj.searchParams.get("cover");
+        if (coverParam) {
+          setCoverUrl(coverParam);
+        } else {
+          setCoverUrl(null);
+        }
+      } catch {
+        setCoverUrl(null);
+      }
+    } else {
+      setCoverUrl(null);
+    }
+  }, [state.audioUrl]);
 
   const [{ isDragging }, drag] = useDrag(
     {
@@ -132,6 +208,7 @@ export function AudioBlock({
     [blockId, layoutId, zoneId, updateBlockContent, state.audioUrl, supabase]
   );
 
+  // --- Angepasste Upload-Logik mit Fortschritts-Polling ---
   const processDroppedFile = useCallback(
     async (file: File) => {
       if (!supabase) {
@@ -143,8 +220,36 @@ export function AudioBlock({
         }));
         return;
       }
-      // --- Zustand auf "uploading" setzen ---
+      // --- Dateigrößenprüfung (max. 50MB) ---
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error("Datei zu groß (max. 50MB).");
+        setState((prev) => ({
+          ...prev,
+          status: "error",
+          error: "Datei überschreitet 50MB-Limit.",
+        }));
+        return;
+      }
+      setIsUploading(true);
+      setUploadProgress(0);
+      setShowTimeoutMessage(false);
       setState((prev) => ({ ...prev, status: "uploading", error: null }));
+      // --- Timeout-Feedback nach 5s ---
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setShowTimeoutMessage(true), 5000);
+      // --- Fortschritts-Polling starten ---
+      if (progressIntervalRef.current)
+        clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = setInterval(async () => {
+        try {
+          const res = await fetch("/api/optimize-audio/progress");
+          const data = await res.json();
+          if (typeof data.progress === "number")
+            setUploadProgress(data.progress);
+        } catch {
+          // Fehler beim Polling ignorieren
+        }
+      }, 500);
 
       const sanitizedFilename = sanitizeFilename(file.name);
       // --- Eindeutigen Dateipfad generieren (optional, aber empfohlen) ---
@@ -202,6 +307,12 @@ export function AudioBlock({
           error: null,
         }));
         toast.success(`${sanitizedFilename} erfolgreich hochgeladen!`);
+        setUploadProgress(100);
+        setIsUploading(false);
+        setShowTimeoutMessage(false);
+        if (progressIntervalRef.current)
+          clearInterval(progressIntervalRef.current);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } catch (error) {
         console.error(`AudioBlock (${blockId}): Fehler beim Upload:`, error);
         const errorMessage =
@@ -214,11 +325,24 @@ export function AudioBlock({
           error: `Fehler: ${errorMessage}`,
         }));
         toast.error(`Upload fehlgeschlagen: ${errorMessage}`);
+        setIsUploading(false);
+        setShowTimeoutMessage(false);
+        if (progressIntervalRef.current)
+          clearInterval(progressIntervalRef.current);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
       }
-      // 'finally' wird nicht mehr benötigt, da der Status in try/catch gesetzt wird
     },
     [supabase, blockId, layoutId, zoneId, updateBlockContent]
   );
+
+  // --- Cleanup bei Unmount ---
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current)
+        clearInterval(progressIntervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const [{ isOver, canDrop }, drop] = useDrop<
     AcceptedDropItem,
@@ -267,7 +391,50 @@ export function AudioBlock({
 
   const isActive = isOver && canDrop; // Umbenannt von isActiveDrop zu isActive für Konsistenz
 
-  // --- Fall: Kein Audioinhalt (Placeholder) ---
+  // --- Handler für URL-Eingabe ---
+  const handleUrlSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
+    setPlaceholderError(null);
+    const url = audioUrlInput.trim();
+    if (!url) {
+      setPlaceholderError("Bitte gib eine gültige Audio-URL ein.");
+      return;
+    }
+    // Einfache Audio-URL-Validierung (mp3, ogg, wav, m4a, flac)
+    if (!/^https?:\/\/.+\.(mp3|ogg|wav|m4a|flac)$/i.test(url)) {
+      setPlaceholderError(
+        "Nur direkte Audio-Links mit gängigen Formaten werden unterstützt."
+      );
+      return;
+    }
+    // (MVP) Cover/Metadaten könnten hier geladen werden
+    updateBlockContent(blockId, layoutId, zoneId, url);
+    setAudioUrlInput("");
+  };
+
+  // --- Drag&Drop für externe Links (z.B. MP3-Link auf Block ziehen) ---
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+  const handleDropLink = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const url = e.dataTransfer.getData("text/plain");
+    if (url && /^https?:\/\/.+\.(mp3|ogg|wav|m4a|flac)$/i.test(url)) {
+      updateBlockContent(blockId, layoutId, zoneId, url);
+    } else {
+      setPlaceholderError(
+        "Nur direkte Audio-Links mit gängigen Formaten werden unterstützt."
+      );
+    }
+  };
+
+  // --- Platzhalter-UI, wenn kein Audio vorhanden ---
   if (
     !state.audioUrl &&
     (state.status === "idle" || state.status === "error")
@@ -277,32 +444,40 @@ export function AudioBlock({
         ref={ref}
         className={cn(
           "group relative flex aspect-video min-h-[60px] cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-2 transition-colors duration-200",
-          // --- Styling an ImageBlock angepasst ---
-          isActive
-            ? "border-primary bg-primary/10" // Aktiv beim Hovern mit passender Datei
+          isDraggingOver
+            ? "border-primary bg-primary/5"
+            : isActive
+            ? "border-primary bg-primary/10"
             : canDrop
-            ? "border-primary/50" // Zeigt an, dass hier abgelegt werden kann
-            : "border-transparent bg-muted", // Standard-Placeholder-Stil
+            ? "border-primary/50"
+            : "border-transparent bg-muted",
           isDragging && "opacity-50",
-          isSelected && !isActive && "ring-2 ring-rose-500", // Selektionsring (Rose beibehalten)
+          isSelected && !isActive && "ring-2 ring-rose-500",
           state.status === "error" &&
             !isActive &&
-            "border-destructive bg-destructive/10" // Fehlerstil
+            "border-destructive bg-destructive/10"
         )}
         onClick={onSelect}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDropLink}
         role="button"
         aria-label="Audio Block Platzhalter"
       >
         {/* --- Upload-Indikator (Overlay-Stil) --- */}
-        {state.status === ("uploading" as string) && (
+        {isUploading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-            <p className="text-sm font-medium text-primary">
-              Wird hochgeladen...
+            <UpLoader />
+            <p className="mt-2 text-sm text-primary font-medium">
+              {uploadProgress > 0 ? `${uploadProgress}%` : "Lädt hoch..."}
             </p>
+            {showTimeoutMessage && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Optimierung kann etwas dauern...
+              </p>
+            )}
           </div>
         )}
-
         {/* --- Fehleranzeige (Overlay-Stil) --- */}
         {state.status === "error" && !isActive && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center text-destructive">
@@ -311,7 +486,6 @@ export function AudioBlock({
             <p className="text-xs">{state.error}</p>
           </div>
         )}
-
         {/* --- Aktiver Drop-Bereich (Overlay) --- */}
         {canDrop && (
           <div
@@ -327,21 +501,49 @@ export function AudioBlock({
             </p>
           </div>
         )}
-
         {/* --- Standard-Placeholder-Inhalt (nur sichtbar wenn idle) --- */}
         {state.status === "idle" && !isActive && (
-          <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+          <div className="flex flex-col items-center justify-center text-center text-muted-foreground w-full">
             <UploadCloud
               className={cn(
                 "h-10 w-10 mb-2 transition-colors",
-                "text-muted-foreground/50" // Standardfarbe
+                "text-muted-foreground/50"
               )}
             />
             <p className="text-sm font-medium">
               Audio hierher ziehen oder{" "}
               <span className="text-primary">hochladen</span>
             </p>
-            {/* <p className="text-xs mt-1">Zusätzliche Info...</p> */}
+            {/* --- URL-Eingabe analog VideoBlock --- */}
+            <div className="my-4 w-full flex flex-col items-center">
+              <form
+                onSubmit={handleUrlSubmit}
+                className="flex gap-2 items-center w-full justify-center"
+              >
+                <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <Input
+                  type="url"
+                  placeholder="Audio-URL einfügen (z.B. https://... .mp3)"
+                  value={audioUrlInput}
+                  onChange={(e) => setAudioUrlInput(e.target.value)}
+                  className="flex-grow"
+                  disabled={isUploading}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isUploading || !audioUrlInput.trim()}
+                >
+                  Hinzufügen
+                </Button>
+              </form>
+              {/* Fehleranzeige für URL/Drag&Drop */}
+              {placeholderError && (
+                <p className="mt-2 text-center text-sm text-red-500">
+                  {placeholderError}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -395,6 +597,22 @@ export function AudioBlock({
       {state.audioUrl && (
         <ModernAudioPlayer url={state.audioUrl} key={state.audioUrl} /> // key hinzugefügt für sauberes Remounting bei URL-Änderung
       )}
+
+      {/* --- Im Render-Teil: Zeige Cover, wenn vorhanden, sonst Waveform --- */}
+      {state.audioUrl &&
+        (coverUrl ? (
+          <Image
+            src={coverUrl}
+            alt="Audio Cover"
+            width={512}
+            height={128}
+            className="w-full h-32 object-cover rounded-md my-2"
+            style={{ maxHeight: 128 }}
+            priority={false}
+          />
+        ) : (
+          <div ref={waveformRef} className="w-full h-12 my-2" />
+        ))}
     </div>
   );
 }

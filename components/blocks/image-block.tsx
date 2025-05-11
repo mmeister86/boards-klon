@@ -105,7 +105,35 @@ export function ImageBlock({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
-    handleFileUpload(e.dataTransfer.files);
+    // 1. Datei-Upload wie bisher
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files);
+      return;
+    }
+    // 2. Link/Text-Drop (z.B. Bild-URL, data:image oder Google-Redirect-Link)
+    let url = e.dataTransfer.getData("text/plain");
+    // --- MCP: Google-Redirect-Link erkennen und echte Bild-URL extrahieren ---
+    // Beispiel: https://www.google.de/imgres?...&imgurl=https%3A%2F%2Fexample.com%2Fbild.jpg&...
+    if (url && url.includes("/imgres") && url.includes("imgurl=")) {
+      try {
+        const parsed = new URL(url);
+        const imgurlParam = parsed.searchParams.get("imgurl");
+        if (imgurlParam) {
+          url = decodeURIComponent(imgurlParam);
+        }
+      } catch {
+        // Falls Parsing fehlschlägt, bleibt url wie sie ist
+      }
+    }
+    if (url && isSupportedImageUrl(url)) {
+      setPlaceholderError(null);
+      handleUrlSubmit(undefined, url);
+      return;
+    }
+    // 3. Fehler, falls kein unterstützter Link
+    setPlaceholderError(
+      "Nur Bilddateien, http(s)-Bild-Links oder data:image-Links werden akzeptiert."
+    );
   };
 
   // --- Datei-Upload Handler ---
@@ -156,11 +184,8 @@ export function ImageBlock({
       updateBlockContent(blockId, layoutId, zoneId, imageUrl);
       toast.dismiss(loadingToastId);
       toast.success("Bild erfolgreich hochgeladen!");
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Fehler beim Hochladen des Bildes.";
+    } catch {
+      const message = "Fehler beim Hochladen des Bildes.";
       setPlaceholderError(message);
       toast.dismiss(loadingToastId);
       toast.error(message);
@@ -171,24 +196,41 @@ export function ImageBlock({
   };
 
   // --- URL-Eingabe Handler ---
-  const handleUrlSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+  const handleUrlSubmit = (
+    e?: React.FormEvent<HTMLFormElement>,
+    overrideUrl?: string
+  ) => {
     e?.preventDefault();
     setPlaceholderError(null);
-    const url = imageUrlInput.trim();
+    const url = (overrideUrl ?? imageUrlInput).trim();
     if (!url) {
       setPlaceholderError("Bitte gib eine gültige Bild-URL ein.");
       return;
     }
-    // Einfache Bild-URL-Validierung
-    if (!/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif|bmp|svg|heic)$/i.test(url)) {
+    // Erweiterte Bild-URL-Validierung: http(s) ODER data:image/...
+    if (!isSupportedImageUrl(url)) {
       setPlaceholderError(
-        "Nur Bild-URLs mit gängigen Formaten werden unterstützt."
+        "Nur Bild-URLs mit gängigen Formaten oder data:image-Links werden unterstützt."
       );
       return;
     }
     updateBlockContent(blockId, layoutId, zoneId, url);
     setImageUrlInput("");
   };
+
+  // --- Hilfsfunktion: Prüft, ob eine URL eine unterstützte Bild-URL ist (http(s) oder data:image) ---
+  function isSupportedImageUrl(url: string): boolean {
+    // Akzeptiere alle http(s)-Links (auch ohne Bild-Endung), da viele Bilddienste (z.B. Google Images) keine klassische Endung haben
+    if (/^https?:\/\//i.test(url)) return true;
+    // Data-URL mit Bild-MIME-Typ
+    if (
+      /^data:image\/(jpeg|png|webp|gif|bmp|svg\+xml|heic);base64,[a-z0-9+/=]+$/i.test(
+        url
+      )
+    )
+      return true;
+    return false;
+  }
 
   // --- Platzhalter-UI, wenn kein Bild vorhanden ---
   if (!internalSrc) {
@@ -259,7 +301,10 @@ export function ImageBlock({
           <div className="flex-grow border-t border-border"></div>
         </div>
         {/* URL Input */}
-        <form onSubmit={handleUrlSubmit} className="flex gap-2 items-center">
+        <form
+          onSubmit={(e) => handleUrlSubmit(e)}
+          className="flex gap-2 items-center"
+        >
           <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           <Input
             type="url"
