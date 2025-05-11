@@ -375,6 +375,27 @@ export async function POST(request: Request) {
     // --- Explizite Erfolgsrückgabe ---
     // Wenn wir hier ankommen, war alles erfolgreich.
     // Gibt eine Erfolgsmeldung und die URLs zurück.
+    // Nach dem Upload: Lege einen Eintrag in der media_items-Tabelle an, damit das PDF in Mediathek und Sidebar erscheint
+    // Die wichtigsten Felder: user_id, file_name, file_type, url, size, uploaded_at, preview_url_512, preview_url_128
+    // --- Entfernt: Nach dem Upload keinen Eintrag mehr in media_items anlegen ---
+    // const { error: dbError } = await supabase
+    //   .from('media_items')
+    //   .insert([
+    //     {
+    //       user_id: userId,
+    //       file_name: file.name,
+    //       file_type: file.type,
+    //       url: supabasePublicUrl,
+    //       size: file.size,
+    //       uploaded_at: new Date().toISOString(),
+    //       preview_url_512: previewUrl,
+    //       preview_url_128: null,
+    //     }
+    //   ]);
+    // if (dbError) {
+    //   console.error('Fehler beim Einfügen in media_items:', dbError);
+    //   // Optional: Fehlerbehandlung, aber PDF ist trotzdem im Storage
+    // }
     return NextResponse.json({
       message: 'PDF erfolgreich komprimiert und hochgeladen!',
       storageUrl: supabasePublicUrl, // URL der optimierten PDF

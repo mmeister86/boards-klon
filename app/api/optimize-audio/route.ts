@@ -222,6 +222,25 @@ export async function POST(request: Request) {
     // --- Explicit Success Return ---
     // If we reach here, everything succeeded.
     // Gibt eine Erfolgsmeldung und die öffentliche URL der Audiodatei zurück.
+    // --- Entfernt: Nach dem Upload keinen Eintrag mehr in media_items anlegen ---
+    // const { error: dbError } = await (await supabase)
+    //   .from('media_items')
+    //   .insert([
+    //     {
+    //       user_id: user.id,
+    //       file_name: file.name,
+    //       file_type: file.type,
+    //       url: supabasePublicUrl,
+    //       size: file.size,
+    //       uploaded_at: new Date().toISOString(),
+    //       preview_url_512: null,
+    //       preview_url_128: null,
+    //     }
+    //   ]);
+    // if (dbError) {
+    //   console.error('Fehler beim Einfügen in media_items:', dbError);
+    //   // Optional: Fehlerbehandlung, aber Audio ist trotzdem im Storage
+    // }
     return NextResponse.json({
       message: 'Audio compressed and uploaded successfully!', // Updated success message
       storageUrl: supabasePublicUrl // Ensure this key is sent ONLY on full success

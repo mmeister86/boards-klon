@@ -90,7 +90,11 @@ export async function POST(
 
     // 2. Datei aus FormData extrahieren
     const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    // Akzeptiere sowohl 'file' als auch 'image' als Key für die Datei
+    let file = formData.get("file") as File | null;
+    if (!file) {
+      file = formData.get("image") as File | null;
+    }
 
     if (!file) {
       return NextResponse.json(
@@ -176,12 +180,14 @@ export async function POST(
     // --- Ende Vorschau-Generierung ---
 
     // 8. Erfolgreiche Antwort mit allen URLs zurückgeben
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: "Bild erfolgreich optimiert und hochgeladen",
       publicUrl: publicUrl,
       previewUrl512: previewUrl512, // Füge die 512px Vorschau-URL hinzu (kann null sein)
       previewUrl128: previewUrl128, // Füge die 128px Vorschau-URL hinzu (kann null sein)
     });
+
+    return response;
   } catch (error) {
     console.error("API Route Error:", error);
     return NextResponse.json(

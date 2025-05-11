@@ -346,6 +346,28 @@ export async function POST(request: Request) {
     console.log(`Supabase Public URL successfully retrieved: ${supabasePublicUrl}`);
 
     // --- Explicit Success Return ---
+    // Nach dem Upload: Lege einen Eintrag in der media_items-Tabelle an, damit das Video in Mediathek und Sidebar erscheint
+    // Die wichtigsten Felder: user_id, file_name, file_type, url, size, uploaded_at, preview_url_512, preview_url_128
+    // --- Entfernt: Nach dem Upload keinen Eintrag mehr in media_items anlegen ---
+    // const { error: dbError } = await (await supabase)
+    //   .from('media_items')
+    //   .insert([
+    //     {
+    //       user_id: userId,
+    //       file_name: file.name,
+    //       file_type: file.type,
+    //       url: supabasePublicUrl,
+    //       size: file.size,
+    //       uploaded_at: new Date().toISOString(),
+    //       preview_url_512: previewUrls?.preview512 || null,
+    //       preview_url_128: previewUrls?.preview128 || null,
+    //     }
+    //   ]);
+    // if (dbError) {
+    //   console.error('Fehler beim Einfügen in media_items:', dbError);
+    //   // Optional: Fehlerbehandlung, aber Video ist trotzdem im Storage
+    // }
+
     return NextResponse.json({
       message: 'Video compressed and uploaded successfully!',
       storageUrl: supabasePublicUrl,

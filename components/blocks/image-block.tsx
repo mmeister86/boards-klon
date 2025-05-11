@@ -105,6 +105,36 @@ export function ImageBlock({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
+    // Debug: Logge alle DataTransfer-Items und Files beim Drop
+    console.log(
+      "[ImageBlock] Drop-Event: DataTransfer.items:",
+      e.dataTransfer.items
+    );
+    console.log(
+      "[ImageBlock] Drop-Event: DataTransfer.files:",
+      e.dataTransfer.files
+    );
+    for (let i = 0; i < e.dataTransfer.items.length; i++) {
+      const item = e.dataTransfer.items[i];
+      console.log(
+        `[ImageBlock] Item #${i}: kind=`,
+        item.kind,
+        ", type=",
+        item.type
+      );
+    }
+    for (let i = 0; i < e.dataTransfer.files.length; i++) {
+      const file = e.dataTransfer.files[i];
+      console.log(
+        `[ImageBlock] File #${i}: name=`,
+        file.name,
+        ", type=",
+        file.type,
+        ", size=",
+        file.size,
+        file
+      );
+    }
     // 1. Datei-Upload wie bisher
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileUpload(e.dataTransfer.files);
@@ -139,6 +169,19 @@ export function ImageBlock({
   // --- Datei-Upload Handler ---
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    // Debug: Logge alle Files beim Upload
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      console.log(
+        `[ImageBlock] Upload File #${i}: name=`,
+        file.name,
+        ", type=",
+        file.type,
+        ", size=",
+        file.size,
+        file
+      );
+    }
     if (!user || !supabaseClient) {
       setPlaceholderError("Login erforderlich für Upload.");
       toast.error("Du musst eingeloggt sein, um Bilder hochzuladen.");
@@ -164,6 +207,16 @@ export function ImageBlock({
       const formData = new FormData();
       formData.append("image", file); // Key muss zum API-Endpoint passen
       formData.append("userId", user.id);
+      // Debug: Logge alle FormData-Einträge vor dem Upload
+      Array.from(formData.entries()).forEach(([key, value]) => {
+        console.log(
+          `[ImageBlock] FormData: key=`,
+          key,
+          ", value=",
+          value,
+          value instanceof File ? value.type : typeof value
+        );
+      });
       // Upload an /api/optimize-image
       const response = await fetch("/api/optimize-image", {
         method: "POST",
@@ -230,6 +283,27 @@ export function ImageBlock({
     )
       return true;
     return false;
+  }
+
+  // --- Hilfsfunktion: Prüft, ob eine URL eine externe Bild-URL ist (http(s), aber keine Data-URL, kein lokaler Pfad und kein Supabase-Storage) ---
+  function getProxiedImageUrl(src: string | null): string | null {
+    if (!src) return null;
+    // Data-URLs und lokale Bilder (z.B. /images/logo.png) direkt verwenden
+    if (src.startsWith("data:") || src.startsWith("/") || src.startsWith("./"))
+      return src;
+    // Supabase-Storage-URLs direkt verwenden (nicht durch den Proxy leiten)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (supabaseUrl && src.startsWith(supabaseUrl)) {
+      // MCP: Bilder aus der eigenen Supabase-Instanz werden wie lokale behandelt
+      return src;
+    }
+    // Externe http(s)-Bilder über den Proxy leiten
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      // encodeURIComponent, damit Sonderzeichen in der URL korrekt übertragen werden
+      return `/api/proxy-image?url=${encodeURIComponent(src)}`;
+    }
+    // Fallback: direkt verwenden
+    return src;
   }
 
   // --- Platzhalter-UI, wenn kein Bild vorhanden ---
@@ -360,7 +434,7 @@ export function ImageBlock({
         key={internalSrc}
         width={1920}
         height={1080}
-        src={internalSrc}
+        src={getProxiedImageUrl(internalSrc) ?? ""}
         alt={altText || "Bild"}
         className={cn(
           "transition-opacity duration-300 ease-in-out object-cover w-full h-auto",
